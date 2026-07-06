@@ -128,8 +128,8 @@ const LINES = [
 ];
 
 const MUSIC = [
-  ['day.mp3', 'Lonesome spaghetti western ambience, slow acoustic guitar picking, distant harmonica, warm desert wind, sparse and calm, instrumental, seamless loop', 90000],
-  ['night.mp3', 'Thrilling intense western horror action music, driving galloping percussion, twanging electric guitar riffs, ominous strings building tension, zombie siege under a full moon, dark exciting and relentless, instrumental, seamless loop', 90000],
+  ['day.mp3', 'Relaxed old west country tune, warm acoustic guitar strumming and gentle picking, soft banjo, mellow harmonica melody, easygoing campfire feeling, calm pleasant and peaceful, instrumental, seamless loop', 90000],
+  ['night.mp3', 'Catchy dark western groove with a punchy driving drum beat, hooky twangy baritone guitar riff, deep pulsing bassline, eerie strings and ghostly choir accents keeping the tension high, head-nodding but suspenseful zombie night, instrumental, seamless loop', 90000],
   ['boss.mp3', 'Epic intense western horror battle music, galloping drums, aggressive guitar and orchestral stabs, relentless and menacing, instrumental, seamless loop', 75000],
   ['final.mp3', 'Apocalyptic western war music, gatling gun rhythm, thundering percussion, distorted guitars, choir stabs, maximum intensity, instrumental, seamless loop', 75000]
 ];

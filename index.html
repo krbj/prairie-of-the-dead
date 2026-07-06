@@ -180,6 +180,15 @@
     font-family:'Rye',serif;font-size:110px;color:#ffd23f;-webkit-text-stroke:3px #7a1a10;
     text-shadow:6px 6px 0 #2a0a05, 0 0 50px rgba(255,120,20,.8);display:none;pointer-events:none}
   #nukeCount.on{display:block;animation:nukepop .5s ease-out}
+  #coverScreen{position:fixed;inset:0;z-index:150;background:#000;overflow:hidden}
+  #coverScreen img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top}
+  #coverScreen .coverFade{position:absolute;left:0;right:0;bottom:0;height:30%;
+    background:linear-gradient(transparent,rgba(0,0,0,.85))}
+  #btnCoverStart{position:absolute;left:50%;bottom:38px;transform:translateX(-50%);
+    font-family:'Rye',serif;font-size:26px;color:var(--gold);background:rgba(30,16,6,.88);
+    border:2px solid rgba(217,164,65,.75);padding:14px 52px;cursor:pointer;letter-spacing:.12em;
+    text-shadow:0 0 18px rgba(255,180,60,.6);box-shadow:0 0 30px rgba(0,0,0,.8)}
+  #btnCoverStart:hover{background:rgba(58,32,12,.95);color:#ffd870;border-color:#ffd870}
   #pwGate{position:fixed;inset:0;z-index:200;background:#0c0703;display:flex;align-items:center;justify-content:center}
   #pwGate .pwBox{text-align:center;padding:40px 50px;border:2px solid rgba(217,164,65,.5);background:rgba(20,11,4,.9);max-width:90vw}
   #pwGate h1{font-family:'Rye',serif;color:var(--gold);font-size:34px;letter-spacing:.08em;margin-bottom:8px}
@@ -212,6 +221,20 @@
 </head>
 <body>
 <canvas id="c"></canvas>
+
+<!-- COVER ART -->
+<div id="coverScreen">
+  <img src="cover.png" alt="" onerror="document.getElementById('coverScreen').remove()">
+  <div class="coverFade"></div>
+  <button id="btnCoverStart">⭐ START GAME ⭐</button>
+</div>
+<script>
+document.getElementById('btnCoverStart').addEventListener('click',()=>{
+  const c=document.getElementById('coverScreen');
+  c.style.transition='opacity .6s';c.style.opacity=0;
+  setTimeout(()=>c.remove(),650);
+});
+</script>
 
 <!-- PASSORDPORT -->
 <div id="pwGate"><div class="pwBox">
@@ -566,6 +589,14 @@ function sfxGroan(dist){
   o.connect(fl);fl.connect(g);g.connect(AU.sfx);o.start(t);o.stop(t+dur+0.05);
 }
 function sfxZombieDie(){if(sfxFile('zdie',0.6))return;_tone('sawtooth',140,40,0.4,0.3);_noiseHit(0.25,0.25,'lowpass',600);}
+function sfxSplat(){ // våt SPLATT når zombien dett
+  if(sfxFile('splat',0.75))return;
+  _noiseHit(0.08,0.75,'lowpass',950);
+  _noiseHit(0.22,0.5,'lowpass',380);
+  _tone('sine',240,45,0.16,0.3);
+  setTimeout(()=>_noiseHit(0.1,0.28,'lowpass',550),70);
+  setTimeout(()=>_noiseHit(0.07,0.18,'lowpass',700),150); // små drypp
+}
 function sfxRoar(){
   if(sfxFile('roar'))return;
   _tone('sawtooth',90,35,1.4,0.7);_tone('sawtooth',65,28,1.4,0.6);
@@ -1272,24 +1303,98 @@ function addFence(x,z,len,rotY){
   const r2=r1.clone();r2.position.y=0.45;f.add(r2);
   f.position.set(x,0,z);f.rotation.y=rotY;scene.add(f);
 }
-addFence(-6,22,10,0);addFence(6,26,10,0);addFence(-20,0,12,Math.PI/2);addFence(20,-8,10,Math.PI/2);
-// cacti + rocks ring
-for(let i=0;i<80;i++){
-  const a=rnd(0,Math.PI*2),r=rnd(34,150);
+// GJERDE FØLGJER VEIENE — langs hovudgata, innfartsvegane og rundt gravlunden
+// hovudgata (mellom bygningsradene, i gløttane mellom husa)
+addFence(-5.2,-22,10,Math.PI/2);addFence(5.2,-22,10,Math.PI/2);   // innfarten mot kyrkja
+addFence(-5.2,14,10,Math.PI/2);addFence(5.2,14,10,Math.PI/2);     // midtbyen
+addFence(-5.2,40,10,Math.PI/2);addFence(5.2,40,10,Math.PI/2);     // sørenden
+// aust- og vest-innfarten (road2)
+addFence(48,-1.8,26,0);addFence(48,6.6,26,0);
+addFence(-48,-1.8,26,0);addFence(-48,6.6,26,0);
+// sørlege tverrgata (road7)
+addFence(-18,53.4,16,0);addFence(18,53.4,16,0);
+addFence(-18,61.8,16,0);addFence(18,61.8,16,0);
+// nordlege tverrgata (road4)
+addFence(-38,-20,14,0);addFence(38,-20,14,0);
+addFence(-38,-28,14,0);addFence(38,-28,14,0);
+// gravlunden bak kyrkja — inngjerda
+addFence(-6,-42,17,0);addFence(-6,-49.5,17,0);
+addFence(-14.5,-45.7,8,Math.PI/2);addFence(2.5,-45.7,8,Math.PI/2);
+// ØRKENEN UTANFOR BYEN — godt utval av kaktusar, buskar og steinar
+const bushM=new THREE.MeshLambertMaterial({color:0x5a6e3a});
+const dryM=new THREE.MeshLambertMaterial({color:0x8a7a4e});
+for(let i=0;i<190;i++){
+  const a=rnd(0,Math.PI*2),r=rnd(72,320);
   const x=Math.cos(a)*r,z=Math.sin(a)*r;
-  if(Math.abs(x)<20&&Math.abs(z)<40)continue;
-  if(Math.random()<0.5){
+  const shadow=r<130; // skugge berre på dei nære (yting)
+  const kind=Math.random();
+  if(kind<0.28){ // saguaro-kaktus med armar
     const cac=new THREE.Group();
-    const th=rnd(1.6,2.6);
-    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.26,th,7),propM.cactus);
-    trunk.position.y=th/2;trunk.castShadow=true;cac.add(trunk);
-    const arm=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.16,0.9,6),propM.cactus);
-    arm.position.set(0.4,th*0.6,0);arm.rotation.z=-0.7;cac.add(arm);
-    cac.position.set(x,0,z);scene.add(cac);
-  }else{
-    const rk=new THREE.Mesh(new THREE.DodecahedronGeometry(rnd(0.5,1.4),0),propM.rock);
-    rk.position.set(x,0.3,z);rk.castShadow=true;scene.add(rk);
+    const th=rnd(1.8,3.2);
+    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.28,th,7),propM.cactus);
+    trunk.position.y=th/2;trunk.castShadow=shadow;cac.add(trunk);
+    for(const s of (Math.random()<0.6?[-1,1]:[1])){
+      const arm=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.16,rnd(0.7,1.2),6),propM.cactus);
+      arm.position.set(s*0.42,th*rnd(0.45,0.7),0);arm.rotation.z=-s*0.7;cac.add(arm);
+    }
+    cac.position.set(x,0,z);cac.rotation.y=rnd(0,6.28);scene.add(cac);
+  }else if(kind<0.4){ // tønnekaktus
+    const bc=new THREE.Mesh(new THREE.SphereGeometry(rnd(0.3,0.5),8,6),propM.cactus);
+    bc.scale.y=1.3;bc.position.set(x,0.35,z);bc.castShadow=shadow;scene.add(bc);
+  }else if(kind<0.62){ // grøn busk (2–3 klumpar)
+    const bs=new THREE.Group();
+    for(let j=0;j<ri(2,3);j++){
+      const bl=new THREE.Mesh(new THREE.IcosahedronGeometry(rnd(0.35,0.6),0),bushM);
+      bl.position.set(rnd(-0.4,0.4),rnd(0.2,0.45),rnd(-0.4,0.4));bl.scale.y=0.7;bs.add(bl);
+    }
+    bs.position.set(x,0,z);scene.add(bs);
+  }else if(kind<0.74){ // turr salvie-busk
+    const db=new THREE.Mesh(new THREE.IcosahedronGeometry(rnd(0.4,0.7),0),dryM);
+    db.position.set(x,0.3,z);db.scale.y=0.55;scene.add(db);
+  }else if(kind<0.92){ // stein
+    const rk=new THREE.Mesh(new THREE.DodecahedronGeometry(rnd(0.5,1.6),0),propM.rock);
+    rk.position.set(x,0.3,z);rk.rotation.set(rnd(0,1),rnd(0,3),rnd(0,1));rk.castShadow=shadow;scene.add(rk);
+  }else{ // steinrøys (2–3 store)
+    for(let j=0;j<ri(2,3);j++){
+      const rk=new THREE.Mesh(new THREE.DodecahedronGeometry(rnd(0.8,2),0),propM.rock);
+      rk.position.set(x+rnd(-1.6,1.6),rnd(0.3,0.7),z+rnd(-1.6,1.6));
+      rk.rotation.set(rnd(0,1),rnd(0,3),rnd(0,1));rk.castShadow=shadow;scene.add(rk);
+    }
   }
+}
+// BRANNBØTTER — ei ved kvart hus; hald E i 3 sekund for å sløkkje brannen (nivå 10)
+const BUCKETS=[];
+{
+  const bm=new THREE.MeshLambertMaterial({color:0x4a6070});
+  const wm2=new THREE.MeshLambertMaterial({color:0x3a6a9a});
+  for(const b of BREG){
+    const dl=Math.hypot(b.x,b.z)||1;
+    const bx=b.x-b.x/dl*4.6,bz=b.z-b.z/dl*4.6; // står framfor huset, mot gata
+    const g=new THREE.Group();
+    const body=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.16,0.34,10),bm);
+    body.position.y=0.17;g.add(body);
+    const water=new THREE.Mesh(new THREE.CylinderGeometry(0.19,0.19,0.03,10),wm2);
+    water.position.y=0.31;g.add(water);
+    const handle=new THREE.Mesh(new THREE.TorusGeometry(0.19,0.02,6,10,Math.PI),new THREE.MeshLambertMaterial({color:0x2a2a2a}));
+    handle.position.y=0.34;g.add(handle);
+    g.position.set(bx,0,bz);
+    scene.add(g);
+    BUCKETS.push({x:bx,z:bz,b:b});
+  }
+}
+function extinguishFire(breg){
+  for(let i=FIRES.length-1;i>=0;i--){
+    const f=FIRES[i];
+    if(f.b!==breg)continue;
+    scene.remove(f.light);
+    for(const fl of f.flames)scene.remove(fl);
+    FIRES.splice(i,1);
+  }
+  breg.burning=false;
+  for(let i=0;i<26;i++)spawnParts(V3(breg.x+rnd(-2.5,2.5),rnd(0.5,breg.h+1),breg.z+rnd(-2.5,2.5)),1,0xcfd8dd,2.2,1.3,-2.5); // DAMP
+  _noiseHit(0.5,0.4,'highpass',2500); // fresing
+  toast('💧 '+breg.name+' — fire doused! +75');
+  G.score+=75;
 }
 // lanterns
 G.lanterns=[];
@@ -2135,7 +2240,7 @@ const SLUGS=[];
 const slugGeo=new THREE.BoxGeometry(0.06,0.06,0.9);
 const slugMat=new THREE.MeshBasicMaterial({color:0xffeeb0});
 function spawnSlug(from,to){
-  if(SLUGS.length>60)return;
+  if(SLUGS.length>90)return;
   const m=new THREE.Mesh(slugGeo,slugMat);
   m.position.copy(from);m.lookAt(to);
   const glow=skySprite('#ffc850',1.3); // GLØDANDE sporlyskule
@@ -2143,12 +2248,24 @@ function spawnSlug(from,to){
   scene.add(m);
   SLUGS.push({m:m,v:to.clone().sub(from).normalize().multiplyScalar(120),life:Math.min(1.2,from.distanceTo(to)/120)});
 }
+// gjenbrukspool av lys — kulene lyser opp omgivnadene dei passerer (fast tal lys = ingen shader-hakking)
+const SLUGLIGHTS=[];
+for(let i=0;i<6;i++){
+  const L=new THREE.PointLight(0xffb050,0,10,2);
+  scene.add(L);SLUGLIGHTS.push(L);
+}
 function updateSlugs(dt){
   for(let i=SLUGS.length-1;i>=0;i--){
     const s=SLUGS[i];
     s.life-=dt;
     s.m.position.addScaledVector(s.v,dt);
     if(s.life<=0){scene.remove(s.m);SLUGS.splice(i,1);}
+  }
+  for(let i=0;i<SLUGLIGHTS.length;i++){
+    if(i<SLUGS.length){
+      SLUGLIGHTS[i].position.copy(SLUGS[i].m.position);
+      SLUGLIGHTS[i].intensity=1.5;
+    }else SLUGLIGHTS[i].intensity=0;
   }
 }
 // munnigsglimt-sprite + skjermglimt («flashbang») per skot
@@ -2550,6 +2667,8 @@ function makeHumanoid(o){ // {skin,shirt,pants,hat,eyes}
       const eye=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.05,0.02),
         new THREE.MeshBasicMaterial({color:o.eyes}));
       eye.position.set(ex,0.02,0.19);head.add(eye);
+      const eg=skySprite('#ff2010',0.34); // GLØDANDE augo
+      eg.position.set(ex,0.02,0.22);head.add(eg);
     }
   }
   const armG=new THREE.BoxGeometry(0.14,0.68,0.14);armG.translate(0,-0.3,0);
@@ -2778,6 +2897,7 @@ function damageZombie(z,dmg,head,dir,expl){
 }
 function killZombie(z,head,expl){
   sfxZombieDie();
+  sfxSplat();
   if(expl)bloodMist(z.grp.position.clone().add(V3(0,1,0))); // sprengd i fillebitar
   else{gibs(z.grp.position);blood(z.grp.position.clone().add(V3(0,1,0)),18);}
   scene.remove(z.grp);
@@ -2911,19 +3031,59 @@ function roofPathTo(bx,bz){
 }
 const BRO_DEFS=[
   {name:'John',shirt:0x8a2f2b,hat:0x4a3320,anchor:V3(-3,0,-3),color:'#e07a6a',
-    roofPath:roofPathTo(-12,-9.6)},   // saloon-taket (trapp bak)
+    wpn:'hagle',roofPath:roofPathTo(-12,-9.6)},      // saloon-taket — John har HAGLE
   {name:'Sigbjørn',shirt:0x2b4a8a,hat:0x1c1c1c,anchor:V3(3,0,-3),color:'#7a9ae0',
-    roofPath:roofPathTo(-12,4.8)},    // sheriff-taket
+    wpn:'rifle',roofPath:roofPathTo(-12,4.8)},       // sheriff-taket — Sigbjørn har RIFLE
   {name:'Kristoffer',shirt:0x2b6e3f,hat:0xcbb58a,anchor:V3(0,0,2.5),color:'#7ad08a',
-    roofPath:roofPathTo(12,-7.2)}     // landhandel-taket
+    wpn:'revolver',roofPath:roofPathTo(12,-7.2)}     // landhandel-taket — Kristoffer har REVOLVER
 ];
+// synlege våpenmodellar — ein ser kva kvar bror skyt med
+function buildBroWeapon(kind){
+  const g=new THREE.Group();
+  const steel=new THREE.MeshLambertMaterial({color:0x444a50});
+  const wood=new THREE.MeshLambertMaterial({color:0x6a4a2c});
+  if(kind==='hagle'){ // dobbeltløpa hagle
+    for(const off of [-0.035,0.035]){
+      const brl=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.55,6),steel);
+      brl.rotation.x=Math.PI/2;brl.position.set(off,0,0.26);g.add(brl);
+    }
+    const stock=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.11,0.3),wood);
+    stock.position.set(0,-0.02,-0.1);g.add(stock);
+  }else if(kind==='rifle'){ // lang rifle med sikte
+    const brl=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.026,0.75,6),steel);
+    brl.rotation.x=Math.PI/2;brl.position.set(0,0,0.34);g.add(brl);
+    const stock=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.1,0.36),wood);
+    stock.position.set(0,-0.02,-0.12);g.add(stock);
+    const scope=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.16,6),steel);
+    scope.rotation.x=Math.PI/2;scope.position.set(0,0.07,0.12);g.add(scope);
+  }else if(kind==='gatling'){ // mini-gatling (natt 10+)
+    for(let i=0;i<3;i++){
+      const a=i/3*Math.PI*2;
+      const brl=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.5,6),steel);
+      brl.rotation.x=Math.PI/2;brl.position.set(Math.cos(a)*0.045,Math.sin(a)*0.045,0.24);g.add(brl);
+    }
+    const body=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.16,0.28),steel);
+    body.position.set(0,-0.02,-0.06);g.add(body);
+    const mag=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.12,0.1),new THREE.MeshLambertMaterial({color:0xb08830}));
+    mag.position.set(0,0.1,-0.06);g.add(mag);
+  }else{ // revolver
+    const brl=new THREE.Mesh(new THREE.CylinderGeometry(0.024,0.024,0.26,6),steel);
+    brl.rotation.x=Math.PI/2;brl.position.set(0,0,0.13);g.add(brl);
+    const drum=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.09,8),steel);
+    drum.rotation.x=Math.PI/2;drum.position.set(0,-0.01,0);g.add(drum);
+    const grip=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.14,0.07),wood);
+    grip.position.set(0,-0.1,-0.08);g.add(grip);
+  }
+  return g;
+}
 for(const def of BRO_DEFS){
   const h=makeHumanoid({skin:0xd8a878,shirt:def.shirt,pants:0x4a3a2a,hat:def.hat});
   h.grp.position.copy(def.anchor);
-  // gun in right hand
-  const gun=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.07,0.32),
-    new THREE.MeshLambertMaterial({color:0x444a50}));
-  gun.position.set(0,-0.62,0.14);h.armR.add(gun);
+  // personleg våpen + gatling (natt 10+) i høgre hand
+  const wpnMain=buildBroWeapon(def.wpn);
+  wpnMain.position.set(0,-0.62,0.1);h.armR.add(wpnMain);
+  const wpnGat=buildBroWeapon('gatling');
+  wpnGat.position.set(0,-0.62,0.1);wpnGat.visible=false;h.armR.add(wpnGat);
   const tag=textSprite(def.name,def.color,44,1.7);
   tag.position.y=2.25;h.grp.add(tag);
   scene.add(h.grp);
@@ -2935,7 +3095,8 @@ for(const def of BRO_DEFS){
   BROS.push({name:def.name,color:def.color,grp:h.grp,parts:h,hp:220,maxHp:220,
     downed:false,fireT:rnd(0.5,1.5),wanderT:0,wander:V3(),anchor:def.anchor.clone(),
     animT:rnd(0,9),barkCd:0,mode:'well',wpts:null,wpi:0,roofUntil:0,roofPath:def.roofPath,
-    pool:pool,cryT:0,helper:null,helpT:0,tHeat:0,tPause:0});
+    pool:pool,cryT:0,helper:null,helpT:0,tHeat:0,tPause:0,
+    wpn:def.wpn,wpnMain:wpnMain,wpnGat:wpnGat});
 }
 const DOWNED_CRY='I am down, boys! Help me now!! I am going to die!';
 function damageBro(b,dmg){
@@ -3007,6 +3168,9 @@ function triggerRoofEvent(){
 }
 function updateBro(b,dt){
   b.barkCd-=dt;
+  // bytt til gatling-modellen på siste nivå — ein SER kva dei skyt med
+  const wantGat=G.night>=10&&G.phase==='night';
+  if(b.wpnGat&&b.wpnGat.visible!==wantGat){b.wpnGat.visible=wantGat;b.wpnMain.visible=!wantGat;}
   if(b.downed){
     // roper om hjelp og blør
     b.cryT-=dt;
@@ -3123,7 +3287,7 @@ function updateBro(b,dt){
         b.fireT=rnd(0.06,0.13); // vill, kontinuerleg skyting
         sfxShot('gatling',clamp(1-b.grp.position.distanceTo(P.pos)/30,0.05,0.4));
         const from=b.grp.position.clone().add(V3(0,1.5,0));
-        tracer(from,V3(kp.x+rnd(-35,35),rnd(110,260),kp.z+rnd(-35,35)),0xffe8a0); // sprutar over heile kjempa
+        spawnSlug(from,V3(kp.x+rnd(-35,35),rnd(110,260),kp.z+rnd(-35,35))); // glødande kuler sprutar over heile kjempa
         damageKaiju(16);
       }
       return;
@@ -3141,16 +3305,27 @@ function updateBro(b,dt){
       b.parts.armR.rotation.x=-1.45; // aiming
       b.fireT-=dt;
       if(b.fireT<=0){
-        const gat=G.night>=10; // gatling for alle på siste nivå
-        b.fireT=gat?rnd(0.09,0.16):rnd(0.9,1.4);
-        sfxShot(gat?'gatling':'npc',clamp(1-b.grp.position.distanceTo(P.pos)/30,0.1,gat?0.5:1));
-        const from=b.grp.position.clone().add(V3(0,1.4,0));
-        if(Math.random()>(gat?0.3:0.15)){
-          const to=best.grp.position.clone().add(V3(0,1.2*best.scale,0));
-          tracer(from,to,0xffd080);
-          damageZombie(best,gat?12:30,false,null);
+        // kvar bror skyt med SITT våpen — gatling for alle på natt 10+
+        const gat=G.night>=10;
+        const w=gat?'gatling':b.wpn;
+        let miss;
+        if(w==='gatling'){b.fireT=rnd(0.09,0.16);miss=0.3;}
+        else if(w==='hagle'){b.fireT=rnd(1.4,1.9);miss=0.12;}
+        else if(w==='rifle'){b.fireT=rnd(1.6,2.2);miss=0.08;}
+        else{b.fireT=rnd(0.7,1.0);miss=0.15;}
+        sfxShot(w==='rifle'?'revolver':w,clamp(1-b.grp.position.distanceTo(P.pos)/30,0.1,w==='gatling'?0.5:0.8));
+        // frå våpenmunninga — litt fram i skotretninga
+        const fdir=V3(Math.sin(b.grp.rotation.y),0,Math.cos(b.grp.rotation.y));
+        const from=b.grp.position.clone().add(V3(0,1.45,0)).addScaledVector(fdir,0.55);
+        const hit=Math.random()>miss;
+        const to=hit?best.grp.position.clone().add(V3(0,1.2*best.scale,0))
+                    :best.grp.position.clone().add(V3(rnd(-1.2,1.2),rnd(0.5,2),rnd(-1.2,1.2)));
+        if(w==='hagle'){ // haglsverm — fire glødande prosjektil i vifte
+          for(let pi=0;pi<4;pi++)spawnSlug(from,to.clone().add(V3(rnd(-0.7,0.7),rnd(-0.4,0.4),rnd(-0.7,0.7))));
+          if(hit)damageZombie(best,36,false,null);
         }else{
-          tracer(from,best.grp.position.clone().add(V3(rnd(-1,1),rnd(0.5,2),rnd(-1,1))),0xffd080);
+          spawnSlug(from,to);
+          if(hit)damageZombie(best,w==='gatling'?12:(w==='rifle'?55:22),false,null);
         }
       }
       // retreat if too close — eller rykk frem mot fienden (dynamisk!)
@@ -3997,6 +4172,11 @@ function updateInteract(dt){
   for(const b of BROS){
     if(b.downed&&b.grp.position.distanceTo(P.pos)<2.4){target=b;break;}
   }
+  // brannbøtte ved brennande hus?
+  let bucket=null;
+  if(!target)for(const bu of BUCKETS){
+    if(bu.b.burning&&Math.hypot(P.pos.x-bu.x,P.pos.z-bu.z)<2.6){bucket=bu;break;}
+  }
   if(target){
     shown=true;
     ptext.innerHTML='Hold <b>E</b> — revive '+target.name;
@@ -4006,6 +4186,16 @@ function updateInteract(dt){
       $('reviveFill').style.width=clamp(P.reviveT/2.5*100,0,100)+'%';
       if(P.reviveT>=2.5){reviveBro(target);P.reviveT=0;}
     }else{P.reviveT=Math.max(0,P.reviveT-dt*2);$('reviveFill').style.width=clamp(P.reviveT/2.5*100,0,100)+'%';}
+  }else if(bucket){
+    // sløkk brannen med bøtta — hald E i 3 sekund
+    shown=true;
+    ptext.innerHTML='Hold <b>E</b> — 💧 DOUSE THE FIRE AT '+bucket.b.name+'!';
+    rwrap.classList.add('on');
+    if(P.keys.KeyE){
+      P.douseT=(P.douseT||0)+dt;
+      $('reviveFill').style.width=clamp(P.douseT/3*100,0,100)+'%';
+      if(P.douseT>=3){extinguishFire(bucket.b);P.douseT=0;}
+    }else{P.douseT=Math.max(0,(P.douseT||0)-dt*2);$('reviveFill').style.width=clamp(P.douseT/3*100,0,100)+'%';}
   }else if(G.churchOpen&&!G.nuked&&Math.hypot(P.pos.x,P.pos.z+38)<2.6){
     // atombombe-knappen i kyrkja
     shown=true;
@@ -4188,8 +4378,18 @@ function updateAmbient(dt){
   else if(G.bellMesh)G.bellMesh.rotation.z*=0.9;
   // subtitle timer
   if(subT>0){subT-=dt;if(subT<=0)$('subtitle').classList.remove('on');}
-  // dusk transition during last seconds of day
+  // SOLBANEN — sola vandrar frå aust mot vest og går ned i takt med dagen
   if(G.state==='playing'&&G.phase==='day'){
+    const p=clamp(1-G.phaseT/G.dayLen,0,1); // 0 = morgon, 1 = solnedgang
+    const sa=(0.12+0.76*p)*Math.PI;         // vinkel over horisonten
+    sunSprite.position.set(Math.cos(sa)*150,Math.sin(sa)*115+6,-120);
+    sun.position.set(Math.cos(sa)*60,Math.sin(sa)*50+8,20); // skuggane vandrar med
+    // sola blir stor og oransje mot kvelden
+    const warm=clamp((p-0.65)/0.35,0,1);
+    sunSprite.material.color.setRGB(1,1-warm*0.35,1-warm*0.62);
+    const ss=36+warm*14;sunSprite.scale.set(ss,ss,1);
+    if(warm>0&&G.envMix<0.05)sun.color.setRGB(1,0.91-warm*0.25,0.75-warm*0.35);
+    // dusk transition during last seconds of day
     if(G.phaseT<10)envApply(clamp(1-G.phaseT/10,0,1));
   }
 }
