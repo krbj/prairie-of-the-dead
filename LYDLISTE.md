@@ -70,8 +70,8 @@ Format: **MP3**. Filnavnene må stemme NØYAKTIG (små bokstaver). Replikkene er
 | `sigbjrn_b213f7b0.mp3` | Sigbjørn | «They are diving for the roofs! Take them down!» | ~3 sek |
 | `kristoffer_763889a8.mp3` | Kristoffer | «Another wave of skulls! Keep shooting!» | ~3 sek |
 | `sigbjrn_735c5bbf.mp3` | Sigbjørn | «A house is on fire! The flames spread fast between the buildings — shoot those skulls down!» | ~6 sek |
-| `kristoffer_be575eba.mp3` | Kristoffer | «One house is ash already! If five burn down, the whole town is lost, Mio — all hope gone!» | ~6 sek |
-| `sigbjrn_a33c55d9.mp3` | Sigbjørn | «FOUR houses gone! One more and Dust Valley is finished! SHOOT THE SKULLS!» | ~5 sek |
+| `kristoffer_6d28ae2d.mp3` | Kristoffer | «One house is ash already! If seven burn down, the whole town is lost, Mio — all hope gone!» | ~6 sek |
+| `sigbjrn_47fc35.mp3` | Sigbjørn | «SIX houses gone! One more and Dust Valley is finished! SHOOT THE SKULLS!» | ~5 sek |
 | `john_1d79d023.mp3` | John | «It is no use, Mio... Arm the atom bomb in the church!» | ~4 sek |
 | `kristoffer_dc097adc.mp3` | Kristoffer | «Yeah Mio, this is hopeless! Blow the whole damn thing!» | ~4 sek |
 | `sigbjrn_f18df5b.mp3` | Sigbjørn | «MIO!!! NUKE THIS SHIT!!!» | ~2 sek |

@@ -107,8 +107,8 @@ const LINES = [
   ['Kristoffer', 'Another wave of skulls! Keep shooting!'],
   // --- brann i byen ---
   ['Sigbjørn', 'A house is on fire! The flames spread fast between the buildings — shoot those skulls down!'],
-  ['Kristoffer', 'One house is ash already! If five burn down, the whole town is lost, Mio — all hope gone!'],
-  ['Sigbjørn', 'FOUR houses gone! One more and Dust Valley is finished! SHOOT THE SKULLS!'],
+  ['Kristoffer', 'One house is ash already! If seven burn down, the whole town is lost, Mio — all hope gone!'],
+  ['Sigbjørn', 'SIX houses gone! One more and Dust Valley is finished! SHOOT THE SKULLS!'],
   // --- atombomba i kyrkja ---
   ['John', 'It is no use, Mio... Arm the atom bomb in the church!'],
   ['Kristoffer', 'Yeah Mio, this is hopeless! Blow the whole damn thing!'],

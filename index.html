@@ -254,7 +254,7 @@
 <div id="reloadPop"><span class="boom">✦</span> RELOADING! <span class="boom">✦</span></div>
 <div id="overheatPop">🔥 OVERHEATED! 🔥</div>
 <div id="nukeCount">☢ 10 ☢</div>
-<div id="fireBadge">🔥 ON FIRE: <b>0</b> · BURNED DOWN: <b>0/5</b></div>
+<div id="fireBadge">🔥 ON FIRE: <b>0</b> · BURNED DOWN: <b>0/7</b></div>
 <div id="slowmoTint"></div>
 <div id="shotFlash"></div>
 
@@ -1265,6 +1265,8 @@ function animalFlee(a,range,dt){ // spring frå nærmaste zombie
     if(d<range){
       const away=V3().subVectors(a.g.position,z.grp.position).setY(0).normalize();
       a.tgt.copy(a.g.position).addScaledVector(away,22);
+      const l=Math.hypot(a.tgt.x,a.tgt.z);
+      if(l>44)a.tgt.multiplyScalar(44/l); // flyktar IKKJE ut av byen — då dreg dei jegerane med seg
       a.speed=a.kind==='dog'?rnd(6,7.5):rnd(5.5,7);
       a.waitT=0;
       return;
@@ -1336,7 +1338,7 @@ function updateHorses(dt){
       const to=V3().subVectors(h.tgt,h.g.position);to.y=0;
       if(to.length()<1.2){
         h.waitT=rnd(2,8);
-        const a=rnd(0,Math.PI*2),r=rnd(10,55);
+        const a=rnd(0,Math.PI*2),r=rnd(10,44);
         h.tgt.set(Math.cos(a)*r,0,Math.sin(a)*r);
         h.speed=Math.random()<0.3?rnd(5,7):rnd(1.2,2.2);
       }else{
@@ -1487,7 +1489,15 @@ function spawnSkull(){
   }
   const jaw=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.4,0.6),new THREE.MeshLambertMaterial({color:0xd0c8b8}));
   jaw.position.set(0,-0.85,0.35);g.add(jaw);
-  const glow=skySprite('#ff8830',7);g.add(glow);
+  const glow=skySprite('#ff8830',11);g.add(glow);
+  // METEORITT — innhylla i flammar
+  const flames=[];
+  for(let i=0;i<5;i++){
+    const fl=skySprite(i<2?'#ffd952':(Math.random()<0.5?'#ff7020':'#ff4810'),rnd(3.5,6));
+    fl.position.set(rnd(-1,1),rnd(-1,1),rnd(-1,1));
+    fl.userData={seed:rnd(0,9),s:fl.scale.x,ox:fl.position.x,oy:fl.position.y,oz:fl.position.z};
+    g.add(fl);flames.push(fl);
+  }
   const a=rnd(0,Math.PI*2);
   g.position.set(Math.cos(a)*rnd(260,460),rnd(150,280),Math.sin(a)*rnd(260,460));
   // vel eit hus som ikkje alt brenn — og helst eitt ingen annan skalle siktar på
@@ -1498,7 +1508,7 @@ function spawnSkull(){
   const tb=cands[ri(0,cands.length-1)];
   const v=V3(tb.x-g.position.x,2-g.position.y,tb.z-g.position.z).normalize().multiplyScalar(rnd(17,27));
   scene.add(g);
-  SKULLS.push({m:g,v:v,hp:60,b:tb});
+  SKULLS.push({m:g,v:v,hp:60,b:tb,flames:flames});
 }
 function damageSkull(s,d){
   s.hp-=d;
@@ -1518,7 +1528,18 @@ function updateSkulls(dt){
     const s=SKULLS[i];
     s.m.position.addScaledVector(s.v,dt);
     s.m.rotation.y+=dt*3;
-    if(Math.random()<0.7)spawnParts(s.m.position,1,0xff7020,1.5,0.5,-2);
+    // flammane flakrar rundt skallen — brennande meteoritt
+    for(const fl of s.flames){
+      const u=fl.userData;
+      const sc=u.s*(0.7+Math.sin(G.time*14+u.seed*4)*0.35);
+      fl.scale.set(sc,sc,1);
+      fl.material.opacity=0.55+Math.sin(G.time*17+u.seed*3)*0.35;
+      fl.position.set(u.ox+Math.sin(G.time*9+u.seed)*0.4,u.oy+Math.cos(G.time*8+u.seed)*0.4,u.oz);
+    }
+    // eldhale + gneistar + røyk bak
+    spawnParts(s.m.position,1,Math.random()<0.6?0xff7020:0xffd050,2,0.55,-2);
+    if(Math.random()<0.6)spawnParts(s.m.position,1,0xff4810,1.5,0.8,-1);
+    if(Math.random()<0.35)spawnParts(s.m.position,1,0x3a3a3a,1.8,1.1,-1.2);
     if(s.m.position.y<=2.2){ // nedslag — bygningen brenn!
       explode(V3(s.b.x,0,s.b.z),80,7);
       startFire(s.b.x,s.b.z);
@@ -1562,16 +1583,16 @@ function burnDownBuilding(f){
   boomFx(V3(b.x,1,b.z),8);
   G.shake=Math.max(G.shake,0.35);
   G.burnedHouses=(G.burnedHouses||0)+1;
-  toast('🔥 '+b.name+' BURNED DOWN! ('+G.burnedHouses+'/5)','bad');
-  if(G.burnedHouses===1&&!G.fireBark2){G.fireBark2=true;bark('Kristoffer','One house is ash already! If five burn down, the whole town is lost, Mio — all hope gone!');}
+  toast('🔥 '+b.name+' BURNED DOWN! ('+G.burnedHouses+'/7)','bad');
+  if(G.burnedHouses===1&&!G.fireBark2){G.fireBark2=true;bark('Kristoffer','One house is ash already! If seven burn down, the whole town is lost, Mio — all hope gone!');}
   if(G.burnedHouses===3)bark('John','The town is burning, Mio! Shoot those skulls out of the sky!');
-  if(G.burnedHouses===4&&!G.fireBark4){G.fireBark4=true;bark('Sigbjørn','FOUR houses gone! One more and Dust Valley is finished! SHOOT THE SKULLS!');}
-  if(G.burnedHouses>=5&&G.state==='playing'&&P.hp>0){
-    G.deathReason='Five buildings burned to the ground — Dust Valley was lost to the flames.';
+  if(G.burnedHouses===6&&!G.fireBark4){G.fireBark4=true;bark('Sigbjørn','SIX houses gone! One more and Dust Valley is finished! SHOOT THE SKULLS!');}
+  if(G.burnedHouses>=7&&G.state==='playing'&&P.hp>0){
+    G.deathReason='Seven buildings burned to the ground — Dust Valley was lost to the flames.';
     damagePlayer(9999);
   }
   // elden SPREIER seg — nabohus innanfor 12 m kan ta fyr når eit hus brenn ned
-  if(G.burnedHouses<5&&Math.random()<0.5){
+  if(G.burnedHouses<7&&Math.random()<0.5){
     let nb=null,nd=144;
     for(const r of BREG){
       if(r===b||r.burned||r.burning)continue;
@@ -2504,13 +2525,15 @@ function pickTarget(z){
   if(cur){
     const dead=cur.kind==='player'?P.hp<=0:(cur.kind==='animal'?cur.ref.hp<=0:(cur.ref.hp<=0||cur.ref.downed));
     if(dead)z.tgt=null;
+    // eit dyr som spring unna er ikkje verdt jakta — attende til brørne/Mio
+    else if(cur.kind==='animal'&&z.grp.position.distanceTo(cur.ref.g.position)>18)z.tgt=null;
   }
   let res=nearestTarget(z.grp.position);
-  if(z.animalHunter){ // dyrejegerane føretrekkjer nærmaste dyr
+  if(z.animalHunter){ // dyrejegerane tek berre dyr dei nesten snublar over — hovudmålet er alltid folket
     for(const a of DOGS.concat(HORSES)){
       if(a.hp<=0)continue;
       const d=z.grp.position.distanceTo(a.g.position);
-      if(d<res.dist)res={t:{pos:a.g.position,kind:'animal',ref:a},dist:d};
+      if(d<14&&d<res.dist)res={t:{pos:a.g.position,kind:'animal',ref:a},dist:d};
     }
   }
   if(z.tgt){
@@ -2554,14 +2577,17 @@ function updateZombie(z,dt){
     let mx=tgt.pos.x,mz=tgt.pos.z;
     const tgtY=tgt.kind==='player'?P.pos.y-1.7:tgtPos(tgt).y;
     if(tgtY>z.grp.position.y+1.2){
+      // vel trappa som fører til MÅLET — ikkje den som tilfeldigvis er nærmast zombien
       let rp=null,bd2=1e9;
       for(const r of RAMPS){
-        const d2r=(r.x-z.grp.position.x)*(r.x-z.grp.position.x)+(r.z-z.grp.position.z)*(r.z-z.grp.position.z);
-        if(d2r<bd2){bd2=d2r;rp=r;}
+        const tpx=r.x+r.dx*r.len,tpz=r.z+r.dz*r.len;
+        const d2t=(tpx-mx)*(tpx-mx)+(tpz-mz)*(tpz-mz);
+        if(d2t<bd2){bd2=d2t;rp=r;}
       }
       if(rp){
-        if(z.grp.position.y>0.4||bd2<3.6)z.climb=true;
-        else if(bd2>20&&z.grp.position.y<0.1)z.climb=false;
+        const fd2=(rp.x-z.grp.position.x)*(rp.x-z.grp.position.x)+(rp.z-z.grp.position.z)*(rp.z-z.grp.position.z);
+        if(z.grp.position.y>0.4||fd2<3.6)z.climb=true;
+        else if(fd2>20&&z.grp.position.y<0.1)z.climb=false;
         if(z.climb){mx=rp.x+rp.dx*rp.len;mz=rp.z+rp.dz*rp.len;} // på veg opp — hald kursen mot toppen
         else{mx=rp.x;mz=rp.z;}                                   // gå til foten av trappa
       }
@@ -2578,12 +2604,17 @@ function updateZombie(z,dt){
     const want=Math.atan2(dir.x,dir.z);
     if(z.hdg===undefined)z.hdg=want;
     let dh=((want-z.hdg+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI;
-    const turnRate=(dist<5||z.avoidT>0)?10:3.2; // snøgg sving berre tett på målet / rundt hinder
+    const turnRate=(dist<5||z.avoidT>0)?10:4.5; // snøgg sving tett på målet / rundt hinder
     z.hdg+=clamp(dh,-turnRate*dt,turnRate*dt);
     dir.set(Math.sin(z.hdg),0,Math.cos(z.hdg));
     // charge (boss)
     let sp=z.speed;
+    if(dist>22)sp*=1.45; // AKTIV JAKT — halvspring inn mot byttet til dei er tett på
     if(z.charging){sp=9;z.chargeT-=dt;if(z.chargeT<=0)z.charging=false;}
+    // mål forflyttinga over HEILE steget (flytting + kollisjon) — før målte vi berre
+    // kva kollisjonen gjorde, så alle zombiar i ope lende vart rekna som «fastlåste»
+    // og gjekk permanent sidelengs. DET var vandringa ut mot utkanten.
+    const zpx=z.grp.position.x,zpz=z.grp.position.z;
     z.grp.position.addScaledVector(dir,sp*dt);
     // separation
     for(const o of ZOMBIES){
@@ -2595,15 +2626,14 @@ function updateZombie(z,dt){
         z.grp.position.x+=dx/d*(0.8-d)*0.22;z.grp.position.z+=dz/d*(0.8-d)*0.22; // mild dytting — held kursen rett
       }
     }
-    const zpx=z.grp.position.x,zpz=z.grp.position.z;
     collideCircle(z.grp.position,0.4*z.scale,z.grp.position.y);
     const gy=groundHeightAt(z.grp.position.x,z.grp.position.z,z.grp.position.y+0.7);
     if(gy>=z.grp.position.y)z.grp.position.y=gy;               // opp (trapp) — følg bakken
     else z.grp.position.y=Math.max(gy,z.grp.position.y-10*dt); // ned — fall mjukt, ikkje teleporter
-    if(Math.hypot(z.grp.position.x-zpx,z.grp.position.z-zpz)<0.001&&sp>0.5){
+    if(Math.hypot(z.grp.position.x-zpx,z.grp.position.z-zpz)<sp*dt*0.22&&sp>0.5){
       if(!(z.avoidT>0)){
         if(!(z.avoidHold>0))z.avoidSide=Math.random()<0.5?1:-1; // berre NYTT hinder får ny side
-        z.avoidT=0.7;z.avoidHold=2.5;
+        z.avoidT=0.55;z.avoidHold=1.8;
       }
     }
     z.grp.rotation.y=z.hdg; // kroppen peikar alltid langs den steda kursen
@@ -3913,7 +3943,7 @@ function updateHUD(){
   const burned=G.burnedHouses||0;
   const fb=$('fireBadge');
   if(burning>0||burned>0){
-    fb.innerHTML='🔥 ON FIRE: <b>'+burning+'</b> · BURNED DOWN: <b>'+burned+'/5</b>';
+    fb.innerHTML='🔥 ON FIRE: <b>'+burning+'</b> · BURNED DOWN: <b>'+burned+'/7</b>';
     fb.classList.add('on');
   }else fb.classList.remove('on');
   $('hpFill').style.width=P.hp+'%';
@@ -3957,7 +3987,7 @@ function updateHUD(){
     $('dayBadge').firstChild.textContent='NIGHT '+G.night+' ';
     const left=G.pending+ZOMBIES.length+(G.boss?1:0)+(G.bossPending?1:0);
     if(G.nukeDropping&&!G.nuked)$('dayInfo').textContent='☢ NUKE: '+Math.ceil(G.nukeDropT)+' sec!';
-    else if(G.kaijuNight&&KAIJU.alive)$('dayInfo').textContent='THE COLOSSUS: '+Math.round(Math.hypot(KAIJU.grp.position.x,KAIJU.grp.position.z))+' m · 🔥 '+(G.burnedHouses||0)+'/5 burned';
+    else if(G.kaijuNight&&KAIJU.alive)$('dayInfo').textContent='THE COLOSSUS: '+Math.round(Math.hypot(KAIJU.grp.position.x,KAIJU.grp.position.z))+' m · 🔥 '+(G.burnedHouses||0)+'/7 burned';
     else $('dayInfo').textContent=G.phase==='dawnwait'?'Survived!':'Zombies left: '+left;
     $('timerBar').classList.add('night');
     $('timerFill').style.width='100%';

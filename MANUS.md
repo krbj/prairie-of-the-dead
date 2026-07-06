@@ -315,10 +315,10 @@ Midterste bror. **Mørk, lavmælt og alvorlig** — sier lite, men hvert ord vei
 *Tone: Alvorleg hast — dette kan velte alt.*
 `sigbjrn_735c5bbf.mp3` · ca. 6 sek
 
-> ### «FOUR houses gone! One more and Dust Valley is finished! SHOOT THE SKULLS!»
+> ### «SIX houses gone! One more and Dust Valley is finished! SHOOT THE SKULLS!»
 
 *Tone: Desperat brøl — siste sjanse! Rop for full hals.*
-`sigbjrn_a33c55d9.mp3` · ca. 5 sek
+`sigbjrn_47fc35.mp3` · ca. 5 sek
 
 ---
 
@@ -458,10 +458,10 @@ Yngste bror. **Lysere, raskere og varmere** — energi og galgenhumor midt i mø
 `kristoffer_763889a8.mp3` · ca. 3 sek
 
 ### 22. BRANN I BYEN — natt 10
-> ### «One house is ash already! If five burn down, the whole town is lost, Mio — all hope gone!»
+> ### «One house is ash already! If seven burn down, the whole town is lost, Mio — all hope gone!»
 
-*Tone: Alvorleg åtvaring med tal — fem hus, så er alt tapt.*
-`kristoffer_be575eba.mp3` · ca. 6 sek
+*Tone: Alvorleg åtvaring med tal — sju hus, så er alt tapt.*
+`kristoffer_6d28ae2d.mp3` · ca. 6 sek
 
 ---
 
