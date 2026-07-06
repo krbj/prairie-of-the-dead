@@ -765,9 +765,29 @@ const sandTex=makeCanvasTex(512,512,(g,w,h)=>{
     g.fillRect(rnd(0,w),rnd(0,h),rnd(1,3),rnd(1,3));
   }
 });
-sandTex.wrapS=sandTex.wrapT=THREE.RepeatWrapping;sandTex.repeat.set(38,38);
-const ground=new THREE.Mesh(new THREE.PlaneGeometry(900,900),new THREE.MeshLambertMaterial({map:sandTex}));
+sandTex.wrapS=sandTex.wrapT=THREE.RepeatWrapping;sandTex.repeat.set(80,80);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(1900,1900),new THREE.MeshLambertMaterial({map:sandTex}));
 ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+// ---------------- FJELLKJEDER I HORISONTEN ----------------
+// dekkjer alle retningar — UNNTATT bak kyrkja (nord, -z): der er det berre endelaus ørken
+{
+  function mountainRing(R,col,hMin,hMax,n,seed){
+    const m=new THREE.MeshLambertMaterial({color:col,fog:false});
+    for(let i=0;i<n;i++){
+      const a=(i+rnd(-0.3,0.3))/n*Math.PI*2;
+      // gap mot -z (retninga bak kyrkja): sin(a)≈-1
+      let gd=Math.abs(a-(Math.PI*1.5));gd=Math.min(gd,Math.PI*2-gd);
+      if(gd<0.62)continue;
+      const h=rnd(hMin,hMax),r=rnd(70,150);
+      const mt=new THREE.Mesh(new THREE.ConeGeometry(r,h,ri(4,6)),m);
+      mt.position.set(Math.cos(a)*R+rnd(-40,40),h/2-3,Math.sin(a)*R+rnd(-40,40));
+      mt.rotation.y=rnd(0,6.28);
+      scene.add(mt);
+    }
+  }
+  mountainRing(830,0x9aa2b4,70,170,44); // fjern rekkje — disblå
+  mountainRing(650,0x7e8698,45,110,30); // nærare rekkje — mørkare
+}
 // road strips
 const roadMat=new THREE.MeshLambertMaterial({color:0x9a7850});
 // (alle gater skalert 20 % opp saman med bygga — TS=1.2)
@@ -880,6 +900,7 @@ const TS=1.2; // BYSKALA — heile rutenettet er 20 % større (bygga har same st
 function addBuilding(x,z,w,d,h,opts){
   opts=opts||{};
   x*=TS;z*=TS;
+  opts.flat=true; // ALLE bygg har flate tak med rekkverk (som hotellet) — berre kyrkja har spisstak
   const grp=new THREE.Group();
   const col=opts.color||woodColors[ri(0,woodColors.length-1)];
   const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:col}));
@@ -2273,6 +2294,10 @@ function camDir(){
 function muzzlePos(){
   return camera.position.clone().add(camDir().multiplyScalar(0.7)).add(V3(0,-0.12,0));
 }
+// verdsposisjonen til løpsmunninga på våpenet (same punkt som munningsglimtet)
+function gunMuzzleWorld(){
+  return camera.localToWorld(V3(0.3,-0.28,-1.2));
+}
 function shootRay(dir,dmg,isPellet){
   const o=camera.position.clone();
   let best=null,bestT=Infinity,bestHead=false,bestKind='zombie';
@@ -2300,7 +2325,7 @@ function shootRay(dir,dmg,isPellet){
     }
   }
   const end=best?o.clone().addScaledVector(dir,bestT):o.clone().addScaledVector(dir,60);
-  spawnSlug(muzzlePos(),end); // berre den glødande prosjektilen — inga strek
+  spawnSlug(gunMuzzleWorld(),end); // glødande prosjektil FRÅ LØPET — konvergerer mot crosshairen
   if(best){
     if(bestKind==='skull')damageSkull(best,dmg*2);
     else if(bestKind==='kaiju')damageKaiju(dmg);
