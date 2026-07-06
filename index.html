@@ -1,0 +1,4179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRAIRIE OF THE DEAD — a zombie western FPS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Rye&family=Special+Elite&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --blood:#a3231d; --blood2:#d4402f;
+    --bone:#e8d9b0; --gold:#d9a441;
+    --leather:#2a1c12; --leather2:#3d2a1a;
+    --night:#0b0e18;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none;-webkit-user-select:none}
+  html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Special Elite',serif;color:var(--bone)}
+  canvas#c{display:block;width:100%;height:100%;cursor:crosshair}
+
+  /* ---------- fullscreen overlays ---------- */
+  .screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at 50% 35%, rgba(60,35,15,.55), rgba(0,0,0,.92) 75%), #0a0603;
+    z-index:60;text-align:center;padding:24px}
+  .screen.hidden{display:none}
+  .title{font-family:'Rye',serif;font-size:clamp(42px,8vw,96px);color:var(--blood2);
+    text-shadow:0 0 24px rgba(163,35,29,.6), 3px 3px 0 #1a0505, 0 0 80px rgba(212,64,47,.25);
+    letter-spacing:.04em;line-height:1}
+  .subtitle{font-size:clamp(14px,2vw,20px);color:var(--gold);letter-spacing:.35em;margin-top:6px;text-transform:uppercase}
+  .story{max-width:620px;margin:26px 0;font-size:15px;line-height:1.75;color:#cbb98f;
+    border-top:1px solid rgba(217,164,65,.35);border-bottom:1px solid rgba(217,164,65,.35);padding:16px 8px}
+  .btn{font-family:'Rye',serif;font-size:26px;color:var(--bone);background:linear-gradient(#4a2f18,#2a1a0c);
+    border:2px solid var(--gold);padding:12px 44px;margin:8px;cursor:pointer;letter-spacing:.08em;
+    box-shadow:0 4px 0 #150c05, inset 0 0 18px rgba(0,0,0,.6);transition:transform .08s, box-shadow .08s, color .15s}
+  .btn:hover{color:var(--gold);transform:translateY(-2px);box-shadow:0 6px 0 #150c05, inset 0 0 18px rgba(0,0,0,.6)}
+  .btn:active{transform:translateY(2px);box-shadow:0 1px 0 #150c05}
+  .btn.small{font-size:18px;padding:8px 26px}
+  .controls{margin-top:22px;font-size:13px;color:#9c8a67;line-height:1.9}
+  .controls b{color:var(--bone)}
+  .mutenote{margin-top:14px;font-size:12px;color:#6e5f45}
+  .stat{font-size:20px;color:var(--gold);margin:4px 0}
+  .skull{font-size:56px;margin-bottom:8px;filter:drop-shadow(0 0 14px rgba(212,64,47,.5))}
+
+  /* ---------- HUD ---------- */
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:30;display:none}
+  #hud.on{display:block}
+
+  #dayBadge{position:absolute;top:16px;left:18px;background:rgba(15,9,4,.72);border:1px solid rgba(217,164,65,.5);
+    padding:8px 16px;font-family:'Rye',serif;font-size:20px;color:var(--gold);letter-spacing:.06em}
+  #dayBadge .sub{display:block;font-family:'Special Elite',serif;font-size:12px;color:#cbb98f;letter-spacing:.05em;margin-top:2px}
+  #timerBar{width:150px;height:5px;background:#241608;margin-top:6px;border:1px solid rgba(217,164,65,.35)}
+  #timerFill{height:100%;width:100%;background:linear-gradient(90deg,var(--gold),#f0c66a)}
+  #timerBar.night #timerFill{background:linear-gradient(90deg,var(--blood),var(--blood2))}
+
+  #bossBar{position:absolute;top:18px;left:50%;transform:translateX(-50%);width:min(520px,60vw);display:none;text-align:center}
+  #bossBar.on{display:block}
+  #bossName{font-family:'Rye',serif;font-size:22px;color:var(--blood2);text-shadow:2px 2px 0 #000;letter-spacing:.1em}
+  #bossHpWrap{height:12px;background:#1a0908;border:1px solid var(--blood);margin-top:4px;box-shadow:0 0 14px rgba(163,35,29,.5)}
+  #bossHpFill{height:100%;width:100%;background:linear-gradient(90deg,#6e120e,var(--blood2));transition:width .15s}
+
+  #hpWrap{position:absolute;left:18px;bottom:18px;width:240px}
+  #hpLabel{font-size:12px;color:#cbb98f;letter-spacing:.15em;margin-bottom:3px}
+  #hpBar{height:16px;background:#1c0f06;border:1px solid rgba(217,164,65,.5);box-shadow:inset 0 0 10px #000}
+  #hpFill{height:100%;width:100%;background:linear-gradient(90deg,#7e1a14,var(--blood2));transition:width .15s}
+  #hpFill.low{animation:pulse .7s infinite}
+  @keyframes pulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.7)}}
+
+  #brosPanel{position:absolute;left:18px;bottom:78px;font-size:12px}
+  .broRow{display:flex;align-items:center;margin-top:5px}
+  .broName{width:88px;color:var(--bone);letter-spacing:.04em}
+  .broBar{display:inline-block;width:110px;height:7px;background:#1c0f06;border:1px solid rgba(217,164,65,.35)}
+  .broFill{display:block;height:100%;background:#7fae6a;transition:width .2s}
+  .broRow.down .broName{color:var(--blood2)}
+  .broRow.down .broFill{background:var(--blood)}
+
+  #ammoBox{position:absolute;right:18px;bottom:18px;text-align:right;background:rgba(15,9,4,.6);
+    border:1px solid rgba(217,164,65,.4);padding:10px 16px;min-width:170px}
+  #weaponName{font-family:'Rye',serif;font-size:22px;color:var(--gold);letter-spacing:.05em}
+  #ammoCount{font-size:30px;color:var(--bone);line-height:1.1}
+  #ammoReserve{font-size:13px;color:#9c8a67}
+  #weaponSlots{margin-top:6px;font-size:11px;color:#6e5f45;letter-spacing:.05em}
+  #weaponSlots span{margin-left:8px}
+  #weaponSlots span.on{color:var(--gold)}
+  #weaponSlots span.locked{opacity:.32;text-decoration:line-through}
+  #reloadHint{font-size:12px;color:var(--blood2);height:14px}
+
+  #crosshair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:22px;height:22px;opacity:.9}
+  #crosshair::before,#crosshair::after{content:"";position:absolute;background:var(--bone);box-shadow:0 0 3px #000}
+  #crosshair::before{left:50%;top:0;width:2px;height:100%;transform:translateX(-50%);
+    clip-path:polygon(0 0,100% 0,100% 32%,0 32%,0 68%,100% 68%,100% 100%,0 100%)}
+  #crosshair::after{top:50%;left:0;height:2px;width:100%;transform:translateY(-50%);
+    clip-path:polygon(0 0,32% 0,32% 100%,0 100%,68% 0,100% 0,100% 100%,68% 100%)}
+  #hitmarker{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(45deg);width:26px;height:26px;opacity:0}
+  #hitmarker::before,#hitmarker::after{content:"";position:absolute;background:#fff}
+  #hitmarker::before{left:50%;top:0;width:2px;height:100%;transform:translateX(-50%)}
+  #hitmarker::after{top:50%;left:0;height:2px;width:100%;transform:translateY(-50%)}
+  #hitmarker.head::before,#hitmarker.head::after{background:var(--blood2)}
+  #hitmarker.show{animation:hitpop .18s ease-out}
+  @keyframes hitpop{0%{opacity:1;transform:translate(-50%,-50%) rotate(45deg) scale(1.35)}100%{opacity:0;transform:translate(-50%,-50%) rotate(45deg) scale(.8)}}
+
+  #radar{position:absolute;top:16px;right:18px;width:150px;height:150px;border-radius:50%;
+    border:2px solid rgba(217,164,65,.5);background:rgba(10,6,3,.72);box-shadow:0 0 18px rgba(0,0,0,.6)}
+  #toasts{position:absolute;top:180px;right:18px;text-align:right}
+  .toast{background:rgba(15,9,4,.8);border-right:3px solid var(--gold);padding:7px 14px;margin-top:6px;
+    font-size:14px;color:var(--bone);animation:toastin .25s ease-out;letter-spacing:.03em}
+  .toast.bad{border-right-color:var(--blood2);color:#e8b0a8}
+  @keyframes toastin{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+
+  #prompt{position:absolute;left:50%;bottom:26%;transform:translateX(-50%);font-size:16px;color:var(--bone);
+    background:rgba(15,9,4,.75);border:1px solid rgba(217,164,65,.5);padding:8px 18px;display:none;letter-spacing:.04em}
+  #prompt.on{display:block}
+  #prompt b{color:var(--gold)}
+  #reviveWrap{width:100%;height:5px;background:#241608;margin-top:6px;display:none}
+  #reviveWrap.on{display:block}
+  #reviveFill{height:100%;width:0;background:var(--gold)}
+
+  #subtitle{position:absolute;left:50%;bottom:15%;transform:translateX(-50%);max-width:70vw;text-align:center;
+    font-size:17px;color:#fff;text-shadow:1px 1px 2px #000, 0 0 8px #000;display:none;letter-spacing:.02em}
+  #subtitle.on{display:block}
+  #subtitle .who{color:var(--gold);font-family:'Rye',serif;margin-right:8px}
+
+  #banner{position:absolute;left:50%;top:34%;transform:translate(-50%,-50%);text-align:center;opacity:0;pointer-events:none}
+  #banner.show{animation:bannerin 3.2s ease-out}
+  #bannerMain{font-family:'Rye',serif;font-size:clamp(36px,6vw,72px);color:var(--blood2);
+    text-shadow:0 0 30px rgba(163,35,29,.8), 3px 3px 0 #000;letter-spacing:.08em}
+  #bannerSub{font-size:16px;color:var(--gold);letter-spacing:.3em;text-transform:uppercase;margin-top:4px}
+  @keyframes bannerin{0%{opacity:0;transform:translate(-50%,-50%) scale(1.25)}12%{opacity:1;transform:translate(-50%,-50%) scale(1)}80%{opacity:1}100%{opacity:0}}
+
+  #vignette{position:fixed;inset:0;pointer-events:none;z-index:25;
+    background:radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.55) 100%)}
+  #dmgVignette{position:fixed;inset:0;pointer-events:none;z-index:26;opacity:0;transition:opacity .3s;
+    background:radial-gradient(ellipse at center, transparent 40%, rgba(140,10,5,.55) 100%)}
+  #dmgFlash{position:fixed;inset:0;pointer-events:none;z-index:27;background:rgba(180,20,10,.35);opacity:0}
+  #dmgFlash.hit{animation:dflash .3s ease-out}
+  @keyframes dflash{0%{opacity:1}100%{opacity:0}}
+  #whiteFade{position:fixed;inset:0;pointer-events:none;z-index:55;background:#fdf3dc;opacity:0;transition:opacity 1.4s}
+  #blackFade{position:fixed;inset:0;pointer-events:none;z-index:56;background:#000;opacity:0;transition:opacity 1s}
+  #grain{position:fixed;inset:0;pointer-events:none;z-index:24;opacity:.05;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E")}
+
+  /* ---------- cinematic ---------- */
+  #letterTop,#letterBot{position:fixed;left:0;width:100%;height:0;background:#000;z-index:40;transition:height .8s ease}
+  #letterTop{top:0}#letterBot{bottom:0}
+  body.cine #letterTop,body.cine #letterBot{height:11vh}
+  #caption{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:41;text-align:center;
+    font-family:'Rye',serif;font-size:clamp(22px,3.4vw,40px);color:var(--bone);max-width:80vw;
+    text-shadow:2px 2px 0 #000, 0 0 30px rgba(0,0,0,.9);opacity:0;transition:opacity .7s;letter-spacing:.05em}
+  #caption.on{opacity:1}
+  #caption .small{display:block;font-family:'Special Elite',serif;font-size:15px;color:var(--gold);
+    letter-spacing:.25em;margin-top:10px;text-transform:uppercase}
+  #dlgBox{position:fixed;left:50%;bottom:13vh;transform:translateX(-50%);z-index:42;width:min(680px,86vw);
+    background:linear-gradient(rgba(20,12,6,.93),rgba(10,6,3,.95));border:1px solid rgba(217,164,65,.55);
+    padding:14px 22px;display:none;box-shadow:0 6px 30px rgba(0,0,0,.7)}
+  #dlgBox.on{display:block}
+  #dlgWho{font-family:'Rye',serif;font-size:19px;letter-spacing:.06em;margin-bottom:4px}
+  #dlgText{font-size:16px;line-height:1.6;color:var(--bone)}
+  #dlgHint{font-size:11px;color:#8a7a5c;text-align:right;margin-top:6px;letter-spacing:.1em}
+  #skipHint{position:fixed;right:20px;top:12.5vh;z-index:42;font-size:12px;color:#8a7a5c;display:none;letter-spacing:.1em}
+  body.cine #skipHint{display:block}
+
+  #tutorial{position:fixed;right:18px;top:50%;transform:translateY(-50%);z-index:31;width:230px;
+    background:rgba(15,9,4,.82);border:1px solid rgba(217,164,65,.4);padding:14px 16px;font-size:12.5px;
+    line-height:2;color:#cbb98f;display:none}
+  #tutorial.on{display:block}
+  #tutorial b{color:var(--gold)}
+  #tutorial h4{font-family:'Rye',serif;color:var(--bone);font-size:15px;margin-bottom:6px;letter-spacing:.05em}
+
+  #lockHint{position:fixed;left:50%;top:62%;transform:translateX(-50%);z-index:32;font-size:15px;color:var(--gold);
+    background:rgba(15,9,4,.8);padding:8px 20px;border:1px solid rgba(217,164,65,.4);display:none;letter-spacing:.05em}
+  #lockHint.on{display:block}
+  #caption,#subtitle,#lockHint,#prompt,#skipHint,#tutorial,#letterTop,#letterBot,#toasts,#banner{pointer-events:none}
+  #reloadPop{position:fixed;left:50%;top:36%;transform:translate(-50%,-50%) rotate(-7deg);z-index:33;
+    font-family:'Rye',serif;font-size:62px;color:#ffd23f;-webkit-text-stroke:2px #7a1a10;
+    text-shadow:5px 5px 0 #2a0a05, 0 0 34px rgba(255,180,40,.55);display:none;pointer-events:none;letter-spacing:.05em}
+  #reloadPop.on{display:block;animation:ladpop .45s ease-in-out infinite alternate}
+  #overheatPop{position:fixed;left:50%;top:30%;transform:translate(-50%,-50%) rotate(5deg);z-index:33;
+    font-family:'Rye',serif;font-size:56px;color:#ff5028;-webkit-text-stroke:2px #3a0a00;
+    text-shadow:5px 5px 0 #200500, 0 0 40px rgba(255,90,20,.7);display:none;pointer-events:none}
+  #overheatPop.on{display:block;animation:ladpop .35s ease-in-out infinite alternate}
+  #nukeCount{position:fixed;left:50%;top:34%;transform:translate(-50%,-50%);z-index:33;
+    font-family:'Rye',serif;font-size:110px;color:#ffd23f;-webkit-text-stroke:3px #7a1a10;
+    text-shadow:6px 6px 0 #2a0a05, 0 0 50px rgba(255,120,20,.8);display:none;pointer-events:none}
+  #nukeCount.on{display:block;animation:nukepop .5s ease-out}
+  #pwGate{position:fixed;inset:0;z-index:200;background:#0c0703;display:flex;align-items:center;justify-content:center}
+  #pwGate .pwBox{text-align:center;padding:40px 50px;border:2px solid rgba(217,164,65,.5);background:rgba(20,11,4,.9);max-width:90vw}
+  #pwGate h1{font-family:'Rye',serif;color:var(--gold);font-size:34px;letter-spacing:.08em;margin-bottom:8px}
+  #pwGate p{color:var(--bone);font-size:15px;margin-bottom:18px;letter-spacing:.05em}
+  #pwInput{background:#1a0f06;border:1px solid rgba(217,164,65,.5);color:var(--bone);font-family:'Special Elite',monospace;
+    font-size:18px;padding:10px 14px;text-align:center;letter-spacing:.15em;outline:none;width:250px}
+  #pwBtn{display:block;margin:16px auto 0;font-family:'Rye',serif;font-size:19px;color:var(--gold);background:#2a180a;
+    border:2px solid rgba(217,164,65,.6);padding:10px 34px;cursor:pointer;letter-spacing:.1em}
+  #pwBtn:hover{background:#3a2410;color:#ffd070}
+  #pwErr{color:var(--blood2);font-size:14px;margin-top:12px;min-height:18px;letter-spacing:.05em}
+  #fireBadge{position:fixed;left:50%;top:58px;transform:translateX(-50%);z-index:21;display:none;
+    font-family:'Special Elite',monospace;font-size:15px;letter-spacing:.06em;color:#ffb347;
+    background:rgba(20,8,2,.82);border:1px solid rgba(255,110,30,.55);padding:6px 16px;
+    text-shadow:0 0 12px rgba(255,120,30,.8)}
+  #fireBadge.on{display:block}
+  #fireBadge b{color:#ff5028}
+  @keyframes nukepop{0%{transform:translate(-50%,-50%) scale(2.4);opacity:0}30%{opacity:1}
+    100%{transform:translate(-50%,-50%) scale(1);opacity:1}}
+  #slowmoTint{position:fixed;inset:0;pointer-events:none;z-index:24;opacity:0;transition:opacity .3s;
+    background:radial-gradient(ellipse at center, rgba(90,150,255,.1), rgba(40,80,180,.22))}
+  #shotFlash{position:fixed;inset:0;pointer-events:none;z-index:26;opacity:0;
+    background:radial-gradient(ellipse at center, rgba(255,240,190,.5), transparent 62%)}
+  #reloadPop .boom{font-size:30px;vertical-align:middle}
+  @keyframes ladpop{0%{transform:translate(-50%,-50%) rotate(-7deg) scale(1)}100%{transform:translate(-50%,-50%) rotate(-3deg) scale(1.14)}}
+  #lightning{position:fixed;inset:0;background:#eaf2ff;opacity:0;pointer-events:none;z-index:23}
+  #heatWrap{margin-top:5px;height:8px;background:#241608;border:1px solid rgba(217,164,65,.35);display:none}
+  #heatWrap.on{display:block}
+  #heatFill{height:100%;width:0;background:linear-gradient(90deg,#d9a441,#d4402f)}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<!-- PASSORDPORT -->
+<div id="pwGate"><div class="pwBox">
+  <h1>☠ PRAIRIE OF THE DEAD ☠</h1>
+  <p>This town is closed to strangers.<br>Speak the password, partner:</p>
+  <input id="pwInput" type="password" autocomplete="off" spellcheck="false">
+  <button id="pwBtn">ENTER TOWN</button>
+  <div id="pwErr"></div>
+</div></div>
+<script>
+(function(){
+  const KEY='b6781bd6';
+  function pwh(s){let h=5381;for(let i=0;i<s.length;i++)h=((h*33)^s.charCodeAt(i))>>>0;return h.toString(16);}
+  const gate=document.getElementById('pwGate');
+  let ok=false;
+  try{ok=localStorage.getItem('dp_pass')===KEY;}catch(e){}
+  if(ok){gate.remove();return;}
+  const inp=document.getElementById('pwInput'),err=document.getElementById('pwErr');
+  function tryPw(){
+    if(pwh(inp.value.trim().toLowerCase())===KEY){
+      try{localStorage.setItem('dp_pass',KEY);}catch(e){}
+      gate.remove();
+    }else{
+      err.textContent='Wrong password. Turn your horse around, stranger.';
+      inp.value='';inp.focus();
+    }
+  }
+  document.getElementById('pwBtn').addEventListener('click',tryPw);
+  inp.addEventListener('keydown',e=>{e.stopPropagation();if(e.key==='Enter')tryPw();});
+  inp.addEventListener('keyup',e=>e.stopPropagation());
+  setTimeout(()=>inp.focus(),100);
+})();
+</script>
+
+<div id="grain"></div>
+<div id="vignette"></div>
+<div id="dmgVignette"></div>
+<div id="dmgFlash"></div>
+<div id="lightning"></div>
+<div id="reloadPop"><span class="boom">✦</span> RELOADING! <span class="boom">✦</span></div>
+<div id="overheatPop">🔥 OVERHEATED! 🔥</div>
+<div id="nukeCount">☢ 10 ☢</div>
+<div id="fireBadge">🔥 ON FIRE: <b>0</b> · BURNED DOWN: <b>0/5</b></div>
+<div id="slowmoTint"></div>
+<div id="shotFlash"></div>
+
+<!-- HUD -->
+<div id="hud">
+  <div id="dayBadge">DAY 1<span class="sub" id="dayInfo">Gather supplies</span>
+    <div id="timerBar"><div id="timerFill"></div></div>
+  </div>
+  <div id="bossBar"><div id="bossName">THE GRAVE ROBBER</div><div id="bossHpWrap"><div id="bossHpFill"></div></div></div>
+  <div id="brosPanel"></div>
+  <div id="hpWrap"><div id="hpLabel">MIO — HEALTH</div><div id="hpBar"><div id="hpFill"></div></div></div>
+  <div id="ammoBox">
+    <div id="weaponName">REVOLVER</div>
+    <div id="ammoCount">6 <span id="ammoReserve">/ 36</span></div>
+    <div id="reloadHint"></div>
+    <div id="heatWrap"><div id="heatFill"></div></div>
+    <div id="weaponSlots"></div>
+  </div>
+  <div id="crosshair"></div>
+  <div id="hitmarker"></div>
+  <canvas id="radar" width="150" height="150"></canvas>
+  <div id="toasts"></div>
+  <div id="prompt"><span id="promptText"></span><div id="reviveWrap"><div id="reviveFill"></div></div></div>
+  <div id="subtitle"><span class="who"></span><span class="txt"></span></div>
+  <div id="banner"><div id="bannerMain"></div><div id="bannerSub"></div></div>
+</div>
+
+<div id="tutorial">
+  <h4>SURVIVAL GUIDE</h4>
+  <b>WASD</b> — move<br>
+  <b>Mouse</b> — aim &nbsp; <b>Left click</b> — shoot<br>
+  <b>1–6 / wheel</b> — switch weapon<br>
+  <b>R</b> — reload &nbsp; <b>Shift</b> — sprint<br>
+  <b>Space</b> — jump &nbsp; <b>X</b> — slow-mo<br>
+  <b>E</b> — pick up / revive / use<br>
+  <b>Esc</b> — pause &nbsp; <b>M</b> — mute
+</div>
+<div id="lockHint" >Click to aim</div>
+
+<!-- cinematic -->
+<div id="letterTop"></div><div id="letterBot"></div>
+<div id="caption"></div>
+<div id="skipHint">ENTER — SKIP</div>
+<div id="dlgBox"><div id="dlgWho"></div><div id="dlgText"></div><div id="dlgHint">E / CLICK — CONTINUE</div></div>
+
+<div id="whiteFade"></div><div id="blackFade"></div>
+
+<!-- MENU -->
+<div id="menu" class="screen">
+  <div class="skull">☠</div>
+  <div class="title">PRAIRIE OF THE DEAD</div>
+  <div class="subtitle">Dust Valley · 1887</div>
+  <div class="story">A virus has turned the little cowboy town of Dust Valley into a town of the dead.
+    Only three brothers remain — John, Sigbjørn and Kristoffer — bound by a sacred pact:
+    <i>wipe out the virus, or die trying.</i><br><br>
+    You are <b style="color:var(--gold)">Mio</b>, a stranger riding in. By day you gather weapons and gear.
+    By night the hordes come. Every third night, something worse awakens…</div>
+  <button class="btn" id="btnStart">PLAY</button>
+  <div style="margin-top:6px;font-size:14px;color:#cbb98f">Start on day:
+    <select id="lvlSelect" style="font-family:'Special Elite',serif;font-size:14px;background:#2a1a0c;color:#e8d9b0;border:1px solid rgba(217,164,65,.5);padding:4px 8px">
+      <option value="1">1 — story from the start</option>
+      <option value="2">2</option><option value="3">3 — first boss</option>
+      <option value="4">4</option><option value="5">5</option>
+      <option value="6">6 — The Butcher</option><option value="7">7</option><option value="8">8</option>
+      <option value="9">9 — The Plague King</option>
+      <option value="10">10 — THE COLOSSUS (gatling + nuke)</option>
+      <option value="12">12 — for maniacs</option>
+    </select>
+  </div>
+  <div class="controls">
+    <b>WASD</b> move · <b>Mouse</b> aim · <b>Click</b> shoot · <b>R</b> reload · <b>1–6</b> weapons · <b>E</b> use · <b>Shift</b> sprint · <b>Space</b> jump · <b>X</b> slow-mo
+  </div>
+  <div class="mutenote" id="bestNote"></div>
+  <div class="mutenote">Turn the sound on for full atmosphere · M mutes</div>
+</div>
+
+<!-- PAUSE -->
+<div id="pause" class="screen hidden">
+  <div class="title" style="font-size:52px">PAUSED</div>
+  <button class="btn small" id="btnResume">RESUME</button>
+  <button class="btn small" id="btnMute">SOUND ON/OFF</button>
+  <button class="btn small" id="btnQuit">MAIN MENU</button>
+</div>
+
+<!-- DEATH -->
+<div id="death" class="screen hidden">
+  <div class="skull">☠</div>
+  <div class="title" style="color:var(--blood2)">YOU ARE DEAD</div>
+  <div class="story" id="deathStats"></div>
+  <button class="btn" id="btnRetry">TRY AGAIN (SAME DAY)</button>
+  <button class="btn small" id="btnDeathMenu">MAIN MENU</button>
+</div>
+
+<!-- VICTORY -->
+<div id="victory" class="screen hidden">
+  <div style="font-size:56px">🌅</div>
+  <div class="title" style="color:var(--gold)">THE PACT IS FULFILLED</div>
+  <div class="story" id="victoryStats"></div>
+  <button class="btn" id="btnEndless">ENDLESS NIGHT</button>
+  <button class="btn small" id="btnVicMenu">MAIN MENU</button>
+</div>
+
+<script src="audio/manifest.js"></script><!-- valgfri: gjør at lyden virker uten webserver (file://) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+"use strict";
+/* ============================================================
+   DØDENS PRÆRIE — zombie-western FPS
+   Mio + brødrene John, Sigbjørn & Kristoffer mot viruset.
+   ============================================================ */
+
+// ---------------- utils ----------------
+const rnd=(a,b)=>a+Math.random()*(b-a);
+const ri=(a,b)=>Math.floor(rnd(a,b+1));
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const V3=(x=0,y=0,z=0)=>new THREE.Vector3(x,y,z);
+const $=id=>document.getElementById(id);
+
+function raySphere(o,d,c,r){ // origin,dir(norm),center,radius -> t or -1
+  const oc=V3().subVectors(o,c);
+  const b=oc.dot(d), cc=oc.dot(oc)-r*r, disc=b*b-cc;
+  if(disc<0)return -1;
+  const t=-b-Math.sqrt(disc);
+  return t>0?t:-1;
+}
+function makeCanvasTex(w,h,fn){
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+  fn(cv.getContext('2d'),w,h);
+  const t=new THREE.CanvasTexture(cv);return t;
+}
+function textSprite(text,color='#e8d9b0',size=42,scale=1.6,glow){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;
+  const g=cv.getContext('2d');
+  g.font=`bold ${size}px "Special Elite",serif`;g.textAlign='center';g.textBaseline='middle';
+  if(glow){ // sjølvlysande etikett — fleire glødpass + varm kjerne
+    g.shadowColor=color;g.shadowBlur=20;
+    g.fillStyle=color;
+    g.fillText(text,128,34);g.fillText(text,128,34);g.fillText(text,128,34);
+    g.shadowBlur=4;g.fillStyle='#fff2d8';
+    g.fillText(text,128,34);
+  }else{
+    g.shadowColor='#000';g.shadowBlur=6;
+    g.fillStyle=color;g.fillText(text,128,34);
+  }
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthTest:false}));
+  sp.scale.set(scale,scale*0.25,1);
+  return sp;
+}
+
+// ---------------- AUDIO (all procedural, Web Audio) ----------------
+const AU={ctx:null,master:null,sfx:null,mus:null,noise:null,muted:false,
+  drone:null,droneGain:null,droneFilter:null,mode:'off',
+  kickT:0,pluckT:0,cricketT:0,windGain:null,windT:0,heartT:0};
+
+function auInit(){
+  if(AU.ctx)return;
+  const C=window.AudioContext||window.webkitAudioContext;
+  AU.ctx=new C();
+  AU.master=AU.ctx.createGain();AU.master.gain.value=0.9;AU.master.connect(AU.ctx.destination);
+  AU.sfx=AU.ctx.createGain();AU.sfx.gain.value=0.85;AU.sfx.connect(AU.master);
+  AU.mus=AU.ctx.createGain();AU.mus.gain.value=0.32;AU.mus.connect(AU.master);
+  // noise buffer
+  const len=AU.ctx.sampleRate*2, buf=AU.ctx.createBuffer(1,len,AU.ctx.sampleRate), d=buf.getChannelData(0);
+  for(let i=0;i<len;i++)d[i]=Math.random()*2-1;
+  AU.noise=buf;
+  // wind loop
+  const wsrc=AU.ctx.createBufferSource();wsrc.buffer=AU.noise;wsrc.loop=true;
+  const bp=AU.ctx.createBiquadFilter();bp.type='bandpass';bp.frequency.value=420;bp.Q.value=0.6;
+  AU.windGain=AU.ctx.createGain();AU.windGain.gain.value=0.05;
+  wsrc.connect(bp);bp.connect(AU.windGain);AU.windGain.connect(AU.master);wsrc.start();
+}
+function auResume(){if(AU.ctx&&AU.ctx.state==='suspended')AU.ctx.resume();}
+function toggleMute(){
+  if(!AU.ctx)return;
+  AU.muted=!AU.muted;
+  AU.master.gain.value=AU.muted?0:0.9;
+  for(const k in MFILES)MFILES[k].muted=AU.muted;
+  if(VOICE.cur)VOICE.cur.muted=AU.muted;
+  toast(AU.muted?'Sound off':'Sound on');
+}
+
+function _env(g,t0,a,peak,dur){g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(peak,t0+a);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);}
+function _noiseHit(dur,peak,filterType,freq,q=1){
+  if(!AU.ctx||!(peak>0.001))return;const t=AU.ctx.currentTime;
+  const s=AU.ctx.createBufferSource();s.buffer=AU.noise;
+  const f=AU.ctx.createBiquadFilter();f.type=filterType;f.frequency.value=freq;f.Q.value=q;
+  const g=AU.ctx.createGain();_env(g,t,0.004,peak,dur);
+  s.connect(f);f.connect(g);g.connect(AU.sfx);s.start(t);s.stop(t+dur+0.05);
+}
+function _tone(type,f0,f1,dur,peak,dest){
+  if(!AU.ctx||!(peak>0.001))return;const t=AU.ctx.currentTime;
+  const o=AU.ctx.createOscillator();o.type=type;
+  o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(Math.max(1,f1),t+dur);
+  const g=AU.ctx.createGain();_env(g,t,0.005,peak,dur);
+  o.connect(g);g.connect(dest||AU.sfx);o.start(t);o.stop(t+dur+0.05);
+}
+function sfxShot(kind,vol=1){
+  if(!AU.ctx)return;
+  if(sfxFile(kind,vol*0.9))return;
+  if(kind==='revolver'){_noiseHit(0.16,0.7*vol,'lowpass',2600);_tone('square',180,40,0.12,0.35*vol);}
+  else if(kind==='hagle'){_noiseHit(0.3,0.9*vol,'lowpass',1400);_tone('square',120,30,0.2,0.45*vol);_noiseHit(0.4,0.25*vol,'highpass',3000);}
+  else if(kind==='gatling'){_noiseHit(0.07,0.45*vol,'lowpass',3200);_tone('square',240,70,0.05,0.18*vol);}
+  else if(kind==='npc'){_noiseHit(0.12,0.28*vol,'lowpass',2200);_tone('square',160,45,0.09,0.14*vol);}
+}
+function sfxWhip(){ // øksehugg
+  if(sfxFile('oks'))return;
+  _noiseHit(0.08,0.5,'highpass',2200,2);_tone('square',300,60,0.12,0.3);_noiseHit(0.12,0.3,'lowpass',900);
+}
+function sfxExplosion(){
+  if(sfxFile('explosion'))return;
+  _noiseHit(0.8,1.0,'lowpass',700);_tone('sine',110,25,0.7,0.8);
+  setTimeout(()=>_noiseHit(0.5,0.3,'lowpass',300),80);
+}
+function sfxBazooka(){
+  if(sfxFile('bazooka'))return;
+  _noiseHit(0.4,0.7,'lowpass',1200);_tone('sawtooth',300,80,0.5,0.4);
+}
+function sfxThunder(){
+  if(sfxFile('thunder'))return;
+  _noiseHit(2.4,0.75,'lowpass',180);_tone('sine',55,22,1.8,0.5);
+  setTimeout(()=>_noiseHit(1.4,0.35,'lowpass',120),400);
+}
+function sfxDog(vol){
+  if(sfxFile('dog',vol))return;
+  _tone('square',620,380,0.08,0.12*vol);
+  setTimeout(()=>_tone('square',660,400,0.07,0.1*vol),140);
+}
+function sfxOverheat(){
+  if(sfxFile('overheat'))return;
+  _noiseHit(1.0,0.4,'highpass',3500,1);_tone('sawtooth',900,200,0.8,0.2);
+}
+function sfxKaijuRoar(vol){ // kolossen — grufullt vræl
+  if(sfxFile('kaiju',vol))return;
+  _tone('sawtooth',42,16,2.6,0.9*vol);_tone('sawtooth',31,12,2.6,0.8*vol);
+  _tone('square',900,200,1.4,0.25*vol); // skingrande topp
+  _noiseHit(2.2,0.6*vol,'lowpass',300);
+}
+function sfxKaijuStep(vol){
+  if(sfxFile('stomp',vol))return;
+  _tone('sine',48,18,0.5,0.9*vol);_noiseHit(0.4,0.5*vol,'lowpass',180);
+}
+function sfxHorse(vol){
+  if(sfxFile('horse',vol))return;
+  _tone('sawtooth',740,320,0.55,0.14*vol);
+  setTimeout(()=>_tone('sawtooth',620,280,0.4,0.1*vol),160);
+}
+function sfxSlowmo(){
+  if(sfxFile('slowmo'))return;
+  _tone('sine',400,50,0.8,0.5);_noiseHit(0.7,0.2,'lowpass',600);
+}
+function sfxCreak(){ // gammal kyrkjedør som knirkar opp
+  if(sfxFile('creak'))return;
+  _tone('sawtooth',320,140,1.8,0.18);
+  setTimeout(()=>_tone('sawtooth',260,105,1.4,0.15),600);
+  setTimeout(()=>_noiseHit(0.4,0.2,'lowpass',400),1900);
+}
+function sfxNuke(){
+  if(sfxFile('nuke'))return;
+  _noiseHit(5,1.2,'lowpass',300);_tone('sine',60,14,4.5,1.0);
+  setTimeout(()=>_noiseHit(3.5,0.6,'lowpass',150),1200);
+  setTimeout(()=>_noiseHit(2.5,0.3,'lowpass',100),3200);
+}
+// motorsag — kontinuerleg rusing mens avtrekkaren er inne
+function sawSet(on){
+  if(!AU.ctx)return;
+  if(on&&!AU.saw){
+    if(SFILES.has('motorsag.mp3')){
+      const a=new Audio('audio/sfx/motorsag.mp3');
+      a.loop=true;a.volume=0.7;a.muted=AU.muted;
+      a.play().catch(()=>{});
+      AU.saw={file:a};return;
+    }
+    const g=AU.ctx.createGain();g.gain.value=0.2;
+    const o=AU.ctx.createOscillator();o.type='sawtooth';o.frequency.value=95;
+    const o2=AU.ctx.createOscillator();o2.type='square';o2.frequency.value=47;
+    const fl=AU.ctx.createBiquadFilter();fl.type='lowpass';fl.frequency.value=950;
+    const lfo=AU.ctx.createOscillator();lfo.frequency.value=13;
+    const lg=AU.ctx.createGain();lg.gain.value=32;
+    lfo.connect(lg);lg.connect(o.frequency);
+    o.connect(fl);o2.connect(fl);fl.connect(g);g.connect(AU.sfx);
+    o.start();o2.start();lfo.start();
+    AU.saw={osc:[o,o2,lfo],gain:g};
+  }else if(!on&&AU.saw){
+    if(AU.saw.file)AU.saw.file.pause();
+    else try{AU.saw.osc.forEach(x=>x.stop());}catch(e){}
+    AU.saw=null;
+  }
+}
+function sfxReload(){if(sfxFile('reload'))return;_tone('square',700,500,0.05,0.12);setTimeout(()=>_tone('square',500,900,0.05,0.12),140);}
+function sfxDry(){if(sfxFile('dry'))return;_tone('square',300,250,0.04,0.1);}
+function sfxPickup(){if(sfxFile('pickup'))return;_tone('triangle',520,880,0.12,0.25);setTimeout(()=>_tone('triangle',700,1200,0.12,0.2),90);}
+function sfxHeal(){if(sfxFile('heal'))return;_tone('triangle',400,800,0.3,0.2);}
+function sfxClick(){_tone('square',800,600,0.03,0.08);}
+function sfxHit(head){if(sfxFile(head?'headshot':'hit',0.5))return;_tone('square',head?1400:900,head?1100:700,0.05,head?0.22:0.15);}
+function sfxHurt(){if(sfxFile('hurt'))return;_noiseHit(0.2,0.4,'lowpass',900);_tone('sawtooth',220,90,0.25,0.3);}
+function sfxGroan(dist){
+  if(!AU.ctx)return;const vol=clamp(1-dist/34,0,1)*0.24;if(vol<0.02)return; // dempa — stemning, ikkje støy
+  if(sfxFile('groan'+ri(1,3),vol*2))return;
+  const t=AU.ctx.currentTime,dur=rnd(0.5,1.1);
+  const o=AU.ctx.createOscillator();o.type='sawtooth';
+  const f0=rnd(65,110);o.frequency.setValueAtTime(f0,t);
+  o.frequency.linearRampToValueAtTime(f0*rnd(0.7,0.9),t+dur);
+  const fl=AU.ctx.createBiquadFilter();fl.type='lowpass';fl.frequency.value=400;
+  const g=AU.ctx.createGain();_env(g,t,0.1,vol,dur);
+  o.connect(fl);fl.connect(g);g.connect(AU.sfx);o.start(t);o.stop(t+dur+0.05);
+}
+function sfxZombieDie(){if(sfxFile('zdie',0.6))return;_tone('sawtooth',140,40,0.4,0.3);_noiseHit(0.25,0.25,'lowpass',600);}
+function sfxRoar(){
+  if(sfxFile('roar'))return;
+  _tone('sawtooth',90,35,1.4,0.7);_tone('sawtooth',65,28,1.4,0.6);
+  _noiseHit(1.2,0.5,'lowpass',500);
+}
+function sfxBell(n=1){
+  if(!AU.ctx)return;
+  for(let i=0;i<n;i++)setTimeout(()=>{if(sfxFile('bell'))return;_tone('sine',660,650,1.6,0.3);_tone('sine',990,980,1.2,0.12);},i*1300);
+}
+function sfxBark(pitch){_tone('square',pitch,pitch*0.85,0.07,0.06);}
+function sfxHeart(){_tone('sine',55,40,0.12,0.5);setTimeout(()=>_tone('sine',50,38,0.1,0.35),180);}
+
+// music engine — called each frame
+function musicSet(mode){
+  if(!AU.ctx||AU.mode===mode)return;
+  AU.mode=mode;
+  if(AU.drone){try{AU.drone.forEach(o=>o.stop());}catch(e){}AU.drone=null;}
+  // filbasert musikk hvis tilgjengelig — 'final' overtar nattemusikken på gatling-nivåene
+  const fkey=(mode==='night'&&G.night>=10&&MFILES.final)?'final':mode;
+  for(const k in MFILES){
+    const a=MFILES[k];
+    if(k===fkey){a.volume=AU.muted?0:(mode==='boss'?0.6:0.42);a.play().catch(()=>{});}
+    else{a.volume=0;a.pause();}
+  }
+  if(MFILES[fkey])return;
+  if(mode==='night'||mode==='boss'){
+    const t=AU.ctx.currentTime;
+    const g=AU.ctx.createGain();g.gain.value=0.0001;
+    g.gain.exponentialRampToValueAtTime(mode==='boss'?0.16:0.1,t+2);
+    const fl=AU.ctx.createBiquadFilter();fl.type='lowpass';fl.frequency.value=mode==='boss'?520:320;
+    const o1=AU.ctx.createOscillator(),o2=AU.ctx.createOscillator();
+    o1.type='sawtooth';o2.type='sawtooth';
+    const base=mode==='boss'?55:41;
+    o1.frequency.value=base;o2.frequency.value=base*1.007;
+    o1.connect(fl);o2.connect(fl);fl.connect(g);g.connect(AU.mus);
+    o1.start();o2.start();
+    AU.drone=[o1,o2];AU.droneGain=g;
+  }
+}
+function musicTick(dt){
+  if(!AU.ctx||AU.muted)return;
+  AU.windT+=dt;
+  AU.windGain.gain.value=0.035+0.03*(0.5+0.5*Math.sin(AU.windT*0.35))+(G.phase==='night'?0.015:0);
+  if(AU.mode==='day'&&!MFILES.day){
+    AU.pluckT-=dt;
+    if(AU.pluckT<=0){
+      AU.pluckT=rnd(1.8,4.2);
+      const scale=[196,220,261.6,293.7,329.6,392,440];
+      const n=scale[ri(0,scale.length-1)];
+      _tone('triangle',n,n*0.995,1.1,0.14,AU.mus);
+      if(Math.random()<0.4)setTimeout(()=>{const m=scale[ri(0,scale.length-1)];_tone('triangle',m,m,0.9,0.1,AU.mus);},rnd(200,500));
+    }
+  }else if((AU.mode==='night'||AU.mode==='boss')&&!MFILES[AU.mode]){
+    AU.kickT-=dt;
+    if(AU.kickT<=0){
+      AU.kickT=AU.mode==='boss'?0.55:1.05;
+      _tone('sine',80,30,0.25,AU.mode==='boss'?0.4:0.28,AU.mus);
+    }
+  }
+  if(G.phase==='night'){
+    AU.cricketT-=dt;
+    if(AU.cricketT<=0){AU.cricketT=rnd(0.4,1.6);if(Math.random()<0.5)_noiseHit(0.04,0.03,'highpass',4200,6);}
+  }
+  // low-hp heartbeat
+  if((G.phase==='day'||G.phase==='night')&&P.hp>0&&P.hp<30){
+    AU.heartT-=dt;
+    if(AU.heartT<=0){AU.heartT=1.0;sfxHeart();}
+  }
+}
+
+// ---------------- ELEVENLABS STEMMER & MUSIKK (valgfritt) ----------------
+// Kjør `node generate-audio.js` med en ElevenLabs-nøkkel for å lage lydfilene.
+// Finnes de ikke, brukes den prosedyregenererte lyden i stedet.
+const MFILES={}; // 'day'/'night'/'boss' -> HTMLAudio (loop)
+const VOICE={files:null,cur:null};
+function slugWho(w){return w.toLowerCase().replace(/[^a-z0-9]/g,'');}
+function h32(s){let h=5381;for(let i=0;i<s.length;i++)h=((h*33)^s.charCodeAt(i))>>>0;return h.toString(16);}
+function applyManifest(m){
+  if(!m)return;
+  VOICE.files=new Set(m.voice||[]);
+  for(const f of (m.sfx||[]))SFILES.add(f);
+  for(const f of (m.music||[])){
+    const key=f.replace(/\.mp3$/,'');
+    const a=new Audio('audio/music/'+f);
+    a.loop=true;a.volume=0;
+    MFILES[key]=a;
+  }
+  console.log('Lyd lastet:',(m.voice||[]).length,'replikker,',(m.music||[]).length,'musikkspor');
+}
+// prøv manifest.json (webserver) — fall tilbake til innbakt manifest.js (dobbeltklikk/file://)
+fetch('audio/manifest.json')
+  .then(r=>r.ok?r.json():null)
+  .catch(()=>null)
+  .then(m=>applyManifest(m||window.EMBEDDED_MANIFEST));
+function playVoice(who,text){
+  if(!VOICE.files)return false;
+  const f=slugWho(who)+'_'+h32(text)+'.mp3';
+  if(!VOICE.files.has(f))return false;
+  if(VOICE.cur)VOICE.cur.pause();
+  const a=new Audio('audio/voice/'+f);
+  a.volume=0.95;a.muted=AU.muted;
+  a.play().catch(()=>{});
+  VOICE.cur=a;
+  return true;
+}
+function stopVoice(){if(VOICE.cur){VOICE.cur.pause();VOICE.cur=null;}}
+// filbaserte lydeffekter: legg egne opptak i audio/sfx/<navn>.mp3 (se LYDLISTE.md)
+const SFILES=new Set();
+function sfxFile(name,vol){
+  if(!SFILES.has(name+'.mp3'))return false;
+  const a=new Audio('audio/sfx/'+name+'.mp3');
+  a.volume=clamp(vol===undefined?0.9:vol,0,1);
+  a.muted=AU.muted;
+  a.play().catch(()=>{});
+  return true;
+}
+</script>
+<script>
+// ---------------- GLOBAL STATE ----------------
+const G={
+  state:'menu',        // menu | cutscene | playing | paused | dead | victory | dawnfade
+  phase:'day',         // day | night
+  day:1, night:0,
+  dayLen:50, phaseT:50,
+  kills:0, headshots:0, score:0, best:0,
+  pending:0, spawnT:0, aliveCap:20,
+  boss:null, bossPending:false, bossT:0,
+  endless:false, bossCount:0,
+  shake:0, time:0, envMix:0, // 0=dag 1=natt
+  tutorialT:0, barkT:8,
+  paused:false
+};
+try{G.best=parseInt(localStorage.getItem('dp_best')||'0')||0;}catch(e){}
+
+// ---------------- RENDERER / SCENE ----------------
+const renderer=new THREE.WebGLRenderer({canvas:$('c'),antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0xbfd3e0);
+scene.fog=new THREE.FogExp2(0xbfd3e0,0.006);
+
+const camera=new THREE.PerspectiveCamera(72,innerWidth/innerHeight,0.08,3400); // langt nok til å sjå KOLOSSEN i det fjerne
+camera.rotation.order='YXZ';
+scene.add(camera);
+
+addEventListener('resize',()=>{
+  camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+// lights
+const hemi=new THREE.HemisphereLight(0xdfe8f0,0x8a6b4a,0.75);scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xffe8c0,0.95);
+sun.position.set(30,50,20);sun.castShadow=true;
+sun.shadow.mapSize.set(1024,1024);
+sun.shadow.camera.left=-85;sun.shadow.camera.right=85;
+sun.shadow.camera.top=85;sun.shadow.camera.bottom=-85;
+sun.shadow.camera.far=140;
+scene.add(sun);
+const amb=new THREE.AmbientLight(0x404050,0.3);scene.add(amb);
+
+// sky sprites
+function skySprite(color,size){
+  const cv=document.createElement('canvas');cv.width=128;cv.height=128;
+  const g=cv.getContext('2d');
+  const gr=g.createRadialGradient(64,64,8,64,64,64);
+  gr.addColorStop(0,color);gr.addColorStop(0.5,color+'cc');gr.addColorStop(1,color+'00');
+  g.fillStyle=gr;g.fillRect(0,0,128,128);
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,fog:false,depthWrite:false}));
+  sp.scale.set(size,size,1);return sp;
+}
+const sunSprite=skySprite('#fff3c8',36);sunSprite.position.set(80,70,-120);scene.add(sunSprite);
+const moonSprite=skySprite('#cfd8ee',22);moonSprite.position.set(-90,80,-110);scene.add(moonSprite);
+
+// stars
+const starGeo=new THREE.BufferGeometry();
+{
+  const pos=[];
+  for(let i=0;i<420;i++){
+    const th=rnd(0,Math.PI*2),ph=rnd(0.12,1.35),r=220;
+    pos.push(r*Math.cos(th)*Math.sin(ph),r*Math.cos(ph)+30,r*Math.sin(th)*Math.sin(ph));
+  }
+  starGeo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+}
+const starMat=new THREE.PointsMaterial({color:0xdfe8ff,size:2,transparent:true,opacity:0,fog:false,sizeAttenuation:false});
+const stars=new THREE.Points(starGeo,starMat);scene.add(stars);
+
+// ---------------- GROUND ----------------
+const sandTex=makeCanvasTex(512,512,(g,w,h)=>{
+  g.fillStyle='#c2996a';g.fillRect(0,0,w,h);
+  for(let i=0;i<9000;i++){
+    g.fillStyle='rgba('+ri(140,205)+','+ri(105,160)+','+ri(60,105)+','+rnd(0.08,0.3).toFixed(2)+')';
+    g.fillRect(rnd(0,w),rnd(0,h),rnd(1,3),rnd(1,3));
+  }
+});
+sandTex.wrapS=sandTex.wrapT=THREE.RepeatWrapping;sandTex.repeat.set(38,38);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(900,900),new THREE.MeshLambertMaterial({map:sandTex}));
+ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
+// road strips
+const roadMat=new THREE.MeshLambertMaterial({color:0x9a7850});
+const road1=new THREE.Mesh(new THREE.PlaneGeometry(6.5,120),roadMat);
+road1.rotation.x=-Math.PI/2;road1.position.set(0,0.02,24);scene.add(road1); // hovudgata endar ved kyrkja
+const road2=new THREE.Mesh(new THREE.PlaneGeometry(140,5.5),roadMat);
+road2.rotation.x=-Math.PI/2;road2.position.set(0,0.02,2);scene.add(road2);
+const road3=new THREE.Mesh(new THREE.PlaneGeometry(110,4.5),roadMat);
+road3.rotation.x=-Math.PI/2;road3.position.set(0,0.02,25);scene.add(road3);
+const road4=new THREE.Mesh(new THREE.PlaneGeometry(110,4.5),roadMat);
+road4.rotation.x=-Math.PI/2;road4.position.set(0,0.02,-20);scene.add(road4);
+// sidegater i rutenett
+const road5=new THREE.Mesh(new THREE.PlaneGeometry(4.5,90),roadMat);
+road5.rotation.x=-Math.PI/2;road5.position.set(-22,0.02,14);scene.add(road5);
+const road6=new THREE.Mesh(new THREE.PlaneGeometry(4.5,90),roadMat);
+road6.rotation.x=-Math.PI/2;road6.position.set(22,0.02,14);scene.add(road6);
+const road7=new THREE.Mesh(new THREE.PlaneGeometry(60,4.5),roadMat);
+road7.rotation.x=-Math.PI/2;road7.position.set(0,0.02,48);scene.add(road7);
+
+// ---------------- COLLIDERS ----------------
+const COLLIDERS=[]; // {minX,maxX,minZ,maxZ,h}
+const BUILDING_POS=[]; // mål for dødningskallane
+const BREG=[];          // bygningsregister — brann og nedbrenning
+function addCollider(x,z,w,d,pad,h){
+  pad=pad===undefined?0.3:pad;
+  COLLIDERS.push({minX:x-w/2-pad,maxX:x+w/2+pad,minZ:z-d/2-pad,maxZ:z+d/2+pad,h:h===undefined?99:h});
+}
+// tak og trapper man kan gå på
+const PLATFORMS=[]; // {minX,maxX,minZ,maxZ,top}
+const RAMPS=[];     // {x,z,dx,dz,len,w,h0,h1}
+function groundHeightAt(x,z,curY){
+  let g=0;
+  for(const p of PLATFORMS){
+    if(x>=p.minX&&x<=p.maxX&&z>=p.minZ&&z<=p.maxZ&&curY>=p.top-0.6)g=Math.max(g,p.top);
+  }
+  for(const rp of RAMPS){
+    const lx=x-rp.x,lz=z-rp.z;
+    const t=(lx*rp.dx+lz*rp.dz)/rp.len;
+    const s=lx*-rp.dz+lz*rp.dx;
+    if(t>=-0.06&&t<=1.06&&Math.abs(s)<=rp.w/2){
+      const h=lerp(rp.h0,rp.h1,clamp(t,0,1));
+      if(curY>=h-1.0)g=Math.max(g,h);
+    }
+  }
+  return g;
+}
+function addStairs(bx,bz,fw,fd,top,side){
+  const sx=bx+side*(fw/2+0.75);
+  const z0=bz+fd/2+1.6,z1=bz-fd/2+0.6;
+  const len=z0-z1;
+  RAMPS.push({x:sx,z:z0,dx:0,dz:-1,len:len,w:1.5,h0:0,h1:top});
+  const stepM=new THREE.MeshLambertMaterial({color:0x5a4328});
+  const n=Math.ceil(top/0.34);
+  for(let i=0;i<n;i++){
+    const t=(i+0.5)/n;
+    const st=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.13,len/n+0.08),stepM);
+    st.position.set(sx,t*top,z0-t*len);
+    st.castShadow=true;scene.add(st);
+  }
+}
+function collideCircle(pos,r,feetY){
+  feetY=feetY||0;
+  for(const b of COLLIDERS){
+    if(feetY>b.h-0.35)continue;
+    const cx=clamp(pos.x,b.minX,b.maxX),cz=clamp(pos.z,b.minZ,b.maxZ);
+    const dx=pos.x-cx,dz=pos.z-cz,d2=dx*dx+dz*dz;
+    if(d2<r*r){
+      if(d2<1e-6){ // inside — push out along smallest axis
+        const l=pos.x-b.minX,rr=b.maxX-pos.x,t=pos.z-b.minZ,bo=b.maxZ-pos.z;
+        const m=Math.min(l,rr,t,bo);
+        if(m===l)pos.x=b.minX-r;else if(m===rr)pos.x=b.maxX+r;
+        else if(m===t)pos.z=b.minZ-r;else pos.z=b.maxZ+r;
+      }else{
+        const dd=Math.sqrt(d2);
+        pos.x=cx+dx/dd*r;pos.z=cz+dz/dd*r;
+      }
+    }
+  }
+  // boundary
+  const dd=Math.hypot(pos.x,pos.z);
+  if(dd>160){pos.x*=160/dd;pos.z*=160/dd;}
+}
+
+// ---------------- BUILDINGS ----------------
+const WINDOW_MATS=[];
+const woodColors=[0x8a6844,0x7a5a3a,0x96714c,0x6e5236];
+const SIGNS=[];
+function drawSign(g,w,h,text){
+  g.fillStyle='#4a3320';g.fillRect(0,0,w,h);
+  g.strokeStyle='#d9a441';g.lineWidth=5;g.strokeRect(5,5,w-10,h-10);
+  g.textAlign='center';g.textBaseline='middle';
+  let size=44; // krymp skriften til teksten garantert får plass
+  do{ g.font='bold '+size+'px "Rye",serif'; size-=2; }
+  while(g.measureText(text).width>w-32&&size>14);
+  g.fillStyle='#e8d9b0';
+  g.fillText(text,w/2,h/2+3,w-28);
+}
+function signTex(text){
+  const cv=document.createElement('canvas');cv.width=320;cv.height=80;
+  drawSign(cv.getContext('2d'),320,80,text);
+  const t=new THREE.CanvasTexture(cv);
+  SIGNS.push({cv:cv,tex:t,text:text});
+  return t;
+}
+// tegn skiltene på nytt når western-fonten er ferdig lastet
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{
+  for(const s of SIGNS){drawSign(s.cv.getContext('2d'),s.cv.width,s.cv.height,s.text);s.tex.needsUpdate=true;}
+});
+function addBuilding(x,z,w,d,h,opts){
+  opts=opts||{};
+  const grp=new THREE.Group();
+  const col=opts.color||woodColors[ri(0,woodColors.length-1)];
+  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:col}));
+  body.position.y=h/2;body.castShadow=true;body.receiveShadow=true;grp.add(body);
+  // roof — flatt (med rekkverk) hvis man skal kunne gå på det, ellers spisst
+  if(opts.flat){
+    const slab=new THREE.Mesh(new THREE.BoxGeometry(w+0.3,0.3,d+0.3),new THREE.MeshLambertMaterial({color:0x4a3320}));
+    slab.position.y=h+0.15;slab.castShadow=true;grp.add(slab);
+    const parM=new THREE.MeshLambertMaterial({color:0x3a2814});
+    for(const sw of [-1,1]){
+      const p1=new THREE.Mesh(new THREE.BoxGeometry(w+0.3,0.4,0.12),parM);
+      p1.position.set(0,h+0.45,sw*(d/2+0.09));grp.add(p1);
+      const p2=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.4,d+0.3),parM);
+      p2.position.set(sw*(w/2+0.09),h+0.45,0);grp.add(p2);
+    }
+  }else{
+    const roof=new THREE.Mesh(new THREE.ConeGeometry(Math.max(w,d)*0.78,h*0.5,4),new THREE.MeshLambertMaterial({color:0x4a3320}));
+    roof.position.y=h+h*0.25;roof.rotation.y=Math.PI/4;roof.scale.set(w/Math.max(w,d),1,d/Math.max(w,d));
+    roof.castShadow=true;grp.add(roof);
+  }
+  // door
+  const door=new THREE.Mesh(new THREE.BoxGeometry(1.1,2.1,0.12),new THREE.MeshLambertMaterial({color:0x3a2814}));
+  door.position.set(0,1.05,d/2+0.05);grp.add(door);
+  grp.userData.door=door;
+  // windows
+  const nWin=opts.windows!==undefined?opts.windows:2;
+  for(let i=0;i<nWin;i++){
+    const wm=new THREE.MeshLambertMaterial({color:0x223244,emissive:0x000000});
+    WINDOW_MATS.push(wm);
+    const win=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.9,0.1),wm);
+    win.position.set((i-(nWin-1)/2)*(w/(nWin+0.4)),h*0.6,d/2+0.05);
+    grp.add(win);
+  }
+  // sign — kompakt, øverst på veggen, alltid over verandataket
+  if(opts.sign){
+    const signH=Math.min(w*0.18,0.95);
+    const sg=new THREE.Mesh(new THREE.PlaneGeometry(signH*4,signH),
+      new THREE.MeshBasicMaterial({map:signTex(opts.sign)}));
+    sg.position.set(0,h-signH/2-0.12,d/2+0.09);grp.add(sg);
+  }
+  // porch
+  if(opts.porch){
+    const pr=new THREE.Mesh(new THREE.BoxGeometry(w,0.16,1.8),new THREE.MeshLambertMaterial({color:0x6e5236}));
+    pr.position.set(0,0.08,d/2+0.95);grp.add(pr);
+    const proof=new THREE.Mesh(new THREE.BoxGeometry(w,0.12,2),new THREE.MeshLambertMaterial({color:0x4a3320}));
+    proof.position.set(0,h*0.68,d/2+1);proof.castShadow=true;grp.add(proof);
+    for(const sx of [-w/2+0.25,w/2-0.25]){
+      const post=new THREE.Mesh(new THREE.BoxGeometry(0.16,h*0.68,0.16),new THREE.MeshLambertMaterial({color:0x5a4328}));
+      post.position.set(sx,h*0.34,d/2+1.75);grp.add(post);
+    }
+  }
+  grp.position.set(x,0,z);
+  if(opts.rotY)grp.rotation.y=opts.rotY;
+  scene.add(grp);
+  const rot90=opts.rotY&&Math.abs(Math.abs(opts.rotY)-Math.PI/2)<0.01;
+  const fw=rot90?d:w, fd=rot90?w:d;
+  addCollider(x,z,fw,fd,0.3,h);
+  BUILDING_POS.push([x,z]);
+  BREG.push({x:x,z:z,grp:grp,name:opts.sign||'A HOUSE',h:h,burning:false,burned:false});
+  if(opts.flat){
+    PLATFORMS.push({minX:x-fw/2-0.15,maxX:x+fw/2+0.15,minZ:z-fd/2-0.15,maxZ:z+fd/2+0.15,top:h+0.3});
+    if(opts.stairs)addStairs(x,z,fw,fd,h+0.3,opts.stairs);
+  }
+  return grp;
+}
+
+// TOWN GRID — hovudgata nordover mot kyrkja, sidegater i rutenett, bygg pent på rekkje
+// hovudgata VEST-sida (vender mot gata)
+addBuilding(-10,-8,9,7,5,{sign:'SALOON',porch:true,rotY:Math.PI/2,color:0x96714c,flat:true,stairs:-1});
+addBuilding(-10,4,7,6,4.6,{sign:'SHERIFF',porch:true,rotY:Math.PI/2,color:0x7a5a3a,flat:true,stairs:-1});
+addBuilding(-10,16,8,6,4.8,{sign:'BANK',porch:true,rotY:Math.PI/2,color:0xd8cdb8});
+addBuilding(-10,31,7,6,4.3,{sign:'BLACKSMITH',rotY:Math.PI/2,color:0x5a4a3a});
+addBuilding(-10,40,7,6,4.4,{sign:'INN',porch:true,rotY:Math.PI/2,color:0x8a6844});
+addBuilding(-10,55,7,6,4.2,{sign:'JAIL',rotY:Math.PI/2,color:0x8f8f88});
+// hovudgata AUST-sida
+addBuilding(10,-6,8,6,4.6,{sign:'GENERAL STORE',porch:true,rotY:-Math.PI/2,color:0x8a6844,flat:true,stairs:1});
+addBuilding(10,7,7,7,4.3,{sign:'STABLE',rotY:-Math.PI/2,color:0x6e5236,flat:true,stairs:1});
+addBuilding(10,19,9,7,5.4,{sign:'HOTEL',porch:true,rotY:-Math.PI/2,color:0x96714c,flat:true,stairs:1});
+addBuilding(10,31,6,5,4.1,{sign:'POST OFFICE',rotY:-Math.PI/2,color:0x7a5a3a});
+addBuilding(10,41,8,7,4.8,{sign:'BARN',rotY:-Math.PI/2,color:0x8a3a2a});
+addBuilding(10,55,8,6,4.4,{sign:'TRADING POST',porch:true,rotY:-Math.PI/2,color:0x8a6844});
+// vestre sidegate (x=-22) — hus på begge sider vender mot gata
+addBuilding(-17,-12,6,5,3.9,{rotY:-Math.PI/2,windows:1,color:0x7a5a3a});
+addBuilding(-17,12,6,5,3.9,{rotY:-Math.PI/2,windows:1,color:0x96714c});
+addBuilding(-17,36,6,5,3.9,{rotY:-Math.PI/2,windows:1,color:0x8a6844});
+addBuilding(-27.5,-6,6,5,3.9,{rotY:Math.PI/2,windows:1,color:0x6e5236});
+addBuilding(-27.5,8,6,5,3.9,{rotY:Math.PI/2,windows:1,color:0x8a6844});
+addBuilding(-27.5,32,6,5,3.9,{rotY:Math.PI/2,windows:1,color:0x7a5a3a});
+addBuilding(-27.5,42,6,5,3.9,{rotY:Math.PI/2,windows:1,color:0x96714c});
+// austre sidegate (x=22)
+addBuilding(17,-14,6,5,3.9,{rotY:Math.PI/2,windows:1,color:0x8a6844});
+addBuilding(17,33,6,5,3.9,{rotY:Math.PI/2,windows:1,color:0x6e5236});
+addBuilding(27.5,-8,6,5,3.9,{rotY:-Math.PI/2,windows:1,color:0x7a5a3a});
+addBuilding(27.5,4,6,5,3.9,{rotY:-Math.PI/2,windows:1,color:0x96714c});
+addBuilding(27.5,34,6,5,3.9,{rotY:-Math.PI/2,windows:1,color:0x8a6844});
+// hus langs tverrgatene i utkanten
+addBuilding(-38,19.5,6,5,3.9,{windows:1,color:0x7a5a3a});
+addBuilding(38,30.5,6,5,3.9,{rotY:Math.PI,windows:1,color:0x8a6844});
+addBuilding(-38,-14.5,6,5,3.9,{rotY:Math.PI,windows:1,color:0x96714c});
+addBuilding(38,-14.5,6,5,3.9,{rotY:Math.PI,windows:1,color:0x6e5236});
+addBuilding(-38,53.5,6,5,3.9,{rotY:Math.PI,windows:1,color:0x8a6844});
+addBuilding(38,42.5,6,5,3.9,{windows:1,color:0x7a5a3a});
+
+// church at north end
+{
+  const ch=addBuilding(0,-30,8,10,5,{sign:'KIRKE',color:0xd8cdb8,windows:2});
+  // tårnet svever over inngangen så døra er open inn i kyrkja
+  const tower=new THREE.Mesh(new THREE.BoxGeometry(2.6,3.8,2.6),new THREE.MeshLambertMaterial({color:0xd8cdb8}));
+  tower.position.set(0,6.1,4);tower.castShadow=true;ch.add(tower);
+  const spire=new THREE.Mesh(new THREE.ConeGeometry(2,2.6,4),new THREE.MeshLambertMaterial({color:0x4a3320}));
+  spire.position.set(0,9.3,4);spire.rotation.y=Math.PI/4;ch.add(spire);
+  const cm=new THREE.MeshLambertMaterial({color:0x2a1c12});
+  const cross=new THREE.Group();
+  const cv1=new THREE.Mesh(new THREE.BoxGeometry(0.14,1.2,0.14),cm);
+  const cv2=new THREE.Mesh(new THREE.BoxGeometry(0.7,0.14,0.14),cm);cv2.position.y=0.25;
+  cross.add(cv1);cross.add(cv2);cross.position.set(0,11.2,4);ch.add(cross);
+  const bell=new THREE.Mesh(new THREE.ConeGeometry(0.5,0.7,8),new THREE.MeshLambertMaterial({color:0xb8963e}));
+  bell.position.set(0,7.6,4);ch.add(bell);
+  G.bellMesh=bell;
+  G.church=ch;
+  G.churchColl=COLLIDERS[COLLIDERS.length-1];
+  // atombombe-rommet inne i kyrkja (skjult til siste nivå)
+  const nk=new THREE.Group();
+  const ped=new THREE.Mesh(new THREE.BoxGeometry(1.2,1,1.2),new THREE.MeshLambertMaterial({color:0x3a3f45}));
+  ped.position.set(0,0.5,-32);nk.add(ped);
+  const btn=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.34,0.18,12),
+    new THREE.MeshLambertMaterial({color:0xd42f2f,emissive:0x661010}));
+  btn.position.set(0,1.1,-32);nk.add(btn);
+  const cage=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.1,0.9),new THREE.MeshLambertMaterial({color:0xb08830}));
+  cage.position.set(0,1.02,-32);nk.add(cage);
+  const nlbl=textSprite('☢ ATOM BOMB ☢','#ff5040',40,2.2);
+  nlbl.position.set(0,2.3,-32);nk.add(nlbl);
+  const nlight=new THREE.PointLight(0xff3020,0,12,2);
+  nlight.position.set(0,2,-31);nk.add(nlight);
+  nk.visible=false;
+  scene.add(nk);
+  G.nukeRoom=nk;G.nukeLight=nlight;
+  // STOR dobbeltdør på kyrkja (hengslar i sidene, svingar opp ved Johns ordre)
+  ch.userData.door.visible=false;
+  const doorM=new THREE.MeshLambertMaterial({color:0x4a3320});
+  const goldM=new THREE.MeshLambertMaterial({color:0xb08830,emissive:0x221100});
+  // solid dørkarm rundt opninga
+  const frameM=new THREE.MeshLambertMaterial({color:0x2e2014});
+  for(const fx of [-1.72,1.72]){
+    const post=new THREE.Mesh(new THREE.BoxGeometry(0.3,3.9,0.4),frameM);
+    post.position.set(fx,1.95,5.08);ch.add(post);
+  }
+  const lintel=new THREE.Mesh(new THREE.BoxGeometry(3.9,0.36,0.4),frameM);
+  lintel.position.set(0,3.95,5.08);ch.add(lintel);
+  const step=new THREE.Mesh(new THREE.BoxGeometry(4,0.18,1.4),new THREE.MeshLambertMaterial({color:0x8f8579}));
+  step.position.set(0,0.09,5.6);ch.add(step);
+  // dørblada — hengsla utanfor veggen så dei aldri kuttar i fasaden
+  const dgL=new THREE.BoxGeometry(1.5,3.4,0.16);dgL.translate(0.75,0,0);
+  const dL=new THREE.Mesh(dgL,doorM);dL.position.set(-1.5,1.7,5.18);ch.add(dL);
+  const dgR=new THREE.BoxGeometry(1.5,3.4,0.16);dgR.translate(-0.75,0,0);
+  const dR=new THREE.Mesh(dgR,doorM);dR.position.set(1.5,1.7,5.18);ch.add(dR);
+  for(const dd of [[dL,0.75],[dR,-0.75]]){
+    const cv1=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.9,0.05),goldM);
+    cv1.position.set(dd[1],0.4,0.1);dd[0].add(cv1);
+    const cv2=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.1,0.05),goldM);
+    cv2.position.set(dd[1],0.6,0.1);dd[0].add(cv2);
+  }
+  G.churchDoors=[dL,dR];
+  // døropning (mørk) + innvendige vegger (synlege frå innsida)
+  const opening=new THREE.Mesh(new THREE.PlaneGeometry(3.2,3.7),
+    new THREE.MeshBasicMaterial({color:0x0c0804}));
+  opening.position.set(0,1.85,5.12);opening.visible=false;ch.add(opening);
+  // varmt lys innanfrå så opninga faktisk ser open ut
+  const doorGlow=new THREE.PointLight(0xff8840,0,10,2);
+  doorGlow.position.set(0,2,3);ch.add(doorGlow);
+  G.churchGlow=doorGlow;
+  G.churchOpening=opening;
+  const inner=new THREE.Mesh(new THREE.BoxGeometry(7.4,4.7,9.4),
+    new THREE.MeshLambertMaterial({color:0x3a2a1a,side:THREE.BackSide}));
+  inner.position.set(0,2.35,0);inner.visible=false;ch.add(inner);
+  G.churchInner=inner;
+}
+function openChurch(){
+  if(G.churchOpen)return;
+  G.churchOpen=true;
+  G.doorAnimT=0; // dørene svingar sakte opp (animert i updateAmbient)
+  G.churchOpening.visible=true;
+  G.churchInner.visible=true;
+  sfxCreak();
+  const i=COLLIDERS.indexOf(G.churchColl);
+  if(i>=0)COLLIDERS.splice(i,1);
+  // vegger med opning i front
+  addCollider(-4.2,-30,0.7,10.6,0.1);addCollider(4.2,-30,0.7,10.6,0.1);
+  addCollider(0,-35.2,8.6,0.7,0.1);
+  addCollider(-2.8,-24.8,3,0.7,0.1);addCollider(2.8,-24.8,3,0.7,0.1);
+  G.nukeRoom.visible=true;
+  banner('','☢ THE CHURCH DOOR HAS OPENED ☢');
+  toast('Something waits inside the church...','bad');
+}
+// atomsopp-animasjon
+const NUKE={active:false,t:0,built:false,stem:null,cap:null,ring:null,glow:null};
+function buildNuke(){
+  if(NUKE.built)return;
+  NUKE.built=true;
+  const smokeM=new THREE.MeshLambertMaterial({color:0x9a9088,emissive:0x664422,emissiveIntensity:0.5});
+  const stem=new THREE.Mesh(new THREE.CylinderGeometry(3.5,5.5,1,14),smokeM);
+  stem.position.set(0,0.5,-5);scene.add(stem);
+  const cap=new THREE.Mesh(new THREE.SphereGeometry(1,16,12),smokeM.clone());
+  cap.scale.set(1,0.62,1);cap.position.set(0,2,-5);scene.add(cap);
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(3,1.2,8,24),
+    new THREE.MeshBasicMaterial({color:0xffe8c0,transparent:true,opacity:0.85}));
+  ring.rotation.x=Math.PI/2;ring.position.set(0,1.2,-5);scene.add(ring);
+  const glow=new THREE.PointLight(0xff8830,0,120,1.5);
+  glow.position.set(0,6,-5);scene.add(glow);
+  NUKE.stem=stem;NUKE.cap=cap;NUKE.ring=ring;NUKE.glow=glow;
+  stem.visible=cap.visible=ring.visible=false;
+}
+function updateNuke(dt){
+  if(!NUKE.active)return;
+  NUKE.t+=dt;
+  const t=NUKE.t;
+  NUKE.stem.visible=NUKE.cap.visible=NUKE.ring.visible=true;
+  const h=Math.min(30,t*4.5);          // søyla veks
+  NUKE.stem.scale.set(1+t*0.12,h,1+t*0.12);
+  NUKE.stem.position.y=h/2;
+  NUKE.cap.position.y=h+2;
+  const cs=Math.min(16,2+t*2.4);       // soppen breier seg
+  NUKE.cap.scale.set(cs,cs*0.62,cs);
+  const rs=1+t*7;                       // trykkbølgja
+  NUKE.ring.scale.set(rs,rs,1);
+  NUKE.ring.material.opacity=Math.max(0,0.85-t*0.12);
+  NUKE.glow.intensity=Math.max(0,8-t*0.9);
+  G.shake=Math.max(G.shake,Math.max(0,0.6-t*0.06));
+  if(Math.random()<0.5)spawnParts(V3(rnd(-6,6),rnd(0,h),-5+rnd(-6,6)),1,0x777068,2,1.4,-1.5);
+  // himmelen mørknar til oske
+  _sky.setHex(0x4a3a30);scene.background=_sky;scene.fog.color.copy(_sky);
+  scene.fog.density=0.014;
+}
+// gravestones
+for(let i=0;i<9;i++){
+  const gs=new THREE.Mesh(new THREE.BoxGeometry(0.7,rnd(0.8,1.2),0.18),
+    new THREE.MeshLambertMaterial({color:0x8f8f88}));
+  gs.position.set(rnd(-8,8)-6,0.5,rnd(-40,-35));
+  gs.rotation.y=rnd(-0.3,0.3);gs.rotation.z=rnd(-0.12,0.12);
+  gs.castShadow=true;scene.add(gs);
+}
+
+// well (center)
+{
+  const well=new THREE.Group();
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.3,1,10),new THREE.MeshLambertMaterial({color:0x8f8579}));
+  base.position.y=0.5;base.castShadow=true;well.add(base);
+  const rf=new THREE.Mesh(new THREE.ConeGeometry(1.5,1,6),new THREE.MeshLambertMaterial({color:0x4a3320}));
+  rf.position.y=2.6;rf.castShadow=true;well.add(rf);
+  for(const sx of [-1,1]){
+    const p=new THREE.Mesh(new THREE.BoxGeometry(0.14,1.7,0.14),new THREE.MeshLambertMaterial({color:0x5a4328}));
+    p.position.set(sx*1.05,1.75,0);well.add(p);
+  }
+  well.position.set(0,0,-1);scene.add(well);
+  addCollider(0,-1,2.6,2.6,0.15);
+}
+
+// mine (east)
+{
+  const mine=new THREE.Group();
+  const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(6,0),new THREE.MeshLambertMaterial({color:0x7a6a58}));
+  rock.position.set(0,2.5,0);rock.scale.set(1.4,0.9,1);rock.castShadow=true;mine.add(rock);
+  const frameM=new THREE.MeshLambertMaterial({color:0x4a3320});
+  const f1=new THREE.Mesh(new THREE.BoxGeometry(0.4,3.2,0.4),frameM);f1.position.set(-1.6,1.6,4.6);mine.add(f1);
+  const f2=f1.clone();f2.position.x=1.6;mine.add(f2);
+  const f3=new THREE.Mesh(new THREE.BoxGeometry(4,0.45,0.5),frameM);f3.position.set(0,3.2,4.6);mine.add(f3);
+  const hole=new THREE.Mesh(new THREE.PlaneGeometry(2.9,2.9),new THREE.MeshBasicMaterial({color:0x030303}));
+  hole.position.set(0,1.45,4.55);mine.add(hole);
+  G.mineEyes=[];
+  for(let i=0;i<2;i++){
+    const e=skySprite('#ff2211',0.5);
+    e.position.set(-0.35+i*0.7,1.5,4.4);e.material.opacity=0;mine.add(e);G.mineEyes.push(e);
+  }
+  mine.position.set(34,0,20);mine.rotation.y=-0.9;scene.add(mine);
+  addCollider(34,20,9,7,0.4);
+  G.minePos=V3(34,0,20);
+  const cart=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.9,1),new THREE.MeshLambertMaterial({color:0x3a3a3a}));
+  cart.position.set(30,0.55,24);cart.rotation.y=0.5;cart.castShadow=true;scene.add(cart);
+}
+
+// props
+const propM={barrel:new THREE.MeshLambertMaterial({color:0x6e4f2e}),crate:new THREE.MeshLambertMaterial({color:0x9a7850}),
+  cactus:new THREE.MeshLambertMaterial({color:0x4a7a3a}),rock:new THREE.MeshLambertMaterial({color:0x8a8078})};
+function addBarrel(x,z){
+  const b=new THREE.Mesh(new THREE.CylinderGeometry(0.45,0.5,1,10),propM.barrel);
+  b.position.set(x,0.5,z);b.castShadow=true;scene.add(b);addCollider(x,z,0.95,0.95,0.05,1.05);
+}
+function addCrate(x,z,s){
+  s=s||1;
+  const c=new THREE.Mesh(new THREE.BoxGeometry(s,s,s),propM.crate);
+  c.position.set(x,s/2,z);c.rotation.y=rnd(0,1.5);c.castShadow=true;scene.add(c);addCollider(x,z,s,s,0.05,s);
+}
+addBarrel(-4.6,-4);addBarrel(-4.6,-2.6);addBarrel(6.6,3);addBarrel(-7.8,12);
+addBarrel(-21,2);addBarrel(21.5,7);addBarrel(-12,31);addBarrel(15.5,32);
+addCrate(16.5,-1,1.1);addCrate(4.2,-3.6,0.8);addCrate(29,22.5,1);addCrate(-12,11,0.9);
+addCrate(-20,-14,1);addCrate(20,20,0.9);addCrate(-27,18,0.8);addCrate(5,42,1);
+function addFence(x,z,len,rotY){
+  const f=new THREE.Group();
+  const m=new THREE.MeshLambertMaterial({color:0x6e5236});
+  for(let i=0;i<=len;i+=2){
+    const p=new THREE.Mesh(new THREE.BoxGeometry(0.12,1.1,0.12),m);p.position.set(i-len/2,0.55,0);f.add(p);
+  }
+  const r1=new THREE.Mesh(new THREE.BoxGeometry(len,0.09,0.09),m);r1.position.y=0.85;f.add(r1);
+  const r2=r1.clone();r2.position.y=0.45;f.add(r2);
+  f.position.set(x,0,z);f.rotation.y=rotY;scene.add(f);
+}
+addFence(-6,22,10,0);addFence(6,26,10,0);addFence(-20,0,12,Math.PI/2);addFence(20,-8,10,Math.PI/2);
+// cacti + rocks ring
+for(let i=0;i<80;i++){
+  const a=rnd(0,Math.PI*2),r=rnd(34,150);
+  const x=Math.cos(a)*r,z=Math.sin(a)*r;
+  if(Math.abs(x)<20&&Math.abs(z)<40)continue;
+  if(Math.random()<0.5){
+    const cac=new THREE.Group();
+    const th=rnd(1.6,2.6);
+    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.26,th,7),propM.cactus);
+    trunk.position.y=th/2;trunk.castShadow=true;cac.add(trunk);
+    const arm=new THREE.Mesh(new THREE.CylinderGeometry(0.14,0.16,0.9,6),propM.cactus);
+    arm.position.set(0.4,th*0.6,0);arm.rotation.z=-0.7;cac.add(arm);
+    cac.position.set(x,0,z);scene.add(cac);
+  }else{
+    const rk=new THREE.Mesh(new THREE.DodecahedronGeometry(rnd(0.5,1.4),0),propM.rock);
+    rk.position.set(x,0.3,z);rk.castShadow=true;scene.add(rk);
+  }
+}
+// lanterns
+G.lanterns=[];
+for(const lp of [[-4,-8],[4,-8],[-4,10],[4,10],[-4,24],[4,26],[-19,-4],[19,-2],[-19,12],[19,12],[-4,-24],[4,-26],[-4,38],[16,32]]){
+  const lx=lp[0],lz=lp[1];
+  const post=new THREE.Mesh(new THREE.BoxGeometry(0.14,2.6,0.14),new THREE.MeshLambertMaterial({color:0x2a1c12}));
+  post.position.set(lx,1.3,lz);scene.add(post);
+  const lampM=new THREE.MeshLambertMaterial({color:0xffcc66,emissive:0x000000});
+  const lamp=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.4,0.3),lampM);
+  lamp.position.set(lx,2.5,lz);scene.add(lamp);
+  const light=new THREE.PointLight(0xffaa44,0,13,2);
+  light.position.set(lx,2.6,lz);scene.add(light);
+  G.lanterns.push({light:light,mat:lampM,seed:rnd(0,10)});
+}
+
+// horse "Stjerna"
+const horse=new THREE.Group();
+{
+  const hm=new THREE.MeshLambertMaterial({color:0x5a3a22});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.9,0.7),hm);body.position.y=1.1;body.castShadow=true;horse.add(body);
+  const head=new THREE.Mesh(new THREE.BoxGeometry(0.75,0.4,0.34),hm);head.position.set(1.1,1.7,0);head.rotation.z=0.5;horse.add(head);
+  horse.userData.head=head;
+  const maneM=new THREE.MeshLambertMaterial({color:0x2a1a0c});
+  const tail=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.7,0.15),maneM);tail.position.set(-0.9,1.05,0);tail.rotation.z=0.3;horse.add(tail);
+  for(const pp of [[-0.6,-0.22],[-0.6,0.22],[0.6,-0.22],[0.6,0.22]]){
+    const leg=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.9,0.16),hm);leg.position.set(pp[0],0.45,pp[1]);horse.add(leg);
+  }
+  horse.position.set(4.5,0,40);horse.rotation.y=-0.5;scene.add(horse);
+  addCollider(4.5,40,2,1.4,0.1);
+}
+
+// tumbleweed
+const tumble=new THREE.Mesh(new THREE.IcosahedronGeometry(0.5,0),
+  new THREE.MeshBasicMaterial({color:0xa08858,wireframe:true}));
+tumble.position.set(-40,0.5,rnd(-10,10));scene.add(tumble);
+
+// ---------------- HUNDER ----------------
+const DOGS=[];
+function makeDog(color,x,z){
+  const g=new THREE.Group();
+  const m=new THREE.MeshLambertMaterial({color:color});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.72,0.34,0.26),m);body.position.y=0.42;body.castShadow=true;g.add(body);
+  const head=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.26,0.24),m);head.position.set(0.48,0.62,0);g.add(head);
+  const snout=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.12,0.14),m);snout.position.set(0.68,0.56,0);g.add(snout);
+  for(const s of [-1,1]){
+    const ear=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.12,0.05),m);ear.position.set(0.42,0.8,s*0.08);g.add(ear);
+  }
+  const tail=new THREE.Mesh(new THREE.BoxGeometry(0.26,0.06,0.06),m);tail.position.set(-0.44,0.56,0);tail.rotation.z=0.6;g.add(tail);
+  const legs=[];
+  for(const p of [[-0.26,-0.09],[-0.26,0.09],[0.26,-0.09],[0.26,0.09]]){
+    const lg=new THREE.BoxGeometry(0.07,0.28,0.07);lg.translate(0,-0.14,0);
+    const leg=new THREE.Mesh(lg,m);leg.position.set(p[0],0.28,p[1]);g.add(leg);legs.push(leg);
+  }
+  g.position.set(x,0,z);
+  scene.add(g);
+  DOGS.push({g:g,legs:legs,tail:tail,tgt:V3(x,0,z),speed:2,waitT:rnd(0,3),barkT:rnd(4,15),animT:rnd(0,9),hp:35,kind:'dog',fleeT:0});
+}
+makeDog(0x8a5a2a,8,20);makeDog(0x55504a,-12,28);makeDog(0xc8b090,15,-14);makeDog(0x3a3025,-24,-8);
+function animalFlee(a,range,dt){ // spring frå nærmaste zombie
+  a.fleeT-=dt;
+  if(a.fleeT>0)return;
+  a.fleeT=0.4;
+  for(const z of ZOMBIES){
+    const d=z.grp.position.distanceTo(a.g.position);
+    if(d<range){
+      const away=V3().subVectors(a.g.position,z.grp.position).setY(0).normalize();
+      a.tgt.copy(a.g.position).addScaledVector(away,22);
+      a.speed=a.kind==='dog'?rnd(6,7.5):rnd(5.5,7);
+      a.waitT=0;
+      return;
+    }
+  }
+}
+function updateDogs(dt){
+  for(const d of DOGS){
+    d.animT+=dt;d.barkT-=dt;
+    animalFlee(d,7,dt);
+    if(d.barkT<=0){d.barkT=rnd(6,18);sfxDog(clamp(1-d.g.position.distanceTo(camera.position)/28,0,1));}
+    if(d.waitT>0){d.waitT-=dt;for(const l of d.legs)l.rotation.x=0;}
+    else{
+      const to=V3().subVectors(d.tgt,d.g.position);to.y=0;
+      if(to.length()<0.9){
+        d.waitT=rnd(1,5);
+        const a=rnd(0,Math.PI*2),r=rnd(6,44);
+        d.tgt.set(Math.cos(a)*r,0,Math.sin(a)*r);
+        d.speed=Math.random()<0.35?rnd(5,7.5):rnd(1.6,2.8);
+      }else{
+        to.normalize();
+        const px=d.g.position.x,pz=d.g.position.z;
+        d.g.position.addScaledVector(to,d.speed*dt);
+        collideCircle(d.g.position,0.3);
+        // traff ein vegg → snu med ein gong
+        if(Math.hypot(d.g.position.x-px,d.g.position.z-pz)<d.speed*dt*0.25){
+          const a2=rnd(0,Math.PI*2),r2=rnd(6,44);
+          d.tgt.set(Math.cos(a2)*r2,0,Math.sin(a2)*r2);
+        }
+        d.g.rotation.y=Math.atan2(-to.z,to.x);
+        const sw=Math.sin(d.animT*(d.speed>4?16:9))*0.7;
+        d.legs[0].rotation.x=sw;d.legs[1].rotation.x=-sw;d.legs[2].rotation.x=-sw;d.legs[3].rotation.x=sw;
+      }
+    }
+    d.tail.rotation.y=Math.sin(d.animT*8)*0.4;
+  }
+}
+makeDog(0x9a8a70,30,8);makeDog(0x4a3a2c,-30,18);
+
+// ---------------- HESTAR SOM VANDRAR ----------------
+const HORSES=[];
+function makeRoamHorse(color,x,z){
+  const g=new THREE.Group();
+  const hm=new THREE.MeshLambertMaterial({color:color});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.9,0.7),hm);body.position.y=1.1;body.castShadow=true;g.add(body);
+  const head=new THREE.Mesh(new THREE.BoxGeometry(0.75,0.4,0.34),hm);head.position.set(1.1,1.7,0);head.rotation.z=0.5;g.add(head);
+  const tail=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.7,0.15),new THREE.MeshLambertMaterial({color:0x2a1a0c}));
+  tail.position.set(-0.9,1.05,0);tail.rotation.z=0.3;g.add(tail);
+  const legs=[];
+  for(const pp of [[-0.6,-0.22],[-0.6,0.22],[0.6,-0.22],[0.6,0.22]]){
+    const lg=new THREE.BoxGeometry(0.16,0.9,0.16);lg.translate(0,-0.45,0);
+    const leg=new THREE.Mesh(lg,hm);leg.position.set(pp[0],0.9,pp[1]);g.add(leg);legs.push(leg);
+  }
+  g.position.set(x,0,z);scene.add(g);
+  HORSES.push({g:g,legs:legs,head:head,tail:tail,tgt:V3(x,0,z),speed:1.4,waitT:rnd(1,4),neighT:rnd(10,30),animT:rnd(0,9),hp:70,kind:'horse',fleeT:0});
+}
+makeRoamHorse(0x6a4426,-20,34);makeRoamHorse(0x777066,26,-30);
+makeRoamHorse(0x33291f,-38,-6);makeRoamHorse(0x8a6a44,40,30);
+function updateHorses(dt){
+  for(const h of HORSES){
+    h.animT+=dt;h.neighT-=dt;
+    animalFlee(h,8,dt);
+    if(h.neighT<=0){h.neighT=rnd(14,34);sfxHorse(clamp(1-h.g.position.distanceTo(camera.position)/34,0,1));}
+    if(h.waitT>0){
+      h.waitT-=dt;
+      for(const l of h.legs)l.rotation.x=0;
+      h.head.position.y=1.7+Math.sin(h.animT*1.2)*0.05;
+    }else{
+      const to=V3().subVectors(h.tgt,h.g.position);to.y=0;
+      if(to.length()<1.2){
+        h.waitT=rnd(2,8);
+        const a=rnd(0,Math.PI*2),r=rnd(10,55);
+        h.tgt.set(Math.cos(a)*r,0,Math.sin(a)*r);
+        h.speed=Math.random()<0.3?rnd(5,7):rnd(1.2,2.2);
+      }else{
+        to.normalize();
+        const px=h.g.position.x,pz=h.g.position.z;
+        h.g.position.addScaledVector(to,h.speed*dt);
+        collideCircle(h.g.position,0.6);
+        if(Math.hypot(h.g.position.x-px,h.g.position.z-pz)<h.speed*dt*0.25){
+          const a2=rnd(0,Math.PI*2),r2=rnd(10,55);
+          h.tgt.set(Math.cos(a2)*r2,0,Math.sin(a2)*r2);
+        }
+        h.g.rotation.y=Math.atan2(-to.z,to.x);
+        const sw=Math.sin(h.animT*(h.speed>4?13:7))*0.55;
+        h.legs[0].rotation.x=sw;h.legs[1].rotation.x=-sw;h.legs[2].rotation.x=-sw;h.legs[3].rotation.x=sw;
+      }
+    }
+    h.tail.rotation.x=Math.sin(h.animT*3)*0.2;
+  }
+}
+
+// ---------------- KOLOSSEN — natt 10 ----------------
+const KAIJU={alive:false,dormant:false,grp:null,hp:0,maxHp:220000,parts:null,eyes:[],roarT:4,stepT:1,animT:0,fallT:0};
+function kaijuWantDist(){return 900+Math.max(0,10-G.day)*170;} // ruslar nærare for kvar dag
+function spawnKaiju(dormant){
+  // finst han alt der ute? — vekk han til live der han står
+  if(!dormant&&KAIJU.grp&&KAIJU.dormant){
+    KAIJU.dormant=false;KAIJU.alive=true;
+    KAIJU.hp=KAIJU.maxHp=220000;KAIJU.fallT=0;KAIJU.stepT=1;KAIJU.roarT=3;
+    $('bossBar').classList.add('on');
+    $('bossName').textContent='THE COLOSSUS';
+    sfxKaijuRoar(0.8);
+    return;
+  }
+  if(KAIJU.grp)scene.remove(KAIJU.grp);
+  const s=150; // ≈60x hushøgd — ein levande skyskrapar
+  const g=new THREE.Group();
+  const m=new THREE.MeshLambertMaterial({color:0x1c2418,fog:false}); // synleg gjennom dis — heilt frå starten
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.52*s,0.75*s,0.3*s),m);body.position.y=1.05*s;g.add(body);
+  const head=new THREE.Mesh(new THREE.BoxGeometry(0.36*s,0.36*s,0.36*s),m);head.position.y=1.62*s;g.add(head);
+  KAIJU.eyes=[];
+  for(const ex of [-0.09,0.09]){
+    const eye=skySprite('#ff2010',14);
+    eye.position.set(ex*s,1.66*s,0.19*s);g.add(eye);KAIJU.eyes.push(eye);
+  }
+  const armG=new THREE.BoxGeometry(0.14*s,0.68*s,0.14*s);armG.translate(0,-0.3*s,0);
+  const armL=new THREE.Mesh(armG,m);armL.position.set(-0.34*s,1.4*s,0);g.add(armL);
+  const armR=new THREE.Mesh(armG.clone(),m);armR.position.set(0.34*s,1.4*s,0);g.add(armR);
+  const legG=new THREE.BoxGeometry(0.17*s,0.7*s,0.17*s);legG.translate(0,-0.35*s,0);
+  const legL=new THREE.Mesh(legG,m);legL.position.set(-0.14*s,0.7*s,0);g.add(legL);
+  const legR=new THREE.Mesh(legG.clone(),m);legR.position.set(0.14*s,0.7*s,0);g.add(legR);
+  const a=rnd(0,Math.PI*2);
+  const dd=dormant?kaijuWantDist()+rnd(100,300):900;
+  g.position.set(Math.cos(a)*dd,0,Math.sin(a)*dd);
+  scene.add(g);
+  KAIJU.grp=g;KAIJU.parts={legL:legL,legR:legR,armL:armL,armR:armR};
+  KAIJU.hp=KAIJU.maxHp=220000;KAIJU.fallT=0;KAIJU.stepT=1;KAIJU.roarT=dormant?rnd(10,20):3;
+  KAIJU.dormant=!!dormant;KAIJU.alive=!dormant;KAIJU.animT=rnd(0,9);
+  if(!dormant){
+    $('bossBar').classList.add('on');
+    $('bossName').textContent='THE COLOSSUS';
+    sfxKaijuRoar(0.8);
+  }
+}
+function damageKaiju(d){
+  if(!KAIJU.alive)return;
+  KAIJU.hp-=d;
+  if(KAIJU.hp<=0){
+    KAIJU.alive=false;KAIJU.fallT=3;
+    G.kills++;G.score+=2500;G.kaijuDefeated=true;
+    sfxKaijuRoar(1);
+    toast('☠ THE COLOSSUS IS SLAIN! +2500');
+    bark('Kristoffer','He is down! Nice work, Mio!');
+    $('bossBar').classList.remove('on');
+  }
+}
+function updateKaiju(dt){
+  if(!KAIJU.grp)return;
+  if(KAIJU.fallT>0){ // kolossen stuper
+    KAIJU.fallT-=dt;
+    KAIJU.grp.rotation.x=-(3-Math.max(0,KAIJU.fallT))/3*Math.PI/2;
+    G.shake=Math.max(G.shake,0.3);
+    if(KAIJU.fallT<=0){
+      boomFx(KAIJU.grp.position.clone(),40);
+      spawnParts(KAIJU.grp.position.clone().add(V3(0,4,0)),80,0x8a7040,14,2,6);
+      sfxExplosion();G.shake=1;
+      scene.remove(KAIJU.grp);KAIJU.grp=null;
+    }
+    return;
+  }
+  if(KAIJU.dormant&&!KAIJU.alive){ // ruslar mot byen i det fjerne — heile spelet
+    const p=KAIJU.grp.position;
+    const dist=Math.hypot(p.x,p.z);
+    const want=kaijuWantDist();
+    if(dist>want+3){
+      const dir=V3(-p.x/dist,0,-p.z/dist);
+      p.addScaledVector(dir,Math.min(9,1.6+(dist-want)*0.02)*dt);
+      KAIJU.grp.rotation.y=Math.atan2(dir.x,dir.z);
+      KAIJU.animT+=dt*0.5;
+      const sw=Math.sin(KAIJU.animT)*0.3;
+      KAIJU.parts.legL.rotation.x=sw;KAIJU.parts.legR.rotation.x=-sw;
+      KAIJU.parts.armL.rotation.x=-0.5-sw*0.5;KAIJU.parts.armR.rotation.x=-0.5+sw*0.5;
+    }
+    KAIJU.roarT-=dt;
+    if(KAIJU.roarT<=0){KAIJU.roarT=rnd(20,40);sfxKaijuRoar(0.1);} // fjern buldring
+    for(const e of KAIJU.eyes)e.material.opacity=0.75+Math.sin(G.time*5)*0.25;
+    return;
+  }
+  if(!KAIJU.alive)return;
+  const p=KAIJU.grp.position;
+  const dist=Math.hypot(p.x,p.z);
+  const dir=V3(-p.x/dist,0,-p.z/dist);
+  p.addScaledVector(dir,3.4*dt);
+  KAIJU.grp.rotation.y=Math.atan2(dir.x,dir.z);
+  KAIJU.animT+=dt*0.85;
+  const sw=Math.sin(KAIJU.animT)*0.3;
+  KAIJU.parts.legL.rotation.x=sw;KAIJU.parts.legR.rotation.x=-sw;
+  KAIJU.parts.armL.rotation.x=-0.5-sw*0.5;KAIJU.parts.armR.rotation.x=-0.5+sw*0.5;
+  KAIJU.stepT-=dt;
+  if(KAIJU.stepT<=0){ // fotsteg — bakken ristar
+    KAIJU.stepT=1.85;
+    const v=clamp(1-dist/750,0.1,1);
+    sfxKaijuStep(v);
+    G.shake=Math.max(G.shake,0.75*v);
+  }
+  KAIJU.roarT-=dt;
+  if(KAIJU.roarT<=0){KAIJU.roarT=rnd(6,11);sfxKaijuRoar(clamp(1-dist/900,0.2,1));}
+  for(const e of KAIJU.eyes)e.material.opacity=0.75+Math.sin(G.time*5)*0.25;
+  $('bossHpFill').style.width=(KAIJU.hp/KAIJU.maxHp*100)+'%';
+  if(dist<130){ // han nådde byen...
+    KAIJU.alive=false;
+    G.deathReason='THE COLOSSUS reached the town and stomped it flat.';
+    for(let i=0;i<5;i++)setTimeout(()=>boomFx(V3(rnd(-30,30),0,rnd(-30,30)),25),i*300);
+    sfxExplosion();G.shake=1.2;
+    damagePlayer(9999);
+  }
+}
+
+// ---------------- FLYGANDE DØDNINGSKALLAR ----------------
+const SKULLS=[];const FIRES=[];
+function spawnSkull(){
+  const g=new THREE.Group();
+  const sk=new THREE.Mesh(new THREE.SphereGeometry(1.15,10,8),
+    new THREE.MeshLambertMaterial({color:0xe8e0d0,emissive:0x553311}));
+  g.add(sk);
+  for(const ex of [-0.42,0.42]){
+    const eye=new THREE.Mesh(new THREE.BoxGeometry(0.34,0.4,0.2),new THREE.MeshBasicMaterial({color:0x100800}));
+    eye.position.set(ex,0.15,0.95);g.add(eye);
+  }
+  const jaw=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.4,0.6),new THREE.MeshLambertMaterial({color:0xd0c8b8}));
+  jaw.position.set(0,-0.85,0.35);g.add(jaw);
+  const glow=skySprite('#ff8830',7);g.add(glow);
+  const a=rnd(0,Math.PI*2);
+  g.position.set(Math.cos(a)*rnd(260,460),rnd(150,280),Math.sin(a)*rnd(260,460));
+  // vel eit hus som ikkje alt brenn — og helst eitt ingen annan skalle siktar på
+  let cands=BREG.filter(b=>!b.burned&&!b.burning&&!SKULLS.some(s=>s.b===b));
+  if(!cands.length)cands=BREG.filter(b=>!b.burned&&!b.burning);
+  if(!cands.length)cands=BREG.filter(b=>!b.burned);
+  if(!cands.length)return;
+  const tb=cands[ri(0,cands.length-1)];
+  const v=V3(tb.x-g.position.x,2-g.position.y,tb.z-g.position.z).normalize().multiplyScalar(rnd(17,27));
+  scene.add(g);
+  SKULLS.push({m:g,v:v,hp:60,b:tb});
+}
+function damageSkull(s,d){
+  s.hp-=d;
+  if(s.hp<=0){
+    boomFx(s.m.position.clone(),5);
+    spawnParts(s.m.position,16,0xffcc66,7,0.7,4);
+    sfxZombieDie();
+    G.score+=50;G.kills++;
+    G.slowCharge=Math.min(8,(G.slowCharge||0)+1);
+    scene.remove(s.m);
+    const i=SKULLS.indexOf(s);if(i>=0)SKULLS.splice(i,1);
+    toast('Flying skull shot down! +50');
+  }
+}
+function updateSkulls(dt){
+  for(let i=SKULLS.length-1;i>=0;i--){
+    const s=SKULLS[i];
+    s.m.position.addScaledVector(s.v,dt);
+    s.m.rotation.y+=dt*3;
+    if(Math.random()<0.7)spawnParts(s.m.position,1,0xff7020,1.5,0.5,-2);
+    if(s.m.position.y<=2.2){ // nedslag — bygningen brenn!
+      explode(V3(s.b.x,0,s.b.z),80,7);
+      startFire(s.b.x,s.b.z);
+      scene.remove(s.m);SKULLS.splice(i,1);
+    }
+  }
+}
+function startFire(x,z){
+  let b=null,bd=64;
+  for(const r of BREG){
+    const d2=(r.x-x)*(r.x-x)+(r.z-z)*(r.z-z);
+    if(d2<bd){bd=d2;b=r;}
+  }
+  if(!b||b.burned)return;
+  if(b.burning){for(const f of FIRES)if(f.b===b)f.t=Math.max(0,f.t-6);return;} // meir brensel på bålet
+  b.burning=true;
+  const light=new THREE.PointLight(0xff6820,4.5,38,2);
+  light.position.set(b.x,b.h*0.7,b.z);scene.add(light);
+  const flames=[];
+  for(let i=0;i<15;i++){ // flammetunger over heile huset — indre kvitgul kjerne, ytre raud
+    const inner=Math.random()<0.4;
+    const fl=skySprite(inner?'#ffd952':(Math.random()<0.5?'#ff7020':'#ff4810'),inner?rnd(3,5):rnd(5,9));
+    fl.position.set(b.x+rnd(-3.2,3.2),rnd(0.8,b.h+2),b.z+rnd(-3.2,3.2));
+    fl.userData={seed:rnd(0,9),s:fl.scale.x,y:fl.position.y};
+    scene.add(fl);flames.push(fl);
+  }
+  FIRES.push({b:b,t:0,dur:26,light:light,flames:flames,collT:0,whT:rnd(0.4,1.2)});
+  toast('🔥 '+b.name+' IS ON FIRE!','bad');
+  if(!G.fireBark1){G.fireBark1=true;bark('Sigbjørn','A house is on fire! The flames spread fast between the buildings — shoot those skulls down!');}
+}
+function burnDownBuilding(f){
+  const b=f.b;
+  b.burned=true;b.burning=false;
+  b.grp.traverse(m=>{ // forkola vegger
+    if(m.isMesh&&m.material&&m.material.color&&!m.material.map){
+      if(m.userData.oc===undefined)m.userData.oc=m.material.color.getHex();
+      m.material.color.setHex(0x16100a);
+    }
+  });
+  spawnParts(V3(b.x,b.h*0.6,b.z),40,0x2a2018,8,1.5,3);
+  boomFx(V3(b.x,1,b.z),8);
+  G.shake=Math.max(G.shake,0.35);
+  G.burnedHouses=(G.burnedHouses||0)+1;
+  toast('🔥 '+b.name+' BURNED DOWN! ('+G.burnedHouses+'/5)','bad');
+  if(G.burnedHouses===1&&!G.fireBark2){G.fireBark2=true;bark('Kristoffer','One house is ash already! If five burn down, the whole town is lost, Mio — all hope gone!');}
+  if(G.burnedHouses===3)bark('John','The town is burning, Mio! Shoot those skulls out of the sky!');
+  if(G.burnedHouses===4&&!G.fireBark4){G.fireBark4=true;bark('Sigbjørn','FOUR houses gone! One more and Dust Valley is finished! SHOOT THE SKULLS!');}
+  if(G.burnedHouses>=5&&G.state==='playing'&&P.hp>0){
+    G.deathReason='Five buildings burned to the ground — Dust Valley was lost to the flames.';
+    damagePlayer(9999);
+  }
+  // elden SPREIER seg — nabohus innanfor 12 m kan ta fyr når eit hus brenn ned
+  if(G.burnedHouses<5&&Math.random()<0.5){
+    let nb=null,nd=144;
+    for(const r of BREG){
+      if(r===b||r.burned||r.burning)continue;
+      const d2=(r.x-b.x)*(r.x-b.x)+(r.z-b.z)*(r.z-b.z);
+      if(d2<nd){nd=d2;nb=r;}
+    }
+    if(nb){
+      startFire(nb.x,nb.z);
+      toast('🔥 THE FIRE IS SPREADING TO '+nb.name+'!','bad');
+    }
+  }
+}
+function updateFires(dt){
+  for(let i=FIRES.length-1;i>=0;i--){
+    const f=FIRES[i];
+    f.t+=dt;
+    f.light.intensity=4+Math.sin(G.time*11+i*2.2)*1.8+Math.sin(G.time*23+i)*0.7;
+    for(const fl of f.flames){ // flakrande flammetunger
+      fl.material.opacity=0.55+Math.sin(G.time*13+fl.userData.seed*3)*0.4;
+      const sc=fl.userData.s*(0.7+Math.sin(G.time*9+fl.userData.seed*5)*0.34);
+      fl.scale.set(sc,sc,1);
+      fl.position.y=fl.userData.y+Math.sin(G.time*5+fl.userData.seed)*0.5;
+    }
+    // eldkuler, gneistar som stig, oske og tjukk røyk
+    if(Math.random()<0.9)spawnParts(V3(f.b.x+rnd(-3,3),rnd(1,f.b.h+2),f.b.z+rnd(-3,3)),2,Math.random()<0.6?0xff6820:0xffb040,1.8,0.9,-3.6);
+    if(Math.random()<0.7)spawnParts(V3(f.b.x+rnd(-2.5,2.5),f.b.h+rnd(0,2),f.b.z+rnd(-2.5,2.5)),1,0xffd050,1.2,1.4,-5); // glør høgt til vers
+    if(Math.random()<0.5)spawnParts(V3(f.b.x+rnd(-2,2),f.b.h+rnd(0.5,3),f.b.z+rnd(-2,2)),2,0x2e2e2e,2.6,1.1,-1.8);
+    f.whT-=dt;
+    if(f.whT<=0){ // «whoosh» — flammene blussar opp
+      f.whT=rnd(1.1,2.4);
+      spawnParts(V3(f.b.x+rnd(-2,2),rnd(1,f.b.h),f.b.z+rnd(-2,2)),9,0xff8830,5,0.6,-4);
+      f.light.intensity=7;
+    }
+    if(!f.b.burned&&f.t>=f.dur)burnDownBuilding(f);
+    if(f.b.burned){ // huset seig saman
+      f.collT+=dt;
+      f.b.grp.scale.y=Math.max(0.32,1-f.collT*0.5);
+      if(f.collT>2){
+        scene.remove(f.light);
+        for(const fl of f.flames)scene.remove(fl);
+        FIRES.splice(i,1);
+      }
+    }
+  }
+}
+function unburnAll(){ // nullstill brannskadar (retry / nytt spel)
+  for(const f of FIRES){scene.remove(f.light);for(const fl of (f.flames||[]))scene.remove(fl);}
+  FIRES.length=0;
+  for(const b of BREG){
+    b.burning=false;b.burned=false;
+    b.grp.scale.y=1;
+    b.grp.traverse(m=>{if(m.isMesh&&m.userData&&m.userData.oc!==undefined)m.material.color.setHex(m.userData.oc);});
+  }
+  G.burnedHouses=0;
+}
+
+// ---------------- GATLING-KANONER PÅ TAKA ----------------
+const TURRETS=[];
+function makeTurretAt(x,z,top){
+  const g=new THREE.Group();
+  const dark=new THREE.MeshLambertMaterial({color:0x2a2e33});
+  const lightM=new THREE.MeshLambertMaterial({color:0x6a7076});
+  const base=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.42,1.1,10),dark);
+  base.position.y=0.55;g.add(base);
+  const barrels=new THREE.Group();
+  for(let i=0;i<6;i++){
+    const a=i/6*Math.PI*2;
+    const b=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,1.8,8),dark);
+    b.rotation.x=Math.PI/2;
+    b.position.set(Math.cos(a)*0.17,Math.sin(a)*0.17,-0.9);
+    barrels.add(b);
+  }
+  barrels.position.y=1.45;g.add(barrels);
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.26,0.26,0.36,12),lightM);
+  hub.rotation.x=Math.PI/2;hub.position.y=1.45;g.add(hub);
+  const mag=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.5,0.4),new THREE.MeshLambertMaterial({color:0xb08830}));
+  mag.position.set(0,1.45,0.55);g.add(mag);
+  g.position.set(x,top,z);
+  scene.add(g);
+  TURRETS.push({g:g,x:x,z:z,top:top,barrels:barrels,user:null,heat:0,overT:0,fireT:0});
+}
+function buildTurrets(){
+  if(G.turretsBuilt)return;
+  G.turretsBuilt=true;
+  makeTurretAt(-10,-8,5.3);   // saloon (John)
+  makeTurretAt(-10,4,4.9);    // sheriff (Sigbjørn)
+  makeTurretAt(10,-6,4.9);    // landhandel (Kristoffer)
+  makeTurretAt(10,7,4.6);     // stall — MIO sin!
+  toast('GATLING TURRETS mounted on the roofs! (press E to use)');
+}
+function fireTurretShot(t){
+  const dir=camDir();
+  sfxShot('gatling',1);
+  const from=V3(t.x,t.top+1.45,t.z).addScaledVector(dir,1.4);
+  flash.position.copy(from);flash.intensity=6;flashT=0.05;
+  let bestT=1e9,kind=null,obj=null;
+  const o=camera.position.clone();
+  if(KAIJU.alive){
+    const s=150,bp=KAIJU.grp.position;
+    for(const c of [[V3(bp.x,1.05*s,bp.z),0.45*s],[V3(bp.x,1.62*s,bp.z),0.28*s]]){
+      const tt=raySphere(o,dir,c[0],c[1]);
+      if(tt>0&&tt<bestT){bestT=tt;kind='kaiju';}
+    }
+  }
+  for(const s of SKULLS){
+    const tt=raySphere(o,dir,s.m.position,1.7);
+    if(tt>0&&tt<bestT){bestT=tt;kind='skull';obj=s;}
+  }
+  const targets=G.boss?ZOMBIES.concat([G.boss]):ZOMBIES;
+  for(const z of targets){
+    const tt=raySphere(o,dir,z.grp.position.clone().add(V3(0,1*z.scale,0)),0.7*z.scale);
+    if(tt>0&&tt<bestT){bestT=tt;kind='zombie';obj=z;}
+  }
+  const end=bestT<1e9?o.clone().addScaledVector(dir,bestT):o.clone().addScaledVector(dir,700);
+  tracer(from,end,0xffe8a0);
+  spawnSlug(from,end);
+  if(kind==='kaiju'){damageKaiju(220);hitmarker(false);}
+  else if(kind==='skull'){damageSkull(obj,220);hitmarker(true);}
+  else if(kind==='zombie'){damageZombie(obj,220,false,dir);hitmarker(false);}
+}
+
+// ---------------- ENVIRONMENT (day/night mix) ----------------
+const SKY_DAY=new THREE.Color(0xbfd3e0),SKY_DUSK=new THREE.Color(0xd97a3d),SKY_NIGHT=new THREE.Color(0x0a0e1c);
+const _sky=new THREE.Color();
+function envApply(mix){ // 0 dag .. 0.5 skumring .. 1 natt
+  G.envMix=mix;
+  if(mix<0.5)_sky.copy(SKY_DAY).lerp(SKY_DUSK,mix*2);
+  else _sky.copy(SKY_DUSK).lerp(SKY_NIGHT,(mix-0.5)*2);
+  scene.background=_sky;scene.fog.color.copy(_sky);
+  scene.fog.density=lerp(0.006,0.015,mix);
+  sun.intensity=lerp(0.95,0.07,mix);
+  sun.color.setHex(mix>0.8?0x8899cc:0xffe8c0);
+  hemi.intensity=lerp(0.75,0.14,mix);
+  starMat.opacity=clamp((mix-0.6)*2.6,0,1);
+  sunSprite.material.opacity=clamp(1-mix*1.6,0,1);
+  moonSprite.material.opacity=clamp((mix-0.55)*2.4,0,0.95);
+  const night=mix>0.6;
+  for(const wm of WINDOW_MATS)wm.emissive.setHex(night?0xcc8830:0x000000);
+  for(const e of (G.mineEyes||[]))e.material.opacity=night?0.9:0;
+}
+envApply(0);
+</script>
+<script>
+// ---------------- PLAYER ----------------
+const P={
+  pos:V3(0,1.7,44), vel:V3(), yaw:0, pitch:0,
+  hp:100, onGround:true, locked:false,
+  cur:'revolver',
+  owned:{revolver:true,pisk:true,hagle:false,dynamitt:false,gatling:false,bazooka:false},
+  mag:{revolver:6,hagle:2},
+  ammo:{bullets:36,shells:0,dyn:0,rockets:0},
+  fireT:0, reloadT:0, reloading:false, heat:0, overheatT:0,
+  keys:{}, frozen:true, reviveT:0, reviveTarget:null, fallback:false
+};
+const WEAPONS={
+  revolver:{name:'REVOLVER',key:'1',dmg:34,rate:0.35,mag:6,reload:0.8,ammo:'bullets'},
+  hagle:{name:'SHOTGUN',key:'2',dmg:12,pellets:8,rate:0.95,mag:2,reload:1.05,ammo:'shells',spread:0.065},
+  pisk:{name:'CHAINSAW',key:'3',dmg:15,rate:0.13,range:2.8},
+  dynamitt:{name:'DYNAMITE',key:'4',dmg:160,rate:1.1,radius:6.5,ammo:'dyn'},
+  gatling:{name:'GATLING',key:'5',dmg:14,rate:0.075},
+  bazooka:{name:'BAZOOKA',key:'6',dmg:5000,rate:1.4,radius:7,ammo:'rockets'}
+};
+const WORDER=['revolver','hagle','pisk','dynamitt','gatling','bazooka'];
+
+// ---------------- INPUT ----------------
+const canvas=$('c');
+function enableFallback(){
+  if(P.fallback)return;
+  P.fallback=true;
+  $('lockHint').classList.remove('on');
+  toast('Pointer lock unavailable — the mouse now aims directly');
+}
+function tryLock(){
+  if(P.fallback||P.locked)return;
+  try{
+    const r=canvas.requestPointerLock();
+    if(r&&r.catch)r.catch(()=>enableFallback());
+  }catch(e){enableFallback();}
+}
+document.addEventListener('pointerlockerror',()=>enableFallback());
+document.addEventListener('pointerlockchange',()=>{
+  P.locked=document.pointerLockElement===canvas;
+  $('lockHint').classList.toggle('on',!P.locked&&!P.fallback&&G.state==='playing'&&!DLG.active&&!G.paused);
+  if(!P.locked&&!P.fallback&&G.state==='playing'&&!DLG.active&&!CINE.active&&!G.paused)openPause();
+});
+document.addEventListener('mousemove',e=>{
+  if(P.frozen)return;
+  if(!(P.locked||(P.fallback&&G.state==='playing'&&!G.paused&&!DLG.active&&!CINE.active)))return;
+  P.yaw-=e.movementX*0.0021;
+  P.pitch=clamp(P.pitch-e.movementY*0.0021,-1.45,1.45);
+});
+document.addEventListener('mousedown',e=>{
+  auInit();auResume();
+  if(G.state!=='playing'||G.paused||DLG.active||CINE.active)return;
+  if(!P.locked)tryLock();
+  if(P.frozen||(!P.locked&&!P.fallback))return;
+  if(e.button===0)P.firing=true;
+});
+document.addEventListener('mouseup',e=>{if(e.button===0)P.firing=false;});
+document.addEventListener('wheel',e=>{
+  if(G.state!=='playing'||P.frozen)return;
+  cycleWeapon(e.deltaY>0?1:-1);
+});
+document.addEventListener('keydown',e=>{
+  P.keys[e.code]=true;
+  if(e.code==='KeyM')toggleMute();
+  if(e.code==='KeyX'&&G.state==='playing'&&!G.paused&&(G.slowCharge||0)>=8&&!(G.slowmoT>0)){
+    G.slowCharge=0;G.slowmoT=5;
+    $('slowmoTint').style.opacity=1;
+    sfxSlowmo();
+    toast('⏳ SLOW MOTION — 5 seconds!');
+  }
+  if(e.code==='Escape'){
+    if(G.state==='playing'&&!G.paused&&!CINE.active)openPause();
+  }
+  if(e.code==='Enter'&&CINE.active)cineSkip();
+  if((e.code==='KeyE'||e.code==='Enter')&&DLG.active)dlgAdvance();
+  if(G.state==='playing'&&!P.frozen){
+    if(e.code==='Digit1')selectWeapon('revolver');
+    if(e.code==='Digit2')selectWeapon('hagle');
+    if(e.code==='Digit3')selectWeapon('pisk');
+    if(e.code==='Digit4')selectWeapon('dynamitt');
+    if(e.code==='Digit5')selectWeapon('gatling');
+    if(e.code==='Digit6')selectWeapon('bazooka');
+    if(e.code==='KeyR')startReload();
+  }
+});
+document.addEventListener('keyup',e=>{P.keys[e.code]=false;});
+document.addEventListener('click',()=>{if(DLG.active)dlgAdvance();});
+
+function cycleWeapon(dir){
+  let i=WORDER.indexOf(P.cur);
+  for(let n=0;n<WORDER.length;n++){
+    i=(i+dir+WORDER.length)%WORDER.length;
+    if(P.owned[WORDER[i]]){selectWeapon(WORDER[i]);return;}
+  }
+}
+function selectWeapon(w){
+  if(!P.owned[w]||P.cur===w)return;
+  P.cur=w;P.reloading=false;P.reloadT=0;
+  sfxClick();updateViewmodel();
+}
+
+// ---------------- VIEWMODELS ----------------
+const VM={group:new THREE.Group(),models:{},bobT:0,recoil:0,whipT:-1};
+camera.add(VM.group);
+VM.group.position.set(0.32,-0.34,-0.55);
+{
+  const steel=new THREE.MeshLambertMaterial({color:0x555a60});
+  const steelD=new THREE.MeshLambertMaterial({color:0x2f3338});
+  const steelL=new THREE.MeshLambertMaterial({color:0x7a828a});
+  const gold=new THREE.MeshLambertMaterial({color:0xb08830,emissive:0x221100});
+  const wood=new THREE.MeshLambertMaterial({color:0x5a3a22});
+  const walnut=new THREE.MeshLambertMaterial({color:0x4a2c18});
+  // revolver — «Præriens Dronning»
+  const rv=new THREE.Group();
+  const barrel=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.36,10),steelD);
+  barrel.rotation.x=Math.PI/2;barrel.position.set(0,0.012,-0.2);rv.add(barrel);
+  const underlug=new THREE.Mesh(new THREE.CylinderGeometry(0.011,0.011,0.3,8),steelL);
+  underlug.rotation.x=Math.PI/2;underlug.position.set(0,-0.016,-0.17);rv.add(underlug);
+  const sight=new THREE.Mesh(new THREE.BoxGeometry(0.008,0.022,0.02),steelL);
+  sight.position.set(0,0.036,-0.36);rv.add(sight);
+  const frame=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.065,0.13),steelD);
+  frame.position.set(0,0,0.005);rv.add(frame);
+  const drum=new THREE.Mesh(new THREE.CylinderGeometry(0.041,0.041,0.085,8),steelL);
+  drum.rotation.z=Math.PI/2;drum.rotation.y=Math.PI/2;drum.position.set(0,0,-0.03);rv.add(drum);
+  VM.revDrum=drum;
+  const band=new THREE.Mesh(new THREE.CylinderGeometry(0.0435,0.0435,0.016,8),gold);
+  band.rotation.z=Math.PI/2;band.rotation.y=Math.PI/2;band.position.set(0,0,-0.062);rv.add(band);
+  const hammer=new THREE.Mesh(new THREE.BoxGeometry(0.014,0.05,0.02),steelL);
+  hammer.position.set(0,0.048,0.068);hammer.rotation.x=-0.5;rv.add(hammer);
+  const guard=new THREE.Mesh(new THREE.TorusGeometry(0.028,0.005,6,12),steelD);
+  guard.position.set(0,-0.048,0.012);guard.rotation.y=Math.PI/2;rv.add(guard);
+  const grip=new THREE.Mesh(new THREE.BoxGeometry(0.042,0.13,0.058),walnut);
+  grip.position.set(0,-0.088,0.078);grip.rotation.x=0.38;rv.add(grip);
+  const medal=new THREE.Mesh(new THREE.CylinderGeometry(0.013,0.013,0.048,10),gold);
+  medal.rotation.z=Math.PI/2;medal.position.set(0,-0.082,0.078);rv.add(medal);
+  VM.models.revolver=rv;
+  // hagle — grov dobbeltløper med treverk og gravering
+  const hg=new THREE.Group();
+  const hb1=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.032,0.62,10),steelD);
+  hb1.rotation.x=Math.PI/2;hb1.position.set(-0.032,0.03,-0.28);hg.add(hb1);
+  const hb2=hb1.clone();hb2.position.x=0.032;hg.add(hb2);
+  for(const bz of [-0.55,-0.16]){
+    const hband=new THREE.Mesh(new THREE.BoxGeometry(0.135,0.055,0.05),steelL);
+    hband.position.set(0,0.03,bz);hg.add(hband);
+  }
+  const hrec=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.1,0.17),steelD);
+  hrec.position.set(0,0.005,0.05);hg.add(hrec);
+  const hgold=new THREE.Mesh(new THREE.BoxGeometry(0.125,0.018,0.1),gold);
+  hgold.position.set(0,0.05,0.05);hg.add(hgold);
+  for(const hx of [-0.03,0.03]){
+    const hh=new THREE.Mesh(new THREE.BoxGeometry(0.016,0.05,0.02),steelL);
+    hh.position.set(hx,0.08,0.11);hh.rotation.x=-0.5;hg.add(hh);
+  }
+  const hfore=new THREE.Mesh(new THREE.BoxGeometry(0.095,0.06,0.3),walnut);
+  hfore.position.set(0,-0.026,-0.26);hg.add(hfore);
+  const hstock=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.11,0.34),walnut);
+  hstock.position.set(0,-0.055,0.26);hstock.rotation.x=0.22;hg.add(hstock);
+  const hguard=new THREE.Mesh(new THREE.TorusGeometry(0.03,0.006,6,12),steelD);
+  hguard.position.set(0,-0.062,0.1);hguard.rotation.y=Math.PI/2;hg.add(hguard);
+  VM.models.hagle=hg;
+  // MOTORSAG — oransje kropp, sverd med kjede, eksos
+  const pk=new THREE.Group();
+  const sawOrange=new THREE.MeshLambertMaterial({color:0xd45a1a});
+  const sawDark=new THREE.MeshLambertMaterial({color:0x2a2622});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.13,0.22),sawOrange);
+  body.position.set(0,0,0.06);pk.add(body);
+  const topCover=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.05,0.16),sawDark);
+  topCover.position.set(0,0.08,0.06);pk.add(topCover);
+  // håndtak-bøyle over
+  const bail=new THREE.Mesh(new THREE.TorusGeometry(0.075,0.012,6,12,Math.PI),sawDark);
+  bail.position.set(0,0.1,0.02);bail.rotation.y=Math.PI/2;pk.add(bail);
+  // bakre grep
+  const rgrip=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.06,0.14),sawDark);
+  rgrip.position.set(0,-0.045,0.2);pk.add(rgrip);
+  // startsnor
+  const cord=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.02,10),steelL);
+  cord.rotation.z=Math.PI/2;cord.position.set(0.085,0.02,0.1);pk.add(cord);
+  // eksos
+  const exh=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.022,0.07,8),steelD);
+  exh.position.set(-0.07,-0.03,0.02);exh.rotation.z=0.5;pk.add(exh);
+  // sverd (guide bar) med kjede rundt
+  const chain=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.1,0.5),sawDark);
+  chain.position.set(0,0.005,-0.28);pk.add(chain);
+  const bar=new THREE.Mesh(new THREE.BoxGeometry(0.034,0.075,0.46),steelL);
+  bar.position.set(0,0.005,-0.27);pk.add(bar);
+  const tip=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.028,12),sawDark);
+  tip.rotation.z=Math.PI/2;tip.position.set(0,0.005,-0.53);pk.add(tip);
+  // kjedetenner oppå (synlege takker)
+  for(let i=0;i<6;i++){
+    const tooth=new THREE.Mesh(new THREE.BoxGeometry(0.026,0.022,0.03),steelD);
+    tooth.position.set(0,0.062,-0.08-i*0.085);pk.add(tooth);
+  }
+  // blodflekk på sverdet
+  const sblood=new THREE.Mesh(new THREE.BoxGeometry(0.037,0.05,0.12),new THREE.MeshLambertMaterial({color:0x6a1512}));
+  sblood.position.set(0,0.01,-0.4);pk.add(sblood);
+  pk.rotation.set(0.05,-0.18,0.05);
+  pk.scale.setScalar(1.15);
+  VM.models.pisk=pk;
+  // gatling
+  const gt=new THREE.Group();
+  const gbar=new THREE.Group();
+  for(let i=0;i<6;i++){
+    const a=i/6*Math.PI*2;
+    const bb=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.5,6),steelD);
+    bb.rotation.x=Math.PI/2;
+    bb.position.set(Math.cos(a)*0.045,Math.sin(a)*0.045,-0.3);
+    gbar.add(bb);
+  }
+  gt.add(gbar);VM.gatBarrels=gbar;
+  const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.072,0.072,0.1,12),steelL);
+  hub.rotation.x=Math.PI/2;hub.position.z=-0.08;gt.add(hub);
+  const gbody=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.13,0.18),steelD);
+  gbody.position.set(0,-0.02,0.1);gt.add(gbody);
+  const crank=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.07,0.02),gold);
+  crank.position.set(0.07,-0.05,0.14);gt.add(crank);
+  VM.models.gatling=gt;
+  // bazooka
+  const bz=new THREE.Group();
+  const tube=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.06,0.85,12),new THREE.MeshLambertMaterial({color:0x4a5a3a}));
+  tube.rotation.x=Math.PI/2;tube.position.set(0.02,0.04,-0.15);bz.add(tube);
+  const mouth=new THREE.Mesh(new THREE.CylinderGeometry(0.078,0.06,0.1,12),steelD);
+  mouth.rotation.x=Math.PI/2;mouth.position.set(0.02,0.04,-0.62);bz.add(mouth);
+  const gripB=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.1,0.05),walnut);
+  gripB.position.set(0.02,-0.07,0.02);bz.add(gripB);
+  VM.models.bazooka=bz;
+  // dynamitt
+  const dn=new THREE.Group();
+  const stick=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.2,8),new THREE.MeshLambertMaterial({color:0xa32620}));
+  dn.add(stick);
+  const stick2=stick.clone();stick2.position.x=0.07;dn.add(stick2);
+  const fuse=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.08,4),new THREE.MeshLambertMaterial({color:0xd9c9a0}));
+  fuse.position.y=0.13;dn.add(fuse);
+  VM.models.dynamitt=dn;
+  for(const k in VM.models){VM.models[k].visible=false;VM.group.add(VM.models[k]);}
+}
+function updateViewmodel(){
+  for(const k in VM.models)VM.models[k].visible=(k===P.cur);
+}
+updateViewmodel();
+// muzzle flash light
+const flash=new THREE.PointLight(0xffbb55,0,9,2);scene.add(flash);
+let flashT=0;
+
+// ---------------- PARTICLES / TRACERS / GIBS ----------------
+const PARTS=[];
+const partGeo=new THREE.BoxGeometry(0.09,0.09,0.09);
+function spawnParts(pos,n,color,speed,life,grav){
+  for(let i=0;i<n;i++){
+    if(PARTS.length>420)break;
+    const m=new THREE.Mesh(partGeo,new THREE.MeshBasicMaterial({color:color,transparent:true}));
+    m.position.copy(pos);
+    PARTS.push({m:m,v:V3(rnd(-1,1),rnd(0.2,1.4),rnd(-1,1)).multiplyScalar(speed*rnd(0.5,1.3)),
+      life:life*rnd(0.7,1.3),max:life,grav:grav});
+    scene.add(m);
+  }
+}
+const blood=(pos,n)=>spawnParts(pos,n||8,0x8a1410,3.2,0.6,9);
+function gibs(pos,n){
+  for(let i=0;i<(n||4);i++){
+    if(PARTS.length>420)break;
+    const m=new THREE.Mesh(new THREE.BoxGeometry(rnd(0.15,0.3),rnd(0.12,0.25),rnd(0.12,0.22)),
+      new THREE.MeshLambertMaterial({color:i%2?0x4a6b3a:0x6a1512,transparent:true}));
+    m.position.copy(pos);m.position.y+=rnd(0.3,1.2);
+    PARTS.push({m:m,v:V3(rnd(-1,1),rnd(0.8,2),rnd(-1,1)).multiplyScalar(3),life:1.1,max:1.1,grav:12,spin:true});
+    scene.add(m);
+  }
+}
+// BLODTÅKE — zombiar sprengde av dynamitt/bazooka blir til ei sky av kjøt og blod
+const MISTS=[];
+function bloodMist(pos){
+  spawnParts(pos,45,0x7a0f0c,7,1.1,6);   // små kjøtklumpar i alle retningar
+  spawnParts(pos,30,0xa01810,11,0.7,3);  // blodsprut
+  gibs(pos,10);                           // store bitar
+  for(let i=0;i<6;i++){ // hengande raud tåke som veks og driv oppover
+    if(MISTS.length>24)break;
+    const sp=skySprite('#7a0f0c',rnd(2.5,4.5));
+    sp.position.copy(pos).add(V3(rnd(-0.8,0.8),rnd(0.4,1.8),rnd(-0.8,0.8)));
+    sp.material.opacity=0.6;
+    scene.add(sp);
+    MISTS.push({s:sp,t:0,life:rnd(1.1,1.7),grow:rnd(1.2,2.2)});
+  }
+}
+function updateMists(dt){
+  for(let i=MISTS.length-1;i>=0;i--){
+    const m=MISTS[i];m.t+=dt;
+    const k=m.t/m.life;
+    m.s.scale.x*=1+m.grow*dt*0.6;m.s.scale.y*=1+m.grow*dt*0.6;
+    m.s.position.y+=dt*0.6;
+    m.s.material.opacity=0.6*(1-k);
+    if(k>=1){scene.remove(m.s);MISTS.splice(i,1);}
+  }
+}
+function updateParts(dt){
+  for(let i=PARTS.length-1;i>=0;i--){
+    const p=PARTS[i];
+    p.life-=dt;
+    if(p.life<=0){scene.remove(p.m);p.m.material.dispose();PARTS.splice(i,1);continue;}
+    p.v.y-=p.grav*dt;
+    p.m.position.addScaledVector(p.v,dt);
+    if(p.m.position.y<0.05){p.m.position.y=0.05;p.v.set(0,0,0);p.grav=0;}
+    if(p.spin){p.m.rotation.x+=dt*5;p.m.rotation.y+=dt*4;}
+    p.m.material.opacity=clamp(p.life/p.max,0,1);
+  }
+}
+// synlege kuler som flyg ut av våpna
+const SLUGS=[];
+const slugGeo=new THREE.BoxGeometry(0.05,0.05,0.55);
+const slugMat=new THREE.MeshBasicMaterial({color:0xffd870});
+function spawnSlug(from,to){
+  if(SLUGS.length>50)return;
+  const m=new THREE.Mesh(slugGeo,slugMat);
+  m.position.copy(from);m.lookAt(to);
+  scene.add(m);
+  SLUGS.push({m:m,v:to.clone().sub(from).normalize().multiplyScalar(120),life:Math.min(1.2,from.distanceTo(to)/120)});
+}
+function updateSlugs(dt){
+  for(let i=SLUGS.length-1;i>=0;i--){
+    const s=SLUGS[i];
+    s.life-=dt;
+    s.m.position.addScaledVector(s.v,dt);
+    if(s.life<=0){scene.remove(s.m);SLUGS.splice(i,1);}
+  }
+}
+// munnigsglimt-sprite + skjermglimt («flashbang») per skot
+const muzzleFlash=skySprite('#fff2b0',0.7);
+muzzleFlash.visible=false;
+muzzleFlash.position.set(0.3,-0.28,-1.2);
+camera.add(muzzleFlash);
+function muzzleFx(scale){
+  muzzleFlash.visible=true;
+  muzzleFlash.material.rotation=rnd(0,6.28);
+  muzzleFlash.scale.set(scale,scale,1);
+}
+function shotFlashFx(o){
+  const e=$('shotFlash');
+  e.style.transition='none';e.style.opacity=o;
+  requestAnimationFrame(()=>{e.style.transition='opacity .12s';e.style.opacity=0;});
+}
+const TRACERS=[];
+function tracer(from,to,color){
+  const g=new THREE.BufferGeometry().setFromPoints([from,to]);
+  const l=new THREE.Line(g,new THREE.LineBasicMaterial({color:color||0xffe8a0,transparent:true,opacity:0.9}));
+  scene.add(l);TRACERS.push({l:l,life:0.07});
+}
+function updateTracers(dt){
+  for(let i=TRACERS.length-1;i>=0;i--){
+    TRACERS[i].life-=dt;
+    if(TRACERS[i].life<=0){scene.remove(TRACERS[i].l);TRACERS[i].l.geometry.dispose();TRACERS.splice(i,1);}
+  }
+}
+// dynamite projectiles
+const DYNS=[];
+function throwDyn(){
+  const dir=camDir();
+  const m=new THREE.Group();
+  const stick=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.06,0.3,8),new THREE.MeshLambertMaterial({color:0xa32620}));
+  m.add(stick);
+  const spark=skySprite('#ffcc44',0.6);spark.position.y=0.22;m.add(spark);
+  m.position.copy(camera.position).addScaledVector(dir,0.6);
+  scene.add(m);
+  DYNS.push({m:m,v:dir.clone().multiplyScalar(14).add(V3(0,4,0)),fuse:2});
+}
+function updateDyns(dt){
+  for(let i=DYNS.length-1;i>=0;i--){
+    const d=DYNS[i];
+    d.fuse-=dt;
+    d.v.y-=13*dt;
+    d.m.position.addScaledVector(d.v,dt);
+    d.m.rotation.x+=dt*6;
+    if(d.m.position.y<0.15){d.m.position.y=0.15;d.v.multiplyScalar(0.4);d.v.y=0;}
+    if(d.fuse<=0){
+      explode(d.m.position.clone(),WEAPONS.dynamitt.dmg,WEAPONS.dynamitt.radius);
+      scene.remove(d.m);DYNS.splice(i,1);
+    }
+  }
+}
+// bazooka-raketter
+const ROCKETS=[];
+function fireRocket(){
+  const dir=camDir();
+  const m=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.34,8),new THREE.MeshLambertMaterial({color:0x8a8f94}));
+  body.rotation.x=Math.PI/2;m.add(body);
+  const tip=new THREE.Mesh(new THREE.ConeGeometry(0.05,0.13,8),new THREE.MeshLambertMaterial({color:0xa32620}));
+  tip.rotation.x=-Math.PI/2;tip.position.z=-0.23;m.add(tip);
+  m.position.copy(camera.position).addScaledVector(dir,0.9);
+  m.lookAt(m.position.clone().add(dir));
+  scene.add(m);
+  ROCKETS.push({m:m,v:dir.clone().multiplyScalar(34),life:3.5});
+}
+function updateRockets(dt){
+  for(let i=ROCKETS.length-1;i>=0;i--){
+    const r=ROCKETS[i];
+    r.life-=dt;
+    r.m.position.addScaledVector(r.v,dt);
+    if(Math.random()<0.5)spawnParts(r.m.position,1,0x999999,0.4,0.4,0);
+    let boom=r.life<=0||r.m.position.y<0.12;
+    if(!boom){
+      const targets=G.boss?ZOMBIES.concat([G.boss]):ZOMBIES;
+      for(const z of targets){
+        if(r.m.position.distanceTo(z.grp.position.clone().add(V3(0,1,0)))<1.5*(z.scale||1)){boom=true;break;}
+      }
+      if(!boom)for(const b of COLLIDERS){
+        if(r.m.position.x>b.minX&&r.m.position.x<b.maxX&&r.m.position.z>b.minZ&&r.m.position.z<b.maxZ&&r.m.position.y<b.h){boom=true;break;}
+      }
+    }
+    if(boom){
+      explode(r.m.position.clone(),WEAPONS.bazooka.dmg,WEAPONS.bazooka.radius);
+      scene.remove(r.m);ROCKETS.splice(i,1);
+    }
+  }
+}
+// eldkule + trykkbølgje ved eksplosjonar
+const BOOMS=[];
+function boomFx(pos,radius){
+  if(BOOMS.length>10)return; // aldri la effektar hope seg opp
+  const s=new THREE.Mesh(new THREE.SphereGeometry(1,12,10),
+    new THREE.MeshBasicMaterial({color:0xffa040,transparent:true,opacity:0.95}));
+  s.position.copy(pos).add(V3(0,0.9,0));scene.add(s);
+  const r=new THREE.Mesh(new THREE.TorusGeometry(1,0.22,8,26),
+    new THREE.MeshBasicMaterial({color:0xffe0a0,transparent:true,opacity:0.8}));
+  r.position.copy(pos).add(V3(0,0.35,0));r.rotation.x=Math.PI/2;scene.add(r);
+  BOOMS.push({s:s,r:r,t:0,rad:radius});
+}
+function updateBooms(dt){
+  for(let i=BOOMS.length-1;i>=0;i--){
+    const b=BOOMS[i];b.t+=dt*2.6;
+    const k=Math.min(1,b.t);
+    b.s.scale.setScalar(0.5+k*b.rad*0.75);
+    b.s.material.opacity=0.95*(1-k);
+    b.r.scale.set(0.5+k*b.rad*1.5,0.5+k*b.rad*1.5,1);
+    b.r.material.opacity=0.8*(1-k);
+    if(k>=1||b.t>2){scene.remove(b.s);scene.remove(b.r);b.s.material.dispose();b.r.material.dispose();BOOMS.splice(i,1);}
+  }
+}
+function explode(pos,dmg,radius){
+  sfxExplosion();G.shake=Math.max(G.shake,0.85);
+  G.fovKick=Math.max(G.fovKick||0,4);
+  flash.position.copy(pos).add(V3(0,1,0));flash.intensity=12;flashT=0.22;
+  spawnParts(pos,55,0xff8830,9,0.8,7);   // eldkuler
+  spawnParts(pos,25,0xffd050,13,0.5,4);  // gnistar
+  spawnParts(pos,30,0x555555,5,1.7,1.2); // røyk
+  spawnParts(pos,18,0x8a5a2a,8,1.0,10);  // jord og stein
+  boomFx(pos,radius);
+  // damage zombies
+  for(let i=ZOMBIES.length-1;i>=0;i--){
+    const z=ZOMBIES[i];
+    const d=z.grp.position.distanceTo(pos);
+    if(d<radius)damageZombie(z,dmg*(1-d/radius*0.6),false,null,true); // sprengde → blodtåke
+  }
+  if(G.boss){
+    const d=G.boss.grp.position.distanceTo(pos);
+    if(d<radius+1)damageZombie(G.boss,dmg*(1-d/(radius+1)*0.6),false,null,true);
+  }
+  // player splash
+  const pd=P.pos.distanceTo(pos);
+  if(pd<radius*0.8)damagePlayer(Math.round(30*(1-pd/(radius*0.8))));
+}
+
+// ---------------- SHOOTING ----------------
+function camDir(){
+  const d=V3();camera.getWorldDirection(d);return d.normalize();
+}
+function muzzlePos(){
+  return camera.position.clone().add(camDir().multiplyScalar(0.7)).add(V3(0,-0.12,0));
+}
+function shootRay(dir,dmg,isPellet){
+  const o=camera.position.clone();
+  let best=null,bestT=Infinity,bestHead=false,bestKind='zombie';
+  const targets=G.boss?ZOMBIES.concat([G.boss]):ZOMBIES;
+  for(const z of targets){
+    const s=z.scale||1;
+    const headC=z.grp.position.clone().add(V3(0,1.62*s,0));
+    const bodyC=z.grp.position.clone().add(V3(0,1.0*s,0));
+    let t=raySphere(o,dir,headC,0.32*s);
+    if(t>0&&t<bestT&&t<90){bestT=t;best=z;bestHead=true;bestKind='zombie';}
+    t=raySphere(o,dir,bodyC,0.6*s);
+    if(t>0&&t<bestT&&t<90){bestT=t;best=z;bestHead=false;bestKind='zombie';}
+  }
+  // flygande dødningskallar
+  for(const s of SKULLS){
+    const t=raySphere(o,dir,s.m.position,1.6);
+    if(t>0&&t<bestT&&t<400){bestT=t;best=s;bestHead=true;bestKind='skull';}
+  }
+  // kolossen (kan plinkast med handvåpen òg)
+  if(KAIJU.alive){
+    const ks=150,bp=KAIJU.grp.position;
+    for(const c of [[V3(bp.x,1.05*ks,bp.z),0.45*ks],[V3(bp.x,1.62*ks,bp.z),0.28*ks]]){
+      const t=raySphere(o,dir,c[0],c[1]);
+      if(t>0&&t<bestT){bestT=t;best=KAIJU;bestHead=false;bestKind='kaiju';}
+    }
+  }
+  const end=best?o.clone().addScaledVector(dir,bestT):o.clone().addScaledVector(dir,60);
+  tracer(muzzlePos(),end);
+  spawnSlug(muzzlePos(),end); // synleg kule
+  if(best){
+    if(bestKind==='skull')damageSkull(best,dmg*2);
+    else if(bestKind==='kaiju')damageKaiju(dmg);
+    else damageZombie(best,bestHead?dmg*1.8:dmg,bestHead,dir);
+    if(!isPellet||Math.random()<0.4)hitmarker(bestHead);
+  }
+  return !!best;
+}
+function hitmarker(head){
+  const h=$('hitmarker');
+  h.classList.remove('show','head');void h.offsetWidth;
+  if(head)h.classList.add('head');
+  h.classList.add('show');
+  sfxHit(head);
+}
+function tryFire(){
+  const w=WEAPONS[P.cur];
+  if(P.fireT>0||P.reloading)return;
+  if(P.cur==='revolver'||P.cur==='hagle'){
+    if(P.mag[P.cur]<=0){
+      if(P.ammo[w.ammo]>0)startReload();else{sfxDry();P.fireT=0.3;}
+      return;
+    }
+    P.mag[P.cur]--;P.fireT=w.rate;
+    sfxShot(P.cur);
+    _tone('sine',80,25,0.22,P.cur==='hagle'?0.7:0.5); // sub-dunk for kraftfølelse
+    flash.position.copy(muzzlePos());flash.intensity=P.cur==='hagle'?14:9;flashT=0.07;
+    muzzleFx(P.cur==='hagle'?1.3:0.8);
+    shotFlashFx(P.cur==='hagle'?0.28:0.14);
+    VM.recoil=P.cur==='hagle'?0.28:0.15;
+    G.shake=Math.max(G.shake,P.cur==='hagle'?0.32:0.17);
+    G.fovKick=Math.max(G.fovKick||0,P.cur==='hagle'?5:2.2);
+    if(P.cur==='revolver'){
+      shootRay(camDir(),w.dmg,false);
+    }else{
+      for(let i=0;i<w.pellets;i++){
+        const d=camDir();
+        d.x+=rnd(-w.spread,w.spread);d.y+=rnd(-w.spread,w.spread);d.z+=rnd(-w.spread,w.spread);
+        shootRay(d.normalize(),w.dmg,true);
+      }
+    }
+    if(P.cur==='revolver'&&VM.revDrum)VM.revDrum.rotation.y+=Math.PI/4;
+    if(P.mag[P.cur]===0&&P.ammo[w.ammo]>0)setTimeout(()=>{if(P.mag[P.cur]===0)startReload();},220);
+  }else if(P.cur==='gatling'){
+    if(P.overheatT>0){P.fireT=0.2;return;}
+    P.fireT=w.rate;
+    P.heat+=w.rate/12;
+    sfxShot('gatling',0.8);
+    flash.position.copy(muzzlePos());flash.intensity=6;flashT=0.04;
+    muzzleFx(0.6);shotFlashFx(0.07);
+    VM.recoil=0.045;G.shake=Math.max(G.shake,0.06);
+    G.fovKick=Math.max(G.fovKick||0,0.9);
+    const d=camDir();
+    d.x+=rnd(-0.022,0.022);d.y+=rnd(-0.022,0.022);d.z+=rnd(-0.022,0.022);
+    shootRay(d.normalize(),w.dmg,true);
+    if(P.heat>=1){P.heat=1;P.overheatT=5;P.firing=false;sfxOverheat();showOverheat();}
+  }else if(P.cur==='bazooka'){
+    if(P.ammo.rockets<=0){sfxDry();P.fireT=0.4;return;}
+    P.ammo.rockets--;P.fireT=w.rate;
+    sfxBazooka();VM.recoil=0.3;G.shake=Math.max(G.shake,0.35);
+    G.fovKick=Math.max(G.fovKick||0,6);
+    fireRocket();
+  }else if(P.cur==='pisk'){ // motorsag — kontinuerleg saging
+    P.fireT=w.rate;
+    const dir=camDir();
+    const targets=G.boss?ZOMBIES.concat([G.boss]):ZOMBIES;
+    let hit=false;
+    for(const z of targets){
+      const to=z.grp.position.clone().add(V3(0,1,0)).sub(camera.position);
+      const dist=to.length();
+      if(dist<w.range+(z.scale||1)*0.5){
+        to.normalize();
+        if(to.dot(dir)>0.6){
+          damageZombie(z,w.dmg,false,dir);
+          if(!z.boss)z.grp.position.addScaledVector(dir,0.22);
+          hit=true;
+        }
+      }
+    }
+    if(hit){hitmarker(false);G.shake=Math.max(G.shake,0.06);}
+  }else if(P.cur==='dynamitt'){
+    if(P.ammo.dyn<=0){sfxDry();P.fireT=0.4;return;}
+    P.ammo.dyn--;P.fireT=w.rate;
+    VM.recoil=0.1;
+    throwDyn();
+  }
+}
+function startReload(){
+  const w=WEAPONS[P.cur];
+  if(!w.mag||P.reloading)return;
+  if(P.mag[P.cur]>=w.mag||P.ammo[w.ammo]<=0)return;
+  P.reloading=true;P.reloadT=w.reload;
+  sfxReload();
+}
+function finishReload(){
+  const w=WEAPONS[P.cur];
+  const need=w.mag-P.mag[P.cur];
+  const take=Math.min(need,P.ammo[w.ammo]);
+  P.mag[P.cur]+=take;P.ammo[w.ammo]-=take;
+  P.reloading=false;
+}
+
+function damagePlayer(dmg){
+  if(P.hp<=0||G.state!=='playing')return;
+  P.hp-=dmg;
+  sfxHurt();G.shake=Math.max(G.shake,0.22);
+  const f=$('dmgFlash');f.classList.remove('hit');void f.offsetWidth;f.classList.add('hit');
+  if(P.hp<=0){P.hp=0;playerDie();}
+}
+
+// ---------------- PLAYER UPDATE ----------------
+function showOverheat(){
+  const p=$('overheatPop');
+  p.classList.add('on');
+  clearTimeout(showOverheat._t);
+  showOverheat._t=setTimeout(()=>p.classList.remove('on'),1800);
+}
+function updatePlayer(dt){
+  if(P.frozen)return;
+  // montert gatling-kanon på taket
+  if(P.mounted){
+    const t=P.mounted;
+    P.pos.set(t.x,t.top+1.55,t.z);
+    // TREDJEPERSON — kamera bak og over kanona så ein ser omgivnadene
+    camera.rotation.y=P.yaw;camera.rotation.x=P.pitch;camera.rotation.z=0;
+    const cd=camDir();
+    camera.position.copy(P.pos).addScaledVector(cd,-7.2);
+    camera.position.y=Math.max(t.top+1.2,camera.position.y+2.4);
+    t.g.rotation.y=P.yaw; // løpa peikar FRAMOVER — langs siktet
+    if(G.mioBody){ // synleg Mio BAK kanona
+      G.mioBody.grp.position.set(t.x,t.top,t.z).addScaledVector(V3(-Math.sin(P.yaw),0,-Math.cos(P.yaw)),-0.95);
+      G.mioBody.grp.rotation.y=P.yaw+Math.PI;
+      G.mioBody.armL.rotation.x=-1.25;G.mioBody.armR.rotation.x=-1.25;
+    }
+    if(t.overT>0){t.overT-=dt;if(t.overT<=0){t.heat=0;toast('The turret has cooled down!');}}
+    else if(!P.firing)t.heat=Math.max(0,t.heat-dt/4);
+    t.fireT-=dt;
+    if(P.firing&&t.overT<=0&&t.fireT<=0){
+      t.fireT=0.075;
+      t.heat+=0.075/12;
+      fireTurretShot(t);
+      t.barrels.rotation.z+=0.55;
+      muzzleFx(0.9);shotFlashFx(0.08);
+      G.shake=Math.max(G.shake,0.05);
+      if(t.heat>=1){t.heat=1;t.overT=5;P.firing=false;sfxOverheat();showOverheat();}
+    }
+    P.heat=t.heat;P.overheatT=t.overT; // vises i HUD
+    if(flashT>0){flashT-=dt;if(flashT<=0){flash.intensity=0;muzzleFlash.visible=false;}}
+    return;
+  }
+  // movement
+  const sprint=P.keys.ShiftLeft||P.keys.ShiftRight;
+  const speed=sprint?8.2:5.2;
+  const f=V3(-Math.sin(P.yaw),0,-Math.cos(P.yaw));
+  const r=V3(Math.cos(P.yaw),0,-Math.sin(P.yaw));
+  const wish=V3();
+  if(P.keys.KeyW||P.keys.ArrowUp)wish.add(f);
+  if(P.keys.KeyS||P.keys.ArrowDown)wish.sub(f);
+  if(P.keys.KeyD)wish.add(r);
+  if(P.keys.KeyA)wish.sub(r);
+  if(wish.lengthSq()>0)wish.normalize().multiplyScalar(speed);
+  P.vel.x=lerp(P.vel.x,wish.x,1-Math.pow(0.0001,dt));
+  P.vel.z=lerp(P.vel.z,wish.z,1-Math.pow(0.0001,dt));
+  // jump/gravity — med tak og trapper
+  if((P.keys.Space)&&P.onGround){P.vel.y=5.2;P.onGround=false;}
+  if(!P.onGround)P.vel.y-=14*dt;
+  P.pos.x+=P.vel.x*dt;P.pos.z+=P.vel.z*dt;
+  P.pos.y+=P.vel.y*dt;
+  collideCircle(P.pos,0.45,P.pos.y-1.7);
+  const gy=groundHeightAt(P.pos.x,P.pos.z,P.pos.y-1.7)+1.7;
+  if(P.pos.y<=gy&&P.vel.y<=0){P.pos.y=gy;P.vel.y=0;P.onGround=true;}
+  else if(P.pos.y>gy+0.02)P.onGround=false;
+  P.moveAmt=Math.hypot(P.vel.x,P.vel.z);
+  // fire
+  if(P.firing)tryFire();
+  P.fireT-=dt;
+  if(P.reloading){P.reloadT-=dt;if(P.reloadT<=0)finishReload();}
+  // gatling-varme
+  if(P.overheatT>0){P.overheatT-=dt;if(P.overheatT<=0){P.heat=0;toast('Gatling cooled down!');}}
+  else if(!(P.firing&&P.cur==='gatling'))P.heat=Math.max(0,P.heat-dt/4);
+  if(P.cur==='gatling'&&VM.gatBarrels&&P.firing&&P.overheatT<=0)VM.gatBarrels.rotation.z+=dt*22;
+  // automatisk omlading
+  if((P.cur==='revolver'||P.cur==='hagle')&&!P.reloading&&P.mag[P.cur]===0&&P.ammo[WEAPONS[P.cur].ammo]>0)startReload();
+  // camera
+  camera.position.copy(P.pos);
+  camera.rotation.y=P.yaw;camera.rotation.x=P.pitch;camera.rotation.z=0;
+  // headbob
+  VM.bobT+=dt*(P.moveAmt>0.5?P.moveAmt*1.6:0);
+  const bob=Math.sin(VM.bobT)*0.012*Math.min(P.moveAmt/5,1);
+  camera.position.y+=bob;
+  // viewmodel anim
+  VM.recoil=Math.max(0,VM.recoil-dt*0.6);
+  VM.group.position.z=-0.55+VM.recoil;
+  VM.group.position.y=-0.34+Math.sin(VM.bobT*0.5)*0.008*Math.min(P.moveAmt/5,1)-(P.reloading?0.14:0);
+  VM.group.rotation.x=VM.recoil*1.6-(P.reloading?0.4:0);
+  // motorsag-visting mens den ruser
+  if(P.sawOn){
+    const m=VM.models.pisk;
+    m.position.set(rnd(-0.008,0.008),rnd(-0.008,0.008),rnd(-0.005,0.005));
+    m.rotation.z=0.05+rnd(-0.02,0.02);
+  }else if(VM.models.pisk.position.x!==0){
+    VM.models.pisk.position.set(0,0,0);
+    VM.models.pisk.rotation.z=0.05;
+  }
+  // muzzle flash decay
+  if(flashT>0){flashT-=dt;if(flashT<=0){flash.intensity=0;muzzleFlash.visible=false;}}
+}
+</script>
+<script>
+// ---------------- HUMANOID FACTORY ----------------
+function makeHumanoid(o){ // {skin,shirt,pants,hat,eyes}
+  const grp=new THREE.Group();
+  const skinM=new THREE.MeshLambertMaterial({color:o.skin});
+  const shirtM=new THREE.MeshLambertMaterial({color:o.shirt});
+  const pantsM=new THREE.MeshLambertMaterial({color:o.pants});
+  const body=new THREE.Mesh(new THREE.BoxGeometry(0.52,0.75,0.3),shirtM);
+  body.position.y=1.05;body.castShadow=true;grp.add(body);
+  const head=new THREE.Mesh(new THREE.BoxGeometry(0.36,0.36,0.36),skinM);
+  head.position.y=1.62;head.castShadow=true;grp.add(head);
+  if(o.eyes){
+    for(const ex of [-0.09,0.09]){
+      const eye=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.05,0.02),
+        new THREE.MeshBasicMaterial({color:o.eyes}));
+      eye.position.set(ex,0.02,0.19);head.add(eye);
+    }
+  }
+  const armG=new THREE.BoxGeometry(0.14,0.68,0.14);armG.translate(0,-0.3,0);
+  const armL=new THREE.Mesh(armG,shirtM);armL.position.set(-0.34,1.4,0);grp.add(armL);
+  const armR=new THREE.Mesh(armG.clone(),shirtM);armR.position.set(0.34,1.4,0);grp.add(armR);
+  const legG=new THREE.BoxGeometry(0.17,0.7,0.17);legG.translate(0,-0.35,0);
+  const legL=new THREE.Mesh(legG,pantsM);legL.position.set(-0.14,0.7,0);grp.add(legL);
+  const legR=new THREE.Mesh(legG.clone(),pantsM);legR.position.set(0.14,0.7,0);grp.add(legR);
+  if(o.hat!==undefined&&o.hat!==null){
+    const hatM=new THREE.MeshLambertMaterial({color:o.hat});
+    const brim=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.34,0.04,10),hatM);
+    brim.position.y=0.19;head.add(brim);
+    const top=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.19,0.2,10),hatM);
+    top.position.y=0.3;head.add(top);
+  }
+  return {grp:grp,head:head,armL:armL,armR:armR,legL:legL,legR:legR};
+}
+
+// ---------------- ZOMBIES ----------------
+const ZOMBIES=[];
+function makeZombie(type,night){
+  let o,hp,speed,dmg,scale=1;
+  if(type==='giant'){ // kjempe — siste nivå
+    o={skin:0x3a4a2a,shirt:0x241f1a,pants:0x1a1512,eyes:0xff2010};
+    hp=500+30*night;speed=rnd(1.5,1.9);dmg=45;scale=1.9;
+  }else if(type==='fast'){
+    o={skin:0x7a8a4a,shirt:0x6a4438,pants:0x3a3028,eyes:0xff3020};
+    hp=40+5*night;speed=rnd(3.8,4.6)+Math.min(1.5,night*0.06);dmg=8+Math.floor(night/2);scale=0.9;
+  }else if(type==='tank'){
+    o={skin:0x4a5a34,shirt:0x2e2a24,pants:0x24201c,eyes:0xff3020};
+    hp=200+16*night;speed=rnd(1.2,1.6)+Math.min(0.8,night*0.04);dmg=Math.min(40,20+night);scale=1.45;
+  }else{
+    o={skin:0x5f7a40,shirt:[0x5a4a3a,0x4a5a6a,0x6a5a3a][ri(0,2)],pants:0x3a3028,eyes:0xff3020};
+    hp=60+7*night;speed=rnd(1.9,2.7)+Math.min(1.6,night*0.07);dmg=Math.min(28,12+Math.floor(night*0.7));scale=rnd(0.95,1.08);
+    if(Math.random()<0.35)o.hat=0x3a2c1c; // tidligere landsbybeboer
+  }
+  const h=makeHumanoid(o);
+  h.grp.scale.setScalar(scale);
+  // spawn ring or mine
+  if(Math.random()<0.22){
+    h.grp.position.copy(G.minePos).add(V3(rnd(-2,2),0,rnd(4,7)));
+  }else{
+    const a=rnd(0,Math.PI*2);
+    const rr=rnd(58,74);
+    h.grp.position.set(Math.cos(a)*rr,0,Math.sin(a)*rr);
+  }
+  const z={grp:h.grp,parts:h,hp:hp,maxHp:hp,speed:speed,dmg:dmg,scale:scale,type:type,
+    animT:rnd(0,9),atkT:0,windup:-1,groanT:rnd(2,7),boss:false,
+    animalHunter:Math.random()<0.16}; // eit lite mindretal jaktar heller på dyra
+  scene.add(h.grp);
+  ZOMBIES.push(z);
+  return z;
+}
+// zombie targets: player + standing brothers
+function nearestTarget(pos){
+  let best={pos:P.pos,kind:'player',ref:null},bd=pos.distanceTo(P.pos);
+  if(P.hp<=0)bd=1e9;
+  for(const b of BROS){
+    if(b.hp<=0||b.downed)continue;
+    const d=pos.distanceTo(b.grp.position);
+    if(d<bd){bd=d;best={pos:b.grp.position,kind:'bro',ref:b};}
+  }
+  return {t:best,dist:bd};
+}
+function tgtPos(t){return t.kind==='player'?P.pos:(t.kind==='animal'?t.ref.g.position:t.ref.grp.position);}
+function pickTarget(z){
+  // hald fast på målet — byt berre om noko anna er KLART nærare (elles sikksakkar dei mellom mål)
+  const cur=z.tgt;
+  if(cur){
+    const dead=cur.kind==='player'?P.hp<=0:(cur.kind==='animal'?cur.ref.hp<=0:(cur.ref.hp<=0||cur.ref.downed));
+    if(dead)z.tgt=null;
+  }
+  let res=nearestTarget(z.grp.position);
+  if(z.animalHunter){ // dyrejegerane føretrekkjer nærmaste dyr
+    for(const a of DOGS.concat(HORSES)){
+      if(a.hp<=0)continue;
+      const d=z.grp.position.distanceTo(a.g.position);
+      if(d<res.dist)res={t:{pos:a.g.position,kind:'animal',ref:a},dist:d};
+    }
+  }
+  if(z.tgt){
+    const cd=z.grp.position.distanceTo(tgtPos(z.tgt));
+    if(res.dist<cd*0.7)z.tgt=res.t;
+    else return {t:z.tgt,dist:cd};
+  }else z.tgt=res.t;
+  return {t:z.tgt,dist:z.grp.position.distanceTo(tgtPos(z.tgt))};
+}
+function damageAnimal(a,dmg){
+  if(a.hp<=0)return;
+  a.hp-=dmg;
+  blood(a.g.position.clone().add(V3(0,a.kind==='horse'?1.1:0.4,0)),10);
+  if(a.kind==='dog')sfxDog(0.5);else sfxHorse(0.5);
+  if(a.hp<=0){
+    gibs(a.g.position.clone().add(V3(0,0.5,0)),6);
+    blood(a.g.position.clone().add(V3(0,0.6,0)),20);
+    scene.remove(a.g);
+    const arr=a.kind==='dog'?DOGS:HORSES;
+    const i=arr.indexOf(a);if(i>=0)arr.splice(i,1);
+  }
+}
+function updateZombie(z,dt){
+  z.animT+=dt*z.speed*1.8;
+  // rykkjer til når han blir treft
+  if(z.hitT>0){
+    z.hitT-=dt;
+    z.grp.rotation.z=Math.sin(z.hitT*45)*0.15;
+    z.parts.head.rotation.x=-z.hitT*1.4;
+  }else if(z.grp.rotation.z!==0){
+    z.grp.rotation.z*=0.7;z.parts.head.rotation.x*=0.7;
+    if(Math.abs(z.grp.rotation.z)<0.01){z.grp.rotation.z=0;z.parts.head.rotation.x=0;}
+  }
+  const res=pickTarget(z);
+  const tgt=res.t,dist=res.dist;
+  // move
+  if(z.staggerT>0){
+    z.staggerT-=dt;
+  }else if(z.windup<0&&dist>1.55){
+    // zombiar klatrar opp trappene om målet står på eit tak — med hysterese så målet ikkje flakkar
+    let mx=tgt.pos.x,mz=tgt.pos.z;
+    const tgtY=tgt.kind==='player'?P.pos.y-1.7:tgtPos(tgt).y;
+    if(tgtY>z.grp.position.y+1.2){
+      let rp=null,bd2=1e9;
+      for(const r of RAMPS){
+        const d2r=(r.x-z.grp.position.x)*(r.x-z.grp.position.x)+(r.z-z.grp.position.z)*(r.z-z.grp.position.z);
+        if(d2r<bd2){bd2=d2r;rp=r;}
+      }
+      if(rp){
+        if(z.grp.position.y>0.4||bd2<3.6)z.climb=true;
+        else if(bd2>20&&z.grp.position.y<0.1)z.climb=false;
+        if(z.climb){mx=rp.x+rp.dx*rp.len;mz=rp.z+rp.dz*rp.len;} // på veg opp — hald kursen mot toppen
+        else{mx=rp.x;mz=rp.z;}                                   // gå til foten av trappa
+      }
+    }else z.climb=false;
+    const dir=V3(mx-z.grp.position.x,0,mz-z.grp.position.z);
+    if(dir.lengthSq()>1e-6)dir.normalize();
+    // fast mot vegg → gå LANGS veggen — alltid same side til hinderet er passert (ingen sikksakk)
+    if(z.avoidHold>0)z.avoidHold-=dt;
+    if(z.avoidT>0){
+      z.avoidT-=dt;
+      dir.set(dir.z*z.avoidSide,0,-dir.x*z.avoidSide).normalize();
+    }
+    // RETT KURS: hald ei stø hovudretning med avgrensa svingfart — ingen sikksakk
+    const want=Math.atan2(dir.x,dir.z);
+    if(z.hdg===undefined)z.hdg=want;
+    let dh=((want-z.hdg+Math.PI)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)-Math.PI;
+    const turnRate=(dist<5||z.avoidT>0)?10:3.2; // snøgg sving berre tett på målet / rundt hinder
+    z.hdg+=clamp(dh,-turnRate*dt,turnRate*dt);
+    dir.set(Math.sin(z.hdg),0,Math.cos(z.hdg));
+    // charge (boss)
+    let sp=z.speed;
+    if(z.charging){sp=9;z.chargeT-=dt;if(z.chargeT<=0)z.charging=false;}
+    z.grp.position.addScaledVector(dir,sp*dt);
+    // separation
+    for(const o of ZOMBIES){
+      if(o===z)continue;
+      const dx=z.grp.position.x-o.grp.position.x,dz=z.grp.position.z-o.grp.position.z;
+      const d2=dx*dx+dz*dz;
+      if(d2<0.64&&d2>1e-5){
+        const d=Math.sqrt(d2);
+        z.grp.position.x+=dx/d*(0.8-d)*0.22;z.grp.position.z+=dz/d*(0.8-d)*0.22; // mild dytting — held kursen rett
+      }
+    }
+    const zpx=z.grp.position.x,zpz=z.grp.position.z;
+    collideCircle(z.grp.position,0.4*z.scale,z.grp.position.y);
+    const gy=groundHeightAt(z.grp.position.x,z.grp.position.z,z.grp.position.y+0.7);
+    if(gy>=z.grp.position.y)z.grp.position.y=gy;               // opp (trapp) — følg bakken
+    else z.grp.position.y=Math.max(gy,z.grp.position.y-10*dt); // ned — fall mjukt, ikkje teleporter
+    if(Math.hypot(z.grp.position.x-zpx,z.grp.position.z-zpz)<0.001&&sp>0.5){
+      if(!(z.avoidT>0)){
+        if(!(z.avoidHold>0))z.avoidSide=Math.random()<0.5?1:-1; // berre NYTT hinder får ny side
+        z.avoidT=0.7;z.avoidHold=2.5;
+      }
+    }
+    z.grp.rotation.y=z.hdg; // kroppen peikar alltid langs den steda kursen
+    // walk anim
+    const sw=Math.sin(z.animT)*0.6;
+    z.parts.legL.rotation.x=sw;z.parts.legR.rotation.x=-sw;
+    z.parts.armL.rotation.x=-1.2+Math.sin(z.animT)*0.25; // zombie-arms forward
+    z.parts.armR.rotation.x=-1.2-Math.sin(z.animT)*0.25;
+  }
+  // attack
+  z.atkT-=dt;
+  if(z.windup>=0){
+    z.windup+=dt;
+    z.parts.armR.rotation.x=-1.2-z.windup*2;
+    if(z.windup>0.45){
+      z.windup=-1;
+      if(dist<2.3*z.scale+0.4){
+        if(tgt.kind==='player'){
+          damagePlayer(z.dmg);
+          const kb=V3().subVectors(P.pos,z.grp.position).setY(0).normalize();
+          P.pos.addScaledVector(kb,0.7);
+        }else if(tgt.kind==='animal')damageAnimal(tgt.ref,z.dmg);
+        else damageBro(tgt.ref,z.dmg);
+      }
+      z.atkT=1.1;
+    }
+  }else if(dist<1.9*z.scale+0.3&&z.atkT<=0){
+    z.windup=0;
+  }
+  // boss abilities
+  if(z.boss)updateBossAbilities(z,dt,dist,tgt);
+  // groan
+  z.groanT-=dt;
+  if(z.groanT<=0){
+    z.groanT=rnd(5,13); // stønner av og til
+    sfxGroan(z.grp.position.distanceTo(P.pos));
+  }
+}
+function damageZombie(z,dmg,head,dir,expl){
+  if(z.hp<=0)return;
+  z.hp-=dmg;
+  blood(z.grp.position.clone().add(V3(0,head?1.6*z.scale:1,0)),head?22:14);
+  if(dir&&!z.boss)z.grp.position.addScaledVector(dir,Math.min(0.45,dmg*0.012)); // knockback etter kaliber
+  if(!z.boss){z.staggerT=0.22;z.hitT=0.2;}                 // vakler og rykkjer til ved treff
+  if(z.hp<=0)killZombie(z,head,expl);
+}
+function killZombie(z,head,expl){
+  sfxZombieDie();
+  if(expl)bloodMist(z.grp.position.clone().add(V3(0,1,0))); // sprengd i fillebitar
+  else{gibs(z.grp.position);blood(z.grp.position.clone().add(V3(0,1,0)),18);}
+  scene.remove(z.grp);
+  if(z.boss){
+    bossDied(z);
+  }else{
+    const i=ZOMBIES.indexOf(z);
+    if(i>=0)ZOMBIES.splice(i,1);
+    G.kills++;G.score+=head?15:10;
+    if(head)G.headshots++;
+    G.slowCharge=Math.min(8,(G.slowCharge||0)+1);
+    if(G.slowCharge===8&&!(G.slowmoT>0))toast('⏳ SLOW MOTION READY — press X!');
+    // drops
+    const r=Math.random();
+    if(r<0.13)spawnPickup(z.grp.position.x,z.grp.position.z,'bullets',8);
+    else if(r<0.19&&P.owned.hagle)spawnPickup(z.grp.position.x,z.grp.position.z,'shells',3);
+    else if(r<0.21&&P.owned.bazooka)spawnPickup(z.grp.position.x,z.grp.position.z,'rockets',1);
+    else if(r<0.24&&P.owned.dynamitt)spawnPickup(z.grp.position.x,z.grp.position.z,'dyn',1);
+    else if(r<0.27)spawnPickup(z.grp.position.x,z.grp.position.z,'beans',0);
+  }
+}
+
+// ---------------- BOSS ----------------
+const BOSS_DEFS=[
+  {name:'THE GRAVE ROBBER',hp:350,color:0x3f5a30,dmg:26,speed:1.9,scale:2.2},
+  {name:'THE BUTCHER',hp:650,color:0x5a2a2a,dmg:32,speed:2.1,scale:2.5},
+  {name:'THE PLAGUE KING',hp:1000,color:0x2a3a2a,dmg:38,speed:2.2,scale:2.9}
+];
+function spawnBoss(night){
+  let tier=Math.min(3,Math.floor(night/3)); // 3->1, 6->2, 9->3
+  let mult=1;
+  if(G.endless||night>9){
+    tier=((Math.floor(night/3)-1)%3)+1;
+    mult=1+0.45*Math.max(0,Math.floor(night/3)-3);
+  }
+  const def=BOSS_DEFS[tier-1];
+  const bossDmg=Math.round(def.dmg*(1+(mult-1)*0.5));
+  const h=makeHumanoid({skin:def.color,shirt:0x1a1512,pants:0x14100c,eyes:0xff2010});
+  h.grp.scale.setScalar(def.scale);
+  h.grp.position.set(-8,0,-38); // graveyard
+  // cosmetics
+  if(tier===3){ // crown
+    const crown=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.24,0.14,8),
+      new THREE.MeshLambertMaterial({color:0xd9a441,emissive:0x664400}));
+    crown.position.y=0.28;h.head.add(crown);
+  }
+  if(tier===2){ // cleaver
+    const cleav=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.5,0.35),
+      new THREE.MeshLambertMaterial({color:0x8a8f94}));
+    cleav.position.set(0,-0.6,0.15);h.armR.add(cleav);
+  }
+  if(tier===1){ // shovel
+    const shov=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.9,0.07),
+      new THREE.MeshLambertMaterial({color:0x5a4328}));
+    shov.position.set(0,-0.5,0);h.armR.add(shov);
+  }
+  const z={grp:h.grp,parts:h,hp:Math.round(def.hp*mult),maxHp:Math.round(def.hp*mult),
+    speed:def.speed+Math.min(0.8,(mult-1)*0.3),dmg:bossDmg,scale:def.scale,type:'boss',boss:true,tier:tier,name:def.name,
+    animT:0,atkT:2,windup:-1,groanT:3,abilT:5,charging:false,chargeT:0};
+  scene.add(h.grp);
+  G.boss=z;
+  // UI + drama
+  $('bossBar').classList.add('on');
+  $('bossName').textContent=def.name;
+  banner('NATT '+night,def.name+' HAS AWAKENED');
+  sfxRoar();G.shake=Math.max(G.shake,0.4);
+  musicSet('boss');
+  const bossBark=[['John','There he is! Aim for the head!'],['Sigbjørn','Holy smoke... he is HUGE!'],['Kristoffer','Hold the line, brothers!']][tier-1];
+  bark(bossBark[0],bossBark[1]);
+}
+function updateBossAbilities(z,dt,dist,tgt){
+  z.abilT-=dt;
+  if(z.abilT<=0){
+    if(z.tier>=2&&Math.random()<0.5&&dist>6){ // charge
+      z.charging=true;z.chargeT=1.1;z.abilT=8;
+      sfxRoar();
+    }else if(dist<6){ // slam
+      z.abilT=6.5;
+      G.shake=Math.max(G.shake,0.45);
+      _noiseHit(0.5,0.8,'lowpass',400);
+      spawnParts(z.grp.position,18,0x8a7040,5,0.6,8);
+      if(P.pos.distanceTo(z.grp.position)<6)damagePlayer(Math.round(z.dmg*0.7));
+      for(const b of BROS){
+        if(!b.downed&&b.grp.position.distanceTo(z.grp.position)<6)damageBro(b,Math.round(z.dmg*0.7));
+      }
+    }else z.abilT=3;
+    if(z.tier>=3&&ZOMBIES.length<24){ // summon
+      for(let i=0;i<3;i++){
+        const m=makeZombie(Math.random()<0.5?'fast':'normal',G.night);
+        m.grp.position.copy(z.grp.position).add(V3(rnd(-3,3),0,rnd(-3,3)));
+      }
+      banner('','THE PLAGUE KING RAISES THE DEAD',true);
+    }
+  }
+  const pct=z.hp/z.maxHp;
+  $('bossHpFill').style.width=(pct*100)+'%';
+}
+function bossDied(z){
+  scene.remove(z.grp);
+  G.boss=null;G.bossCount++;
+  $('bossBar').classList.remove('on');
+  G.score+=250;G.kills++;
+  sfxExplosion();G.shake=0.5;
+  spawnParts(z.grp.position,30,0x88ff66,6,1,6);
+  toast('☠ '+z.name+' IS SLAIN! +250');
+  if(z.tier===3&&!G.endless&&G.night>=9){
+    setTimeout(()=>{if(G.state==='playing')startVictory();},1800);
+  }else{
+    bark('Kristoffer','He is down! Nice work, Mio!');
+    musicSet(G.phase==='night'?'night':'day');
+  }
+}
+
+// ---------------- BROTHERS ----------------
+const BROS=[];
+const BRO_DEFS=[
+  {name:'John',shirt:0x8a2f2b,hat:0x4a3320,anchor:V3(-3,0,-3),color:'#e07a6a',
+    roofPath:[[-14.25,-1.4],[-14.25,-11.6],[-10,-8]]},        // saloon-taket (trapp bak)
+  {name:'Sigbjørn',shirt:0x2b4a8a,hat:0x1c1c1c,anchor:V3(3,0,-3),color:'#7a9ae0',
+    roofPath:[[-4,9.5],[-13.75,9.5],[-13.75,1.3],[-10,4]]},   // sheriff-taket (rundt huset, trapp bak)
+  {name:'Kristoffer',shirt:0x2b6e3f,hat:0xcbb58a,anchor:V3(0,0,2.5),color:'#7ad08a',
+    roofPath:[[13.75,0],[13.75,-9.2],[10,-6]]}                // landhandel-taket (trapp bak)
+];
+for(const def of BRO_DEFS){
+  const h=makeHumanoid({skin:0xd8a878,shirt:def.shirt,pants:0x4a3a2a,hat:def.hat});
+  h.grp.position.copy(def.anchor);
+  // gun in right hand
+  const gun=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.07,0.32),
+    new THREE.MeshLambertMaterial({color:0x444a50}));
+  gun.position.set(0,-0.62,0.14);h.armR.add(gun);
+  const tag=textSprite(def.name,def.color,44,1.7);
+  tag.position.y=2.25;h.grp.add(tag);
+  scene.add(h.grp);
+  // blodpøl (vises når han ligg nede)
+  const pool=new THREE.Mesh(new THREE.CircleGeometry(1.25,18),
+    new THREE.MeshBasicMaterial({color:0x5a0f0a,transparent:true,opacity:0.85}));
+  pool.rotation.x=-Math.PI/2;pool.position.y=0.03;pool.visible=false;
+  scene.add(pool);
+  BROS.push({name:def.name,color:def.color,grp:h.grp,parts:h,hp:220,maxHp:220,
+    downed:false,fireT:rnd(0.5,1.5),wanderT:0,wander:V3(),anchor:def.anchor.clone(),
+    animT:rnd(0,9),barkCd:0,mode:'well',wpts:null,wpi:0,roofUntil:0,roofPath:def.roofPath,
+    pool:pool,cryT:0,helper:null,helpT:0,tHeat:0,tPause:0});
+}
+const DOWNED_CRY='I am down, boys! Help me now!! I am going to die!';
+function damageBro(b,dmg){
+  if(b.downed)return;
+  b.hp-=dmg;
+  blood(b.grp.position.clone().add(V3(0,1.1,0)),5);
+  if(b.hp<=0){
+    b.hp=0;b.downed=true;
+    // ligg flatt på bakken med blod rundt seg
+    b.grp.rotation.x=-Math.PI/2;
+    b.grp.position.y=0.25;
+    b.pool.position.set(b.grp.position.x,0.03,b.grp.position.z);
+    b.pool.scale.setScalar(0.3);
+    b.pool.visible=true;
+    b.cryT=1;
+    for(const o of BROS)if(o.helper===b)o.helper=null;
+    b.helper=null;
+    blood(b.grp.position.clone().add(V3(0,0.5,0)),16);
+    bark(b.name,DOWNED_CRY);
+    toast(b.name+' is down! Hold E to revive','bad');
+  }else if(Math.random()<0.3&&b.barkCd<=0){
+    bark(b.name,{John:'Argh!','Sigbjørn':'They bite hard tonight!',Kristoffer:'I need help over here!'}[b.name]);
+    b.barkCd=6;
+  }
+}
+function reviveBro(b){
+  b.downed=false;b.hp=Math.round(b.maxHp*0.5);
+  b.grp.rotation.x=0;b.grp.scale.y=1;
+  b.pool.visible=false;
+  b.helper=null;
+  sfxHeal();
+  bark(b.name,{John:'Thanks, partner. I owe you one.','Sigbjørn':'Phew... that was close!',Kristoffer:'Back in the fight!'}[b.name]);
+  toast(b.name+' is back on their feet!');
+}
+function broMoveAlong(b,dt,speed){
+  const wp=b.wpts&&b.wpts[b.wpi];
+  if(!wp)return true;
+  const to=V3(wp[0]-b.grp.position.x,0,wp[1]-b.grp.position.z);
+  if(to.length()<0.6){
+    b.wpi++;
+    return b.wpi>=b.wpts.length;
+  }
+  to.normalize();
+  const bpx=b.grp.position.x,bpz=b.grp.position.z;
+  b.grp.position.x+=to.x*speed*dt;
+  b.grp.position.z+=to.z*speed*dt;
+  // rutene er handlagde — kollisjon berre på bakkenivå, og brørne STIG OVER knehøge tønner/kassar
+  // (feetY=0.95 gjer at småting under ~1,3 m ikkje stoggar dei — berre hus)
+  if(b.grp.position.y<0.5)collideCircle(b.grp.position,0.35,0.95);
+  // heilt fastlåst mot eit hus i over eit sekund → gje opp dette punktet
+  if(Math.hypot(b.grp.position.x-bpx,b.grp.position.z-bpz)<speed*dt*0.15){
+    b.blockT=(b.blockT||0)+dt;
+    if(b.blockT>1.0){b.blockT=0;return true;}
+  }else b.blockT=0;
+  b.grp.rotation.y=Math.atan2(to.x,to.z);
+  const sw=Math.sin(b.animT*9)*0.55;
+  b.parts.legL.rotation.x=sw;b.parts.legR.rotation.x=-sw;
+  return false;
+}
+function triggerRoofEvent(){
+  const alive=BROS.filter(b=>!b.downed&&b.mode==='well');
+  if(alive.length<2)return;
+  bark(alive[ri(0,alive.length-1)].name,'Get up on the roofs!');
+  for(const b of alive){
+    b.mode='toRoof';
+    b.wpts=b.roofPath.slice();b.wpi=0;
+    b.roofUntil=G.time+rnd(16,28);
+  }
+}
+function updateBro(b,dt){
+  b.barkCd-=dt;
+  if(b.downed){
+    // roper om hjelp og blør
+    b.cryT-=dt;
+    if(b.cryT<=0){b.cryT=rnd(8,13);if(subT<=0)bark(b.name,DOWNED_CRY);}
+    if(b.pool.scale.x<1)b.pool.scale.multiplyScalar(1+dt*0.4);
+    return;
+  }
+  b.animT+=dt;
+  // høyde: tak og trapper
+  b.grp.position.y=groundHeightAt(b.grp.position.x,b.grp.position.z,b.grp.position.y+0.7);
+  // hjelper ein bror som ligg nede
+  if(b.mode==='well'){
+    const fallen=BROS.find(o=>o!==b&&o.downed&&(!o.helper||o.helper===b));
+    if(fallen&&fallen.grp.position.distanceTo(b.grp.position)<30){
+      fallen.helper=b;
+      const dh=b.grp.position.distanceTo(fallen.grp.position);
+      if(dh>1.8){
+        const to=V3().subVectors(fallen.grp.position,b.grp.position).setY(0).normalize();
+        b.grp.position.addScaledVector(to,3*dt);
+        collideCircle(b.grp.position,0.4,b.grp.position.y);
+        b.grp.rotation.y=Math.atan2(to.x,to.z);
+        const sw=Math.sin(b.animT*9)*0.55;
+        b.parts.legL.rotation.x=sw;b.parts.legR.rotation.x=-sw;
+        b.helpT=0;
+      }else{
+        b.helpT+=dt;
+        if(b.helpT>3){
+          b.helpT=0;fallen.helper=null;
+          reviveBro(fallen);
+          bark(b.name,'Up you get, brother! I have got you!');
+        }
+      }
+    }else b.helpT=0;
+  }
+  if(G.phase==='night'){
+    // bevegelse etter modus
+    if(b.mode==='toRoof'){
+      if(broMoveAlong(b,dt,3.4)){
+        b.mode=(G.kaijuNight&&KAIJU.alive)?'turret':'roof';
+        b.parts.legL.rotation.x=0;b.parts.legR.rotation.x=0;
+      }
+    }else if(b.mode==='turret'){
+      // står BAK gatling-kanona si — kanona siktar mot kolossen
+      if(!KAIJU.alive){
+        b.mode='toWell';
+        b.wpts=b.roofPath.slice().reverse().concat([[b.anchor.x,b.anchor.z]]);b.wpi=0;
+      }else{
+        let t=null,td=16;
+        for(const tt of TURRETS){
+          const d=Math.hypot(tt.x-b.grp.position.x,tt.z-b.grp.position.z);
+          if(d<td&&tt.user!=='mio'){td=d;t=tt;}
+        }
+        if(t){
+          const kp=KAIJU.grp.position;
+          const dx=kp.x-t.x,dz=kp.z-t.z,dl=Math.hypot(dx,dz);
+          t.g.rotation.y=Math.atan2(-dx,-dz);              // løpa mot kjempa
+          t.barrels.rotation.z+=dt*14;                      // løpa spinn
+          b.grp.position.x=t.x-dx/dl*0.95;                  // broren står bak
+          b.grp.position.z=t.z-dz/dl*0.95;
+        }
+      }
+    }else if(b.mode==='roof'){
+      if(G.time>b.roofUntil){
+        b.mode='toWell';
+        b.wpts=b.roofPath.slice().reverse().concat([[b.anchor.x,b.anchor.z]]);b.wpi=0;
+      }
+    }else if(b.mode==='toWell'){
+      if(broMoveAlong(b,dt,3.4)){b.mode='well';b.parts.legL.rotation.x=0;b.parts.legR.rotation.x=0;}
+    }else if(b.mode==='patrol'){
+      // patruljerer gatene ei stund — så tilbake til brønnen
+      b.patrolT-=dt;
+      if(broMoveAlong(b,dt,2.4)){
+        const sp=AMMO_SPOTS[ri(0,AMMO_SPOTS.length-1)];
+        b.wpts=[[sp[0],sp[1]]];b.wpi=0;
+      }
+      if(b.patrolT<=0){b.mode='toWell';b.wpts=[[b.anchor.x,b.anchor.z]];b.wpi=0;}
+    }else if(b.mode==='hunt'){
+      // jaktar målretta på nærmaste zombie i ein periode
+      b.huntT-=dt;
+      let hz=null,hd=45;
+      for(const z of ZOMBIES){
+        if(z.hp<=0)continue;
+        const d=b.grp.position.distanceTo(z.grp.position);
+        if(d<hd){hd=d;hz=z;}
+      }
+      if(!hz||b.huntT<=0){
+        b.mode='toWell';b.wpts=[[b.anchor.x,b.anchor.z]];b.wpi=0;
+      }else if(hd>5.5){
+        b.wpts=[[hz.grp.position.x,hz.grp.position.z]];b.wpi=0;
+        if(broMoveAlong(b,dt,3.1)){b.mode='toWell';b.wpts=[[b.anchor.x,b.anchor.z]];b.wpi=0;} // fastlåst → heim
+      }else{b.parts.legL.rotation.x=0;b.parts.legR.rotation.x=0;} // innanfor skothald — fellesblokka skyt
+    }else if(b.mode==='well'&&!G.kaijuNight){
+      // ved brønnen: etter ei stund dreg han ut — på patrulje eller på jakt
+      b.aiT=(b.aiT===undefined?rnd(6,14):b.aiT)-dt;
+      if(b.aiT<=0){
+        b.aiT=rnd(14,24);
+        if(Math.random()<0.45&&ZOMBIES.length>0){
+          b.mode='hunt';b.huntT=rnd(8,13);
+        }else{
+          b.mode='patrol';b.patrolT=rnd(10,17);
+          const sp=AMMO_SPOTS[ri(0,AMMO_SPOTS.length-1)];
+          b.wpts=[[sp[0],sp[1]]];b.wpi=0;
+        }
+      }
+    }
+    // KOLOSSEN-natta: ALLE brørne fyrer vilt mot kjempa — uansett kvar dei står
+    if(G.kaijuNight&&KAIJU.alive&&!b.downed){
+      const kp=KAIJU.grp.position;
+      if(b.mode!=='toRoof'&&b.mode!=='toWell') // snu mot kjempa når dei ikkje spring
+        b.grp.rotation.y=Math.atan2(kp.x-b.grp.position.x,kp.z-b.grp.position.z);
+      b.parts.armR.rotation.x=-1.45;
+      b.fireT-=dt;
+      if(b.fireT<=0){
+        b.fireT=rnd(0.06,0.13); // vill, kontinuerleg skyting
+        sfxShot('gatling',clamp(1-b.grp.position.distanceTo(P.pos)/30,0.05,0.4));
+        const from=b.grp.position.clone().add(V3(0,1.5,0));
+        tracer(from,V3(kp.x+rnd(-35,35),rnd(110,260),kp.z+rnd(-35,35)),0xffe8a0); // sprutar over heile kjempa
+        damageKaiju(16);
+      }
+      return;
+    }
+    // skyting uansett modus
+    let best=null,bd=30;
+    const targets=G.boss?ZOMBIES.concat([G.boss]):ZOMBIES;
+    for(const z of targets){
+      const d=b.grp.position.distanceTo(z.grp.position);
+      if(d<bd){bd=d;best=z;}
+    }
+    if(best){
+      if(b.mode==='well'||b.mode==='roof'||b.mode==='hunt')
+        b.grp.rotation.y=Math.atan2(best.grp.position.x-b.grp.position.x,best.grp.position.z-b.grp.position.z);
+      b.parts.armR.rotation.x=-1.45; // aiming
+      b.fireT-=dt;
+      if(b.fireT<=0){
+        const gat=G.night>=10; // gatling for alle på siste nivå
+        b.fireT=gat?rnd(0.09,0.16):rnd(0.9,1.4);
+        sfxShot(gat?'gatling':'npc',clamp(1-b.grp.position.distanceTo(P.pos)/30,0.1,gat?0.5:1));
+        const from=b.grp.position.clone().add(V3(0,1.4,0));
+        if(Math.random()>(gat?0.3:0.15)){
+          const to=best.grp.position.clone().add(V3(0,1.2*best.scale,0));
+          tracer(from,to,0xffd080);
+          damageZombie(best,gat?12:30,false,null);
+        }else{
+          tracer(from,best.grp.position.clone().add(V3(rnd(-1,1),rnd(0.5,2),rnd(-1,1))),0xffd080);
+        }
+      }
+      // retreat if too close — eller rykk frem mot fienden (dynamisk!)
+      if(b.mode==='well'&&bd<3){
+        const away=V3().subVectors(b.grp.position,best.grp.position).setY(0).normalize();
+        b.grp.position.addScaledVector(away,2.6*dt);
+        collideCircle(b.grp.position,0.4);
+      }else if(b.mode==='well'&&bd>9&&b.grp.position.distanceTo(b.anchor)<16){
+        const adv=V3().subVectors(best.grp.position,b.grp.position).setY(0).normalize();
+        b.grp.position.addScaledVector(adv,2.4*dt);
+        collideCircle(b.grp.position,0.4,b.grp.position.y);
+        const sw=Math.sin(b.animT*8)*0.5;
+        b.parts.legL.rotation.x=sw;b.parts.legR.rotation.x=-sw;
+      }
+    }else b.parts.armR.rotation.x=0;
+  }else{
+    b.mode='well';
+    // day wander near anchor
+    b.wanderT-=dt;
+    if(b.wanderT<=0){
+      b.wanderT=rnd(3,7);
+      b.wander=V3(rnd(-16,16),0,rnd(-14,18)); // vandrar over heile sentrum
+    }
+    const to=V3().subVectors(b.wander,b.grp.position);to.y=0;
+    if(to.length()>0.5){
+      to.normalize();
+      const px=b.grp.position.x,pz=b.grp.position.z;
+      b.grp.position.addScaledVector(to,1.7*dt);
+      collideCircle(b.grp.position,0.4);
+      if(Math.hypot(b.grp.position.x-px,b.grp.position.z-pz)<1.7*dt*0.25)b.wanderT=0; // traff vegg → vel nytt mål med ein gong
+      b.grp.rotation.y=Math.atan2(to.x,to.z);
+      const sw=Math.sin(b.animT*6)*0.4;
+      b.parts.legL.rotation.x=sw;b.parts.legR.rotation.x=-sw;
+    }else{
+      b.parts.legL.rotation.x=0;b.parts.legR.rotation.x=0;
+    }
+    b.parts.armR.rotation.x=0;
+  }
+}
+// battle barks
+const NIGHT_BARKS=[
+  ['John','For Dust Valley! Not one step back!'],
+  ['John','Hold the well — they are swarming!'],
+  ['Sigbjørn','Aim for the head, that stops them fastest!'],
+  ['Sigbjørn','The virus dies tonight, I swear it!'],
+  ['Kristoffer','They are coming from the mine! Lots of them!'],
+  ['Kristoffer','Save your ammo, Mio — the night is long!'],
+  ['John','For the pact, brothers! For the pact!'],
+  ['Sigbjørn','Behind you, Mio!'],
+  ['Kristoffer','Is that all you have, you rotten wretches?!']
+];
+</script>
+<script>
+// ---------------- UI HELPERS ----------------
+function toast(text,cls){
+  const t=document.createElement('div');
+  t.className='toast'+(cls?' '+cls:'');t.textContent=text;
+  $('toasts').appendChild(t);
+  setTimeout(()=>{t.style.transition='opacity .5s';t.style.opacity=0;},2600);
+  setTimeout(()=>t.remove(),3200);
+}
+function banner(main,sub){
+  $('bannerMain').textContent=main;
+  $('bannerSub').textContent=sub||'';
+  const b=$('banner');
+  b.classList.remove('show');void b.offsetWidth;b.classList.add('show');
+}
+let subT=0;
+function bark(who,text){
+  const s=$('subtitle');
+  s.querySelector('.who').textContent=who?who+':':'';
+  s.querySelector('.who').style.color=SPEAKER_COLORS[who]||'#d9a441';
+  s.querySelector('.txt').textContent=' «'+text+'»';
+  s.classList.add('on');subT=3.6;
+  if(!playVoice(who,text))sfxBark(who==='John'?300:who==='Sigbjørn'?240:280);
+}
+const SPEAKER_COLORS={John:'#e07a6a','Sigbjørn':'#7a9ae0',Kristoffer:'#7ad08a',Mio:'#d9a441'};
+
+// ---------------- PICKUPS ----------------
+const PICKUPS=[];
+const PICKUP_DEFS={
+  bullets:{label:'AMMO',color:0xc8a238},
+  shells:{label:'SHELLS',color:0xa35a2a},
+  dyn:{label:'DYNAMITE',color:0xd42f2f},
+  beans:{label:'BEANS +30',color:0x7a8f4a},
+  whisky:{label:'WHISKEY +50',color:0x9a5a2a},
+  w_hagle:{label:'★ SHOTGUN ★',color:0xffd070},
+  w_dyn:{label:'★ DYNAMITE CRATE ★',color:0xff7040},
+  w_bazooka:{label:'★ BAZOOKA ★',color:0xff3020},
+  rockets:{label:'ROCKETS',color:0xd45a2f}
+};
+// kvar gjenstand ser ut som det han er — patroner, dynamitt, bønneboks, flaske, våpen...
+function makePickupMesh(kind){
+  const g=new THREE.Group();
+  const M=(c,ei)=>new THREE.MeshLambertMaterial({color:c,emissive:c,emissiveIntensity:ei===undefined?0.12:ei});
+  if(kind==='bullets'){
+    const crate=new THREE.Mesh(new THREE.BoxGeometry(0.5,0.2,0.36),M(0x6a4a2c));crate.position.y=-0.1;g.add(crate);
+    for(let i=0;i<6;i++){
+      const b=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.18,6),M(0xd8b04a,0.5));
+      b.position.set((i%3-1)*0.13,0.09,(i<3?-0.07:0.07));g.add(b);
+    }
+  }else if(kind==='shells'){
+    const plank=new THREE.Mesh(new THREE.BoxGeometry(0.46,0.06,0.3),M(0x5a4328));plank.position.y=-0.12;g.add(plank);
+    for(let i=0;i<4;i++){
+      const s=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.2,8),M(0xd42f2f,0.4));
+      s.position.set((i-1.5)*0.11,0.02,0);g.add(s);
+      const cap=new THREE.Mesh(new THREE.CylinderGeometry(0.052,0.052,0.05,8),M(0xd8b04a,0.5));
+      cap.position.set((i-1.5)*0.11,-0.08,0);g.add(cap);
+    }
+  }else if(kind==='dyn'||kind==='w_dyn'){
+    if(kind==='w_dyn'){const cr=new THREE.Mesh(new THREE.BoxGeometry(0.62,0.34,0.44),M(0x6a4a2c));cr.position.y=-0.2;g.add(cr);}
+    for(let i=0;i<3;i++){
+      const st=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.055,0.42,8),M(0xd42f2f,0.4));
+      st.position.set((i-1)*0.115,0.05,0);g.add(st);
+    }
+    const fuse=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.14,0.03),M(0x1a1a1a,0));
+    fuse.position.set(0,0.32,0);fuse.rotation.z=0.4;g.add(fuse);
+  }else if(kind==='beans'){
+    const can=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.17,0.4,12),M(0xb8b8b0,0.2));g.add(can);
+    const band=new THREE.Mesh(new THREE.CylinderGeometry(0.175,0.175,0.2,12),M(0x7a8f4a,0.4));g.add(band);
+    const lid=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.17,0.02,12),M(0xd8d8d0,0.3));lid.position.y=0.21;g.add(lid);
+  }else if(kind==='whisky'){
+    const body=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.13,0.34,10),M(0x8a4f1a,0.35));g.add(body);
+    const neck=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.045,0.18,8),M(0x8a4f1a,0.35));neck.position.y=0.26;g.add(neck);
+    const cork=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.05,8),M(0xd8c090,0.2));cork.position.y=0.37;g.add(cork);
+  }else if(kind==='w_hagle'){
+    const wood=M(0x6a4a2c,0.2),steel=M(0x555a60,0.3);
+    for(const off of [-0.035,0.035]){
+      const brl=new THREE.Mesh(new THREE.CylinderGeometry(0.032,0.032,0.8,8),steel);
+      brl.rotation.z=Math.PI/2;brl.position.set(-0.1,0.06,off*0);brl.position.z=off;g.add(brl);
+    }
+    const stock=new THREE.Mesh(new THREE.BoxGeometry(0.34,0.11,0.08),wood);stock.position.set(0.42,0.02,0);stock.rotation.z=0.12;g.add(stock);
+  }else if(kind==='w_bazooka'){
+    const tube=new THREE.Mesh(new THREE.CylinderGeometry(0.09,0.09,1.05,10),M(0x4a5a3a,0.3));
+    tube.rotation.z=Math.PI/2;g.add(tube);
+    for(const rx of [-0.45,0.45]){
+      const ring=new THREE.Mesh(new THREE.CylinderGeometry(0.11,0.11,0.06,10),M(0x2e3a26,0.3));
+      ring.rotation.z=Math.PI/2;ring.position.x=rx;g.add(ring);
+    }
+    const grip=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.16,0.05),M(0x2a2a2a,0.1));grip.position.set(0.1,-0.15,0);g.add(grip);
+  }else if(kind==='rockets'){
+    for(let i=0;i<3;i++){
+      const body=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.3,8),M(0x6a7076,0.3));
+      body.position.set((i-1)*0.14,0,0);g.add(body);
+      const tip=new THREE.Mesh(new THREE.ConeGeometry(0.05,0.13,8),M(0xd42f2f,0.5));
+      tip.position.set((i-1)*0.14,0.21,0);g.add(tip);
+    }
+  }else{ // reservekasse
+    g.add(new THREE.Mesh(new THREE.BoxGeometry(0.42,0.42,0.42),M(PICKUP_DEFS[kind].color,0.3)));
+  }
+  return g;
+}
+function spawnPickup(x,z,kind,amt){
+  const def=PICKUP_DEFS[kind];
+  const grp=new THREE.Group();
+  grp.add(makePickupMesh(kind));
+  const colStr='#'+def.color.toString(16).padStart(6,'0');
+  const lbl=textSprite(def.label,colStr,38,1.6,true); // glødande etikett
+  lbl.position.y=0.95;grp.add(lbl);
+  const halo=skySprite(colStr,1.7); // glød på bakken
+  halo.position.y=-0.42;halo.material.opacity=0.4;grp.add(halo);
+  grp.position.set(x,0.6,z);
+  scene.add(grp);
+  PICKUPS.push({grp:grp,kind:kind,amt:amt||0,t:rnd(0,9),lbl:lbl,halo:halo});
+}
+function clearPickups(){
+  for(const p of PICKUPS)scene.remove(p.grp);
+  PICKUPS.length=0;
+}
+// alle punkter ligger i gatene / på åpne plasser — aldri inne i hus
+const AMMO_SPOTS=[
+  [-2,-12],[2,-4],[-2,6],[2,16],[-2,30],[2,-32],[-2,40],[2,-42],
+  [-14,1],[14,1],[-27,2],[27,2],[-36,1],[36,1],
+  [-12,25],[12,25],[-24,25],[24,25],
+  [-12,-20],[12,-20],[-26,-20],[26,-20],
+  [-4.6,-6],[4.6,-6],[17,-8],[-17,-10],[5,33],[-3,30],[28,24.5],[-28,22],[0,46],[-2,-38]
+];
+function spotFree(x,z){
+  for(const b of COLLIDERS){
+    if(b.h>2&&x>b.minX-0.5&&x<b.maxX+0.5&&z>b.minZ-0.5&&z<b.maxZ+0.5)return false;
+  }
+  return true;
+}
+function spawnDayPickups(){
+  clearPickups();
+  // weapon unlocks
+  if(!P.owned.hagle&&G.day>=1)spawnPickup(-4.5,-8,'w_hagle');
+  if(!P.owned.dynamitt&&G.day>=2)spawnPickup(28,24.5,'w_dyn');
+  // shuffle ammo spots — kun ledige gateplasser
+  const spots=AMMO_SPOTS.filter(s=>spotFree(s[0],s[1])).sort(()=>Math.random()-0.5).slice(0,11+Math.min(G.day,7));
+  for(const sp of spots){
+    const r=Math.random();
+    let kind='bullets',amt=12;
+    if(r<0.34){kind='bullets';amt=12+G.day*2;}
+    else if(r<0.55&&P.owned.hagle){kind='shells';amt=4+Math.floor(G.day/2);}
+    else if(r<0.68&&P.owned.dynamitt){kind='dyn';amt=2;}
+    else if(r<0.88){kind='beans';amt=30;}
+    else{kind='whisky';amt=50;}
+    spawnPickup(sp[0]+rnd(-0.8,0.8),sp[1]+rnd(-0.8,0.8),kind,amt);
+  }
+}
+function collectPickup(p){
+  const k=p.kind;
+  if(k==='bullets'){P.ammo.bullets+=p.amt;toast('+'+p.amt+' bullets');}
+  else if(k==='shells'){P.ammo.shells+=p.amt;toast('+'+p.amt+' shells');}
+  else if(k==='dyn'){P.ammo.dyn+=p.amt;toast('+'+p.amt+' dynamite');}
+  else if(k==='beans'){P.hp=Math.min(100,P.hp+30);toast('Beans! +30 health');sfxHeal();}
+  else if(k==='whisky'){P.hp=Math.min(100,P.hp+50);toast('Whiskey! +50 health');sfxHeal();}
+  else if(k==='w_hagle'){P.owned.hagle=true;P.ammo.shells+=10;P.mag.hagle=2;toast('NEW WEAPON: SHOTGUN! (key 2)');banner('','NEW WEAPON: SHOTGUN');}
+  else if(k==='w_dyn'){P.owned.dynamitt=true;P.ammo.dyn+=4;toast('NEW WEAPON: DYNAMITE! (key 4)');banner('','NEW WEAPON: DYNAMITE');}
+  else if(k==='w_bazooka'){P.owned.bazooka=true;P.ammo.rockets+=3;toast('BAZOOKA! (key 6) — one rocket kills everything');banner('','NEW WEAPON: BAZOOKA');}
+  else if(k==='rockets'){P.ammo.rockets+=p.amt;toast('+'+p.amt+' rockets');}
+  sfxPickup();
+  scene.remove(p.grp);
+  PICKUPS.splice(PICKUPS.indexOf(p),1);
+}
+function updatePickups(dt){
+  for(let i=PICKUPS.length-1;i>=0;i--){
+    const p=PICKUPS[i];
+    p.t+=dt;
+    p.grp.position.y=0.6+Math.sin(p.t*2.2)*0.12;
+    p.grp.rotation.y+=dt*1.8;
+    if(p.lbl)p.lbl.material.opacity=0.72+Math.sin(p.t*3.2)*0.28;   // pulserande glød
+    if(p.halo)p.halo.material.opacity=0.3+Math.sin(p.t*2.6)*0.15;
+    if(G.state==='playing'&&!P.frozen&&p.grp.position.distanceTo(P.pos)<1.7)collectPickup(p);
+  }
+}
+
+// ---------------- DIALOGUE + CUTSCENES ----------------
+const DLG={active:false};
+const CINE={active:false,steps:null,i:-1,t:0,done:null};
+function dlgAdvance(){
+  if(CINE.active){cineNext();return;}
+  DLG.active=false;$('dlgBox').classList.remove('on');
+}
+function cineStart(steps,done){
+  CINE.active=true;CINE.steps=steps;CINE.i=-1;CINE.t=0;CINE.done=done;
+  document.body.classList.add('cine');
+  VM.group.visible=false;
+  P.frozen=true;P.firing=false;
+  if(document.pointerLockElement)document.exitPointerLock();
+  $('hud').classList.remove('on');
+  $('lockHint').classList.remove('on');
+  cineNext();
+}
+function cineNext(){
+  CINE.i++;CINE.t=0;
+  $('dlgBox').classList.remove('on');DLG.active=false;
+  const s=CINE.steps[CINE.i];
+  if(!s){cineEnd();return;}
+  $('blackFade').style.opacity=s.black?1:0;
+  const cap=$('caption');
+  if(s.caption!==undefined){
+    cap.innerHTML=s.caption+(s.small?'<span class="small">'+s.small+'</span>':'');
+    cap.classList.add('on');
+  }else cap.classList.remove('on');
+  if(s.dlg){
+    $('dlgWho').textContent=s.dlg.who;
+    $('dlgWho').style.color=SPEAKER_COLORS[s.dlg.who]||'#d9a441';
+    $('dlgText').textContent='«'+s.dlg.text+'»';
+    $('dlgBox').classList.add('on');DLG.active=true;
+    playVoice(s.dlg.who,s.dlg.text);
+  }
+  if(s.sfx)s.sfx();
+}
+function cineUpdate(dt){
+  if(!CINE.active)return;
+  const s=CINE.steps[CINE.i];
+  if(!s)return;
+  CINE.t+=dt;
+  if(s.camA){
+    const k=clamp(CINE.t/s.dur,0,1);
+    const e=k*k*(3-2*k); // smoothstep
+    camera.position.set(
+      lerp(s.camA[0],s.camB[0],e),lerp(s.camA[1],s.camB[1],e),lerp(s.camA[2],s.camB[2],e));
+    const lb=s.lookB||s.lookA;
+    camera.lookAt(lerp(s.lookA[0],lb[0],e),lerp(s.lookA[1],lb[1],e),lerp(s.lookA[2],lb[2],e));
+  }
+  if(CINE.t>=s.dur)cineNext();
+}
+function cineEnd(){
+  CINE.active=false;DLG.active=false;
+  stopVoice();
+  if(mioModel)mioModel.visible=false;
+  VM.group.visible=true;
+  document.body.classList.remove('cine');
+  $('caption').classList.remove('on');
+  $('caption').innerHTML='';
+  $('dlgBox').classList.remove('on');
+  $('blackFade').style.opacity=0;
+  const d=CINE.done;CINE.done=null;
+  if(d)d();
+}
+function cineSkip(){
+  if(!CINE.active)return;
+  CINE.i=CINE.steps.length;
+  cineEnd();
+}
+
+// Mio — synlig karakter i cutscener (FPS ellers)
+let mioModel=null;
+function ensureMio(){
+  if(mioModel)return mioModel;
+  const h=makeHumanoid({skin:0xd8a878,shirt:0x8a6a3a,pants:0x3a3028,hat:0x2a1c12});
+  const serape=new THREE.Mesh(new THREE.BoxGeometry(0.62,0.36,0.42),new THREE.MeshLambertMaterial({color:0x8a2f2b}));
+  serape.position.y=1.26;h.grp.add(serape);
+  const stripe=new THREE.Mesh(new THREE.BoxGeometry(0.64,0.07,0.44),new THREE.MeshLambertMaterial({color:0xd9a441}));
+  stripe.position.y=1.34;h.grp.add(stripe);
+  const gun=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.07,0.3),new THREE.MeshLambertMaterial({color:0x444a50}));
+  gun.position.set(0,-0.6,0.12);h.armR.add(gun);
+  h.grp.visible=false;scene.add(h.grp);
+  mioModel=h.grp;
+  return mioModel;
+}
+
+// intro cutscene
+function introCine(){
+  ensureMio();
+  mioModel.position.set(0,0,8);
+  mioModel.rotation.y=Math.PI; // vender mot brødrene
+  mioModel.visible=true;
+  // stage: brothers by the well, Mio at road
+  BROS[0].grp.position.set(-1.6,0,1.6);BROS[0].grp.rotation.y=Math.PI*0.85;
+  BROS[1].grp.position.set(1.6,0,1.8);BROS[1].grp.rotation.y=-Math.PI*0.85;
+  BROS[2].grp.position.set(0,0,3);BROS[2].grp.rotation.y=Math.PI;
+  P.pos.set(0,1.7,8);P.yaw=0;P.pitch=0;
+  envApply(0);
+  const broShot={camA:[3.6,2,7],camB:[3.1,1.9,6.4],lookA:[0,1.5,1.5]};
+  const mioShot={camA:[-1.5,1.8,2.5],camB:[-1.2,1.75,3],lookA:[0.3,1.7,8]};
+  cineStart([
+    {dur:3,black:true,caption:'The Western Frontier, 1887.'},
+    {dur:3.2,black:true,caption:'A virus laid the town of Dust Valley to waste.'},
+    {dur:3.4,black:true,caption:'Only three brothers remain — bound by a sacred pact.'},
+    {dur:6,camA:[42,24,42],camB:[26,13,28],lookA:[0,2,0],caption:'DUST VALLEY',small:'Population: 3',
+      sfx:()=>{musicSet('day');}},
+    {dur:5,camA:[1.5,2.1,34],camB:[1.5,1.95,13],lookA:[0,1.6,0],caption:'A stranger rides in through the dust...'},
+    {dur:5,dlg:{who:'John',text:'Hold it right there, stranger! Hands where I can see them. Are you bitten?'},...broShot},
+    {dur:5,dlg:{who:'Mio',text:'The name is Mio. I am not bitten — just dusty and thirsty.'},...mioShot},
+    {dur:5,dlg:{who:'Kristoffer',text:'Then you are the first living soul we have seen in three weeks.'},...broShot},
+    {dur:5.5,dlg:{who:'Sigbjørn',text:'The virus took the whole town. Neighbors. Friends. Family... All of them.'},...broShot},
+    {dur:5.5,dlg:{who:'John',text:'We three swore a pact: we wipe out this virus — or we die trying.'},...broShot},
+    {dur:5,dlg:{who:'Mio',text:'Then I ride no further. I am staying — and fighting beside you.'},...mioShot},
+    {dur:5,dlg:{who:'Kristoffer',text:'Good. Find weapons and ammo before sundown. An old shotgun is hidden in the saloon.'},...broShot},
+    {dur:5,dlg:{who:'Sigbjørn',text:'Because when darkness falls... they come.'},camA:[2,1.9,4],camB:[2.4,2,4.4],lookA:[1.6,1.6,1.8],
+      sfx:()=>sfxGroan(15)},
+    {dur:4.5,camA:[0,2.5,10],camB:[0,7,18],lookA:[30,25,-40],caption:'DAY 1',small:'Find weapons and gear before nightfall'}
+  ],()=>{
+    G.state='playing';
+    $('hud').classList.add('on');
+    P.frozen=false;
+    startDay(true);
+    $('tutorial').classList.add('on');
+    G.tutorialT=13;
+    $('lockHint').classList.add('on');
+  });
+}
+function victoryCine(){
+  G.state='cutscene';
+  ensureMio();
+  mioModel.position.set(0,0,7);
+  mioModel.rotation.y=Math.PI;
+  mioModel.visible=true;
+  const wellShot={camA:[4,2.2,5],camB:[3,2,4],lookA:[0,1.5,0]};
+  cineStart([
+    {dur:4,camA:[0,3,14],camB:[0,5,18],lookA:[0,2,0],caption:'Sunrise over Dust Valley',
+      sfx:()=>{musicSet('day');sfxBell(3);}},
+    {dur:5,dlg:{who:'John',text:'The Plague King is dead... It is over. It is actually over.'},...wellShot},
+    {dur:5,dlg:{who:'Sigbjørn',text:'The virus dies with him. Dust Valley can finally rest in peace.'},...wellShot},
+    {dur:5,dlg:{who:'Kristoffer',text:'We could never have done it without you, Mio. Never.'},...wellShot},
+    {dur:5.5,dlg:{who:'Mio',text:'The pact is fulfilled, brothers. The sun rises over a free prairie.'},
+      camA:[-2,1.9,3],camB:[-2.5,2.1,3.6],lookA:[0.3,1.7,7]},
+  ],()=>{
+    G.state='victory';
+    G.score+=1000;
+    saveBest();
+    $('victoryStats').innerHTML='Night 9 survived — the virus is destroyed.<br>'+
+      G.kills+' zombies slain · '+G.headshots+' hodeskudd · <b style="color:var(--gold)">'+G.score+' points</b><br><br>'+
+      'But the prairie whispers of more dark nights out there...';
+    $('victory').classList.remove('hidden');
+    if(document.pointerLockElement)document.exitPointerLock();
+  });
+}
+
+// ---------------- GAME FLOW ----------------
+function cleanupSpecials(){
+  if(KAIJU.grp){scene.remove(KAIJU.grp);KAIJU.grp=null;}
+  KAIJU.alive=false;KAIJU.dormant=false;KAIJU.fallT=0;
+  for(const s of SKULLS)scene.remove(s.m);SKULLS.length=0;
+  unburnAll();
+  $('nukeCount').classList.remove('on');G.nukeCountSec=null;
+  for(const s of SLUGS)scene.remove(s.m);SLUGS.length=0;
+  for(const m of MISTS)scene.remove(m.s);MISTS.length=0;
+  if(P.mounted){P.mounted.user=null;P.mounted=null;VM.group.visible=true;}
+  if(G.mioBody)G.mioBody.grp.visible=false;
+  if(G.nukeBomb){scene.remove(G.nukeBomb);G.nukeBomb=null;}
+  G.nukeDropping=false;G.nukeWarn60=G.nukeWarn30=G.nukeWarn10=G.nukeWhistled=false;
+  G.slowmoT=0;G.slowCharge=0;$('slowmoTint').style.opacity=0;
+  G.deathReason=null;G.kaijuNight=false;
+  G.fireBark1=G.fireBark2=G.fireBark4=false;G.skullBarkT=0;
+  $('fireBadge').classList.remove('on');
+  for(const b of BOOMS){scene.remove(b.s);scene.remove(b.r);}
+  BOOMS.length=0;
+  muzzleFlash.visible=false;
+  $('bossBar').classList.remove('on');
+}
+function resetAll(){
+  cleanupSpecials();
+  for(const t of TURRETS)scene.remove(t.g);
+  TURRETS.length=0;G.turretsBuilt=false;G.kaijuDefeated=false;
+  for(const z of ZOMBIES)scene.remove(z.grp);
+  ZOMBIES.length=0;
+  if(G.boss){scene.remove(G.boss.grp);G.boss=null;}
+  $('bossBar').classList.remove('on');
+  for(const d of DYNS)scene.remove(d.m);DYNS.length=0;
+  clearPickups();
+  G.day=1;G.night=0;G.kills=0;G.headshots=0;G.score=0;
+  G.pending=0;G.bossPending=false;G.endless=false;G.bossCount=0;
+  P.hp=100;P.pos.set(0,1.7,44);P.yaw=0;P.pitch=0;P.vel.set(0,0,0);
+  P.owned={revolver:true,pisk:true,hagle:false,dynamitt:false,gatling:false,bazooka:false};
+  P.mag={revolver:6,hagle:2};P.ammo={bullets:36,shells:0,dyn:0,rockets:0};
+  P.cur='revolver';P.reloading=false;P.firing=false;
+  P.heat=0;P.overheatT=0;
+  for(const r of ROCKETS)scene.remove(r.m);ROCKETS.length=0;
+  updateViewmodel();
+  for(let i=0;i<BROS.length;i++){
+    const b=BROS[i];
+    b.hp=b.maxHp;b.downed=false;b.grp.scale.y=1;
+    b.grp.rotation.x=0;b.pool.visible=false;
+    b.grp.position.copy(b.anchor);
+    b.mode='well';b.wpts=null;b.wpi=0;
+  }
+  G.nuked=false;G.nukeClock=0;G.nukeBark1=G.nukeBark2=G.nukeBark3=false;
+  envApply(0);
+}
+const DAWN_LINES={
+  2:[['Kristoffer','Did you find the shotgun in the saloon? Sigbjørn saw dynamite over by the mine.'],
+     ['Sigbjørn','The miners hid dynamite in the crates out east. Go get it!']],
+  3:[['John','Something big is stirring underground. Tonight something worse is coming. Be ready.']],
+  4:[['Sigbjørn','The Grave Robber was only the beginning. The virus digs deeper.']],
+  5:[['Kristoffer','The hordes grow every night. But so do we.']],
+  6:[['John','I hear knives being sharpened in the mine... The Butcher comes tonight.']],
+  7:[['Sigbjørn','We are closing in on the source. I can feel it in the air.']],
+  8:[['Kristoffer','One more night, and I reckon the Plague King himself will show.']],
+  9:[['John','Tonight it ends, brothers. The Plague King himself. For the pact — for Dust Valley!']]
+};
+function startDay(first){
+  G.phase='day';
+  G.phaseT=G.dayLen;
+  // kolossen held seg SKJULT til natt 10 — første glimt skal vere eit sjokk
+  // nye dyr finn vegen til byen kvar morgon om nokre vart tekne av zombiar
+  const dogCols=[0x8a5a2a,0x55504a,0xc8b090,0x3a3025,0x9a8a70,0x4a3a2c];
+  while(DOGS.length<6){const a=rnd(0,Math.PI*2),r=rnd(20,45);makeDog(dogCols[ri(0,5)],Math.cos(a)*r,Math.sin(a)*r);}
+  const horseCols=[0x6a4426,0x777066,0x33291f,0x8a6a44];
+  while(HORSES.length<4){const a=rnd(0,Math.PI*2),r=rnd(25,50);makeRoamHorse(horseCols[ri(0,3)],Math.cos(a)*r,Math.sin(a)*r);}
+  envApply(0);
+  musicSet('day');
+  spawnDayPickups();
+  // heal + rydd vekk gamle effektar
+  for(const b of BROS){b.hp=b.maxHp;if(b.downed){b.downed=false;b.grp.scale.y=1;b.grp.rotation.x=0;b.pool.visible=false;}b.mode='well';b.wpts=null;b.wpi=0;}
+  for(const b of BOOMS){scene.remove(b.s);scene.remove(b.r);}
+  BOOMS.length=0;
+  for(const s of SLUGS)scene.remove(s.m);SLUGS.length=0;
+  muzzleFlash.visible=false;
+  if(!first){
+    P.hp=Math.min(100,P.hp+40);
+    G.score+=100;
+    banner('DAY '+G.day,'Gather supplies before nightfall');
+  }
+  $('timerBar').classList.remove('night');
+  // dawn dialogue
+  const lines=DAWN_LINES[G.day];
+  if(lines){
+    lines.forEach((l,i)=>setTimeout(()=>{if(G.state==='playing')bark(l[0],l[1]);},1500+i*4200));
+  }else if(!first&&G.day>9){
+    setTimeout(()=>{if(G.state==='playing')bark('John','The endless night goes on... Stand your ground, Mio!');},1500);
+  }
+}
+function startNight(){
+  G.phase='night';
+  G.night=G.day;
+  envApply(1);
+  musicSet('night');
+  sfxBell(3);G.bellT=4;
+  G.pending=Math.round((14+8*(G.night-1))*1.2);
+  G.aliveCap=Math.min(42,24+2*G.night);
+  if(G.night>=10){ // siste nivå: gatling-æraen
+    G.pending=Math.round(G.pending*1.6);
+    G.aliveCap=Math.min(55,G.aliveCap+10);
+  }
+  G.spawnT=1.2;
+  G.roofT=rnd(13,24);
+  G.lightningT=rnd(5,12);
+  G.bazookaT=rnd(25,45);
+  const isBoss=G.night%3===0;
+  G.bossPending=isBoss;
+  G.bossT=7;
+  // NATT 10: KOLOSSEN — éin gigantisk zombie i staden for horda
+  G.kaijuNight=false;
+  if(G.night===10&&!G.kaijuDefeated){
+    G.kaijuNight=true;
+    G.pending=0;G.bossPending=false;
+    buildTurrets();
+    spawnKaiju();
+    scene.fog.density=0.0035; // klar sikt så ein ser han i det fjerne
+    G.skullT=4;
+    setTimeout(()=>{if(G.state==='playing')banner('THE COLOSSUS IS COMING','⚠ STOP HIM BEFORE HE REACHES TOWN — USE THE ROOF GUNS ⚠');},2800);
+    for(let i=0;i<3;i++){
+      const b=BROS[i];
+      if(!b.downed){b.mode='toRoof';b.wpts=b.roofPath.slice();b.wpi=0;}
+    }
+  }
+  if(G.night>=10&&!P.owned.gatling){
+    P.owned.gatling=true;
+    setTimeout(()=>{
+      if(G.state!=='playing')return;
+      banner('FINAL LEVEL','GATLING UNLOCKED — KEY 5');
+      toast('Everyone got a GATLING! ∞ ammo — watch the heat');
+      bark('John','The gatling guns are ready! Open fire, brothers!');
+    },3600);
+  }
+  banner('NIGHT '+G.night,isBoss?'⚠ SOMETHING BIG IS COMING ⚠':'They are coming...');
+  if(isBoss)bark('John','Feel the ground shaking? Something big is coming tonight!');
+  else bark('Sigbjørn','To the well! Here they come!');
+  G.barkT=rnd(7,12);
+}
+function startDawn(){
+  P.frozen=true;P.firing=false;
+  $('whiteFade').style.opacity=1;
+  musicSet('day');
+  setTimeout(()=>{
+    if(G.state!=='playing'){$('whiteFade').style.opacity=0;return;}
+    G.day++;
+    for(const d of DYNS)scene.remove(d.m);DYNS.length=0;
+    startDay(false);
+    P.frozen=false;
+    $('whiteFade').style.opacity=0;
+  },1600);
+}
+const SKULL_BARKS=[
+  ['John','Skulls in the sky! Shoot them down before they hit the houses!'],
+  ['Sigbjørn','More of those flying skulls! Blast them out of the sky, Mio!'],
+  ['Kristoffer','Skulls incoming from all sides! Watch the sky!'],
+  ['John','Do not let those skulls through!'],
+  ['Sigbjørn','They are diving for the roofs! Take them down!'],
+  ['Kristoffer','Another wave of skulls! Keep shooting!']
+];
+function updateNight(dt){
+  // dødningskallar frå alle kantar — vanskeleg å prioritere mot kolossen
+  if(G.kaijuNight){
+    updateSkulls(dt);
+    G.skullT-=dt;
+    if(G.skullT<=0&&SKULLS.length<14&&KAIJU.alive){
+      G.skullT=rnd(2.2,4.5);
+      spawnSkull();
+      if(Math.random()<0.35&&SKULLS.length<14)spawnSkull();
+    }
+    // brørne ropar heile tida om skallane
+    G.skullBarkT=(G.skullBarkT||0)-dt;
+    if(G.skullBarkT<=0&&SKULLS.length>=2&&subT<=0){
+      G.skullBarkT=rnd(8,14);
+      const alive=BROS.filter(b=>!b.downed);
+      if(alive.length){
+        const l=SKULL_BARKS[ri(0,SKULL_BARKS.length-1)];
+        const b=alive.find(x=>x.name===l[0]);
+        if(b)bark(l[0],l[1]);
+      }
+    }
+  }
+  // spawning
+  if(G.pending>0){
+    G.spawnT-=dt;
+    if(G.spawnT<=0&&ZOMBIES.length<G.aliveCap){
+      G.spawnT=rnd(0.9,2.0);
+      const batch=Math.min(ri(3,6),G.pending,G.aliveCap-ZOMBIES.length);
+      const pGiant=G.night>=10?0.12:0;
+      const pTank=G.night>=3?Math.min(0.28,0.06+0.025*G.night):0;
+      const pFast=G.night>=2?Math.min(0.5,0.25+0.028*G.night):0;
+      for(let i=0;i<batch;i++){
+        let type='normal';
+        const r=Math.random();
+        if(r<pGiant)type='giant';
+        else if(r<pGiant+pTank)type='tank';
+        else if(r<pGiant+pTank+pFast)type='fast';
+        makeZombie(type,G.night);
+        G.pending--;
+        if(G.pending<=0)break;
+      }
+    }
+  }
+  if(G.bossPending){
+    G.bossT-=dt;
+    if(G.bossT<=0){G.bossPending=false;spawnBoss(G.night);}
+  }
+  // tak-hendelse: brødrene løper opp på hvert sitt tak (ikkje under kolossen-slaget)
+  if(!G.kaijuNight){
+    G.roofT-=dt;
+    if(G.roofT<=0){
+      G.roofT=rnd(22,38);
+      triggerRoofEvent();
+    }
+  }
+  // torden og lyn
+  G.lightningT-=dt;
+  if(G.lightningT<=0){
+    G.lightningT=rnd(9,22);
+    lightningStrike();
+  }
+  // brørne ber Mio trykke på knappen (fast rekkefølge: John, Kristoffer, Sigbjørn)
+  if(G.night>=10&&!G.nuked){
+    G.nukeClock=(G.nukeClock||0)+dt;
+    if(!G.nukeBark1&&G.nukeClock>12){
+      G.nukeBark1=true;
+      bark('John','It is no use, Mio... Arm the atom bomb in the church!');
+      setTimeout(()=>{if(G.state==='playing')openChurch();},2500); // døra svingar opp etter Johns ord
+    }
+    if(!G.nukeBark2&&G.nukeClock>55){G.nukeBark2=true;bark('Kristoffer','Yeah Mio, this is hopeless! Blow the whole damn thing!');}
+    if(!G.nukeBark3&&G.nukeClock>100){G.nukeBark3=true;bark('Sigbjørn','MIO!!! NUKE THIS SHIT!!!');}
+  }
+  // bazooka-slipp på siste nivå
+  if(G.night>=10&&P.owned.gatling){
+    G.bazookaT-=dt;
+    if(G.bazookaT<=0){
+      G.bazookaT=rnd(35,60);
+      const sp=AMMO_SPOTS[ri(0,AMMO_SPOTS.length-1)];
+      spawnPickup(sp[0],sp[1],P.owned.bazooka?'rockets':'w_bazooka',3);
+      banner('','⚠ BAZOOKA DROP IN THE STREET ⚠');
+      toast('Supply drop from the sky! Find the crate in the street','bad');
+    }
+  }
+  // night barks
+  G.barkT-=dt;
+  if(G.barkT<=0){
+    G.barkT=rnd(9,16);
+    const alive=BROS.filter(b=>!b.downed);
+    if(alive.length&&subT<=0){
+      const l=NIGHT_BARKS[ri(0,NIGHT_BARKS.length-1)];
+      const b=alive.find(x=>x.name===l[0]);
+      if(b)bark(l[0],l[1]);
+    }
+  }
+  // night over?
+  if(G.pending<=0&&ZOMBIES.length===0&&!G.boss&&!G.bossPending&&!KAIJU.alive&&KAIJU.fallT<=0&&SKULLS.length===0){
+    banner('','YOU SURVIVED THE NIGHT');
+    G.phase='dawnwait';
+    setTimeout(()=>{if(G.state==='playing')startDawn();},1300);
+  }
+}
+function playerDie(){
+  if(G.state!=='playing')return;
+  G.state='dead';
+  P.firing=false;
+  saveBest();
+  musicSet('off');
+  if(document.pointerLockElement)document.exitPointerLock();
+  $('reloadPop').classList.remove('on');
+  $('dmgVignette').style.opacity=1;
+  setTimeout(()=>{
+    $('deathStats').innerHTML=(G.deathReason?'<b style="color:var(--blood2)">'+G.deathReason+'</b><br><br>':'')+
+      'You fell on '+(G.phase==='night'?'night ':'day ')+G.day+'.<br>'+
+      G.kills+' zombies slain · '+G.headshots+' headshots · '+G.score+' points'+
+      (G.score>=G.best?'<br><b style="color:var(--gold)">NEW RECORD!</b>':'');
+    $('death').classList.remove('hidden');
+    $('hud').classList.remove('on');
+    $('dmgVignette').style.opacity=0;
+  },1400);
+}
+function retryDay(){
+  cleanupSpecials();
+  // clear night
+  for(const z of ZOMBIES)scene.remove(z.grp);
+  ZOMBIES.length=0;
+  if(G.boss){scene.remove(G.boss.grp);G.boss=null;}
+  $('bossBar').classList.remove('on');
+  G.pending=0;G.bossPending=false;
+  for(const d of DYNS)scene.remove(d.m);DYNS.length=0;
+  P.hp=100;P.pos.set(0,1.7,20);P.vel.set(0,0,0);
+  P.ammo.bullets=Math.max(P.ammo.bullets,24);
+  if(P.owned.hagle)P.ammo.shells=Math.max(P.ammo.shells,6);
+  if(P.owned.dynamitt)P.ammo.dyn=Math.max(P.ammo.dyn,2);
+  P.mag.revolver=6;P.mag.hagle=2;P.reloading=false;
+  P.heat=0;P.overheatT=0;
+  for(const r of ROCKETS)scene.remove(r.m);ROCKETS.length=0;
+  for(const b of BROS){b.hp=b.maxHp;b.downed=false;b.grp.scale.y=1;b.grp.rotation.x=0;b.pool.visible=false;b.grp.position.copy(b.anchor);b.mode='well';b.wpts=null;b.wpi=0;}
+  $('death').classList.add('hidden');
+  $('hud').classList.add('on');
+  G.state='playing';
+  startDay(false);
+  $('lockHint').classList.add('on');
+  bark('John','Get up, Mio. Dust Valley still needs you!');
+}
+function saveBest(){
+  if(G.score>G.best){G.best=G.score;try{localStorage.setItem('dp_best',''+G.best);}catch(e){}}
+}
+function startVictory(){victoryCine();}
+
+// ---------------- ATOMBOMBA ----------------
+// Knappen slepper bomba frå himmelen — 2 minutt til detonasjon!
+function startNuke(){
+  if(G.nukeDropping||G.nuked)return;
+  G.nukeDropping=true;
+  const g=new THREE.Group();
+  const bodyB=new THREE.Mesh(new THREE.CylinderGeometry(1.4,1.8,7,12),new THREE.MeshLambertMaterial({color:0x3a4048}));
+  g.add(bodyB);
+  const nose=new THREE.Mesh(new THREE.SphereGeometry(1.8,10,8),new THREE.MeshLambertMaterial({color:0x2e3338}));
+  nose.position.y=-3.5;g.add(nose);
+  for(let i=0;i<4;i++){
+    const fin=new THREE.Mesh(new THREE.BoxGeometry(0.15,2.4,1.5),new THREE.MeshLambertMaterial({color:0xa32620}));
+    const a=i/4*Math.PI*2;
+    fin.position.set(Math.cos(a)*1.2,3.4,Math.sin(a)*1.2);
+    fin.rotation.y=a;g.add(fin);
+  }
+  const blink=skySprite('#ff3020',3);blink.position.y=4.4;g.add(blink);
+  g.position.set(0,830,-5);
+  scene.add(g);
+  G.nukeBomb=g;G.nukeBlink=blink;
+  G.nukeDropT=120;
+  banner('☢ THE BOMB IS FALLING ☢','120 seconds to detonation');
+  toast('The atom bomb is falling from the sky — 2 minutes!','bad');
+  sfxBell(2);
+}
+function updateNukeDrop(dt){
+  if(!G.nukeDropping||G.nuked)return;
+  G.nukeDropT-=dt;
+  G.nukeBomb.position.y=Math.max(6,830*(G.nukeDropT/120));
+  G.nukeBomb.rotation.y+=dt*0.8;
+  G.nukeBlink.material.opacity=(Math.sin(G.time*9)>0)?1:0.15;
+  if(G.nukeDropT<15&&Math.random()<0.5)spawnParts(G.nukeBomb.position.clone(),1,0xffffff,1,0.4,0);
+  if(G.nukeDropT<12&&!G.nukeWhistled){G.nukeWhistled=true;_tone('sine',1500,280,11,0.28);} // fløyta
+  // cartoon-nedteljing dei siste 10 sekunda
+  const sec=Math.ceil(G.nukeDropT);
+  if(G.nukeDropT>0&&sec<=10&&sec!==G.nukeCountSec){
+    G.nukeCountSec=sec;
+    const el=$('nukeCount');el.textContent='☢ '+sec+' ☢';
+    el.classList.remove('on');void el.offsetWidth;el.classList.add('on');
+    _tone('square',980,760,0.1,0.16);
+  }
+  if(G.nukeDropT<=60&&!G.nukeWarn60){G.nukeWarn60=true;banner('','☢ 60 SECONDS ☢');}
+  if(G.nukeDropT<=30&&!G.nukeWarn30){G.nukeWarn30=true;banner('','☢ 30 SECONDS ☢');}
+  if(G.nukeDropT<=10&&!G.nukeWarn10){G.nukeWarn10=true;banner('','☢ 10 SECONDS — TAKE COVER ☢');}
+  if(G.nukeDropT<=0)detonateNuke();
+}
+function detonateNuke(){
+  if(G.nuked)return;
+  G.nuked=true;
+  $('nukeCount').classList.remove('on');G.nukeCountSec=null;
+  cleanupSpecials();
+  G.nuked=true; // cleanupSpecials rører ikkje denne, men for tryggleiks skuld
+  buildNuke();
+  for(const z of ZOMBIES)scene.remove(z.grp);
+  ZOMBIES.length=0;
+  if(G.boss){scene.remove(G.boss.grp);G.boss=null;$('bossBar').classList.remove('on');}
+  G.pending=0;G.bossPending=false;
+  for(const d of DYNS)scene.remove(d.m);DYNS.length=0;
+  musicSet('off');
+  sfxNuke();
+  const wf=$('whiteFade');
+  wf.style.transition='opacity .1s';wf.style.opacity=1; // BLENDANDE kvitt lys
+  cineStart([
+    {dur:2.6,caption:''},
+    {dur:9,camA:[85,12,72],camB:[98,22,84],lookA:[0,5,-8],lookB:[0,16,-8],
+      sfx:()=>{
+        wf.style.opacity=0;
+        setTimeout(()=>{wf.style.transition='opacity 1.4s';},300);
+        NUKE.active=true;NUKE.t=0;
+      }},
+    {dur:5.5,camA:[98,22,84],camB:[106,26,92],lookA:[0,18,-8],
+      caption:'DUST VALLEY IS ANNIHILATED',small:'and the virus with it'}
+  ],()=>{
+    NUKE.active=false;
+    G.state='victory';
+    G.score+=666;
+    saveBest();
+    document.querySelector('#victory .title').textContent='☢ THE NUCLEAR ENDING ☢';
+    $('victoryStats').innerHTML='Mio chose the final solution.<br>Dust Valley, the zombies and the virus — gone in a flash.<br><br>'+
+      G.kills+' zombies slain · '+G.headshots+' hovudskot · <b style="color:var(--gold)">'+G.score+' points</b><br><br>'+
+      '<i>«Rest in peace, brothers.»</i>';
+    $('btnEndless').style.display='none';
+    $('victory').classList.remove('hidden');
+    $('hud').classList.remove('on');
+    if(document.pointerLockElement)document.exitPointerLock();
+  });
+}
+
+// pause
+function openPause(){
+  if(G.state!=='playing'||G.paused)return;
+  G.paused=true;P.firing=false;
+  $('pause').classList.remove('hidden');
+  if(document.pointerLockElement)document.exitPointerLock();
+}
+function closePause(){
+  G.paused=false;
+  $('pause').classList.add('hidden');
+  tryLock();
+}
+
+// ---------------- INTERACTION (E) ----------------
+const BRO_TIPS={
+  John:['Stay close to the well at night — we cover each other.','The revolver is faithful, but the shotgun stops a whole horde.','The pact includes you too now, Mio.'],
+  'Sigbjørn':['Dynamite solves most problems out west.','Headshots, Mio. Always headshots.','I saw red eyes inside the mine last night...'],
+  Kristoffer:['Beans and whiskey patch you right up.','Every third night something bigger comes. Count the nights.','Stjerna over there is the last horse in town. Guard her well.']
+};
+function nearestTurret(){
+  for(const t of TURRETS){
+    if(t.user)continue;
+    if(Math.hypot(P.pos.x-t.x,P.pos.z-t.z)<2.3&&Math.abs((P.pos.y-1.7)-t.top)<1.6)return t;
+  }
+  return null;
+}
+function updateInteract(dt){
+  const prompt=$('prompt'),ptext=$('promptText'),rwrap=$('reviveWrap');
+  let shown=false;
+  // montert på gatling-kanon
+  if(P.mounted){
+    ptext.innerHTML='<b>E</b> — dismount the gun';
+    rwrap.classList.remove('on');
+    prompt.classList.add('on');
+    if(P.keys.KeyE&&!P.talkCd){
+      P.talkCd=true;setTimeout(()=>P.talkCd=false,600);
+      P.mounted.user=null;P.mounted=null;
+      VM.group.visible=true;
+      if(G.mioBody)G.mioBody.grp.visible=false;
+    }
+    return;
+  }
+  const nt=nearestTurret();
+  if(nt&&!BROS.some(b=>b.downed&&b.grp.position.distanceTo(P.pos)<2.4)){
+    ptext.innerHTML='<b>E</b> — man the GATLING GUN';
+    rwrap.classList.remove('on');
+    prompt.classList.add('on');
+    if(P.keys.KeyE&&!P.talkCd){
+      P.talkCd=true;setTimeout(()=>P.talkCd=false,600);
+      nt.user='mio';P.mounted=nt;
+      VM.group.visible=false;
+      P.vel.set(0,0,0);P.firing=false;
+      if(!G.mioBody){ // synleg kropp for tredjeperson
+        G.mioBody=makeHumanoid({skin:0xd8a878,shirt:0x4a5a7a,pants:0x3a332c,hat:0x2a2018});
+        scene.add(G.mioBody.grp);
+      }
+      G.mioBody.grp.visible=true;
+    }
+    return;
+  }
+  // revive downed brother
+  let target=null;
+  for(const b of BROS){
+    if(b.downed&&b.grp.position.distanceTo(P.pos)<2.4){target=b;break;}
+  }
+  if(target){
+    shown=true;
+    ptext.innerHTML='Hold <b>E</b> — revive '+target.name;
+    rwrap.classList.add('on');
+    if(P.keys.KeyE){
+      P.reviveT+=dt;
+      $('reviveFill').style.width=clamp(P.reviveT/2.5*100,0,100)+'%';
+      if(P.reviveT>=2.5){reviveBro(target);P.reviveT=0;}
+    }else{P.reviveT=Math.max(0,P.reviveT-dt*2);$('reviveFill').style.width=clamp(P.reviveT/2.5*100,0,100)+'%';}
+  }else if(G.churchOpen&&!G.nuked&&Math.hypot(P.pos.x,P.pos.z+32)<2.6){
+    // atombombe-knappen i kyrkja
+    shown=true;
+    ptext.innerHTML='Hold <b>E</b> — ☢ ARM THE ATOM BOMB ☢';
+    rwrap.classList.add('on');
+    if(P.keys.KeyE){
+      P.nukeT=(P.nukeT||0)+dt;
+      $('reviveFill').style.width=clamp(P.nukeT/3*100,0,100)+'%';
+      if(P.nukeT>=3){P.nukeT=0;startNuke();}
+    }else{
+      P.nukeT=0;$('reviveFill').style.width='0%';
+    }
+  }else{
+    P.reviveT=0;P.nukeT=0;rwrap.classList.remove('on');
+    // talk to brother (day)
+    if(G.phase==='day'){
+      for(const b of BROS){
+        if(b.grp.position.distanceTo(P.pos)<2.6){
+          shown=true;
+          ptext.innerHTML='<b>E</b> — talk to '+b.name;
+          if(P.keys.KeyE&&!P.talkCd){
+            P.talkCd=true;setTimeout(()=>P.talkCd=false,600);
+            if(subT<=0)bark(b.name,BRO_TIPS[b.name][ri(0,BRO_TIPS[b.name].length-1)]);
+          }
+          break;
+        }
+      }
+    }
+  }
+  prompt.classList.toggle('on',shown);
+}
+
+// ---------------- HUD ----------------
+const brosPanel=$('brosPanel');
+const broRows=BROS.map(b=>{
+  const row=document.createElement('div');row.className='broRow';
+  row.innerHTML='<span class="broName">'+b.name+'</span><span class="broBar"><span class="broFill"></span></span>';
+  brosPanel.appendChild(row);
+  return {row:row,fill:row.querySelector('.broFill')};
+});
+const slotsEl=$('weaponSlots');
+function updateHUD(){
+  // brann-oversikt øvst i midten
+  const burning=BREG.reduce((n,b)=>n+(b.burning?1:0),0);
+  const burned=G.burnedHouses||0;
+  const fb=$('fireBadge');
+  if(burning>0||burned>0){
+    fb.innerHTML='🔥 ON FIRE: <b>'+burning+'</b> · BURNED DOWN: <b>'+burned+'/5</b>';
+    fb.classList.add('on');
+  }else fb.classList.remove('on');
+  $('hpFill').style.width=P.hp+'%';
+  $('hpFill').classList.toggle('low',P.hp<30);
+  $('dmgVignette').style.opacity=P.hp<30&&G.state==='playing'?(1-P.hp/30)*0.9:0;
+  for(let i=0;i<BROS.length;i++){
+    broRows[i].fill.style.width=(BROS[i].hp/BROS[i].maxHp*100)+'%';
+    broRows[i].row.classList.toggle('down',BROS[i].downed);
+  }
+  $('hpLabel').textContent='MIO — HEALTH'+((G.slowCharge||0)>=8?' · ⏳ SLOW-MO READY (X)':((G.slowCharge||0)>0?' · slow-mo '+G.slowCharge+'/8':''));
+  const w=WEAPONS[P.cur];
+  $('weaponName').textContent=P.mounted?'GATLING TURRET':w.name;
+  if(P.mounted)
+    $('ammoCount').innerHTML='∞ <span id="ammoReserve"></span>';
+  else if(P.cur==='revolver'||P.cur==='hagle')
+    $('ammoCount').innerHTML=P.mag[P.cur]+' <span id="ammoReserve">/ '+P.ammo[w.ammo]+'</span>';
+  else if(P.cur==='dynamitt')
+    $('ammoCount').innerHTML=P.ammo.dyn+' <span id="ammoReserve">stk</span>';
+  else if(P.cur==='bazooka')
+    $('ammoCount').innerHTML=P.ammo.rockets+' <span id="ammoReserve">raketter</span>';
+  else
+    $('ammoCount').innerHTML='∞ <span id="ammoReserve"></span>';
+  $('heatWrap').classList.toggle('on',P.cur==='gatling'||!!P.mounted);
+  $('heatFill').style.width=(P.heat*100)+'%';
+  $('reloadHint').textContent=((P.cur==='gatling'||P.mounted)&&P.overheatT>0)?'OVERHEATED!':(P.reloading?'RELOADING...':
+    ((P.cur==='revolver'||P.cur==='hagle')&&P.mag[P.cur]===0?(P.ammo[w.ammo]>0?'':'EMPTY!'):''));
+  $('reloadPop').classList.toggle('on',P.reloading&&G.state==='playing'&&!G.paused);
+  let sl='';
+  for(let i=0;i<WORDER.length;i++){
+    const k=WORDER[i];
+    if((k==='gatling'||k==='bazooka')&&!P.owned[k])continue; // skjules til de låses opp
+    sl+='<span class="'+(P.cur===k?'on':'')+(P.owned[k]?'':' locked')+'">'+(i+1)+' '+WEAPONS[k].name+'</span>';
+  }
+  slotsEl.innerHTML=sl;
+  // day badge
+  if(G.phase==='day'){
+    $('dayBadge').firstChild.textContent='DAY '+G.day+' ';
+    $('dayInfo').textContent=G.phaseT>15?'Gather supplies':'⚠ Night is coming!';
+    $('timerFill').style.width=(G.phaseT/G.dayLen*100)+'%';
+  }else{
+    $('dayBadge').firstChild.textContent='NIGHT '+G.night+' ';
+    const left=G.pending+ZOMBIES.length+(G.boss?1:0)+(G.bossPending?1:0);
+    if(G.nukeDropping&&!G.nuked)$('dayInfo').textContent='☢ NUKE: '+Math.ceil(G.nukeDropT)+' sec!';
+    else if(G.kaijuNight&&KAIJU.alive)$('dayInfo').textContent='THE COLOSSUS: '+Math.round(Math.hypot(KAIJU.grp.position.x,KAIJU.grp.position.z))+' m · 🔥 '+(G.burnedHouses||0)+'/5 burned';
+    else $('dayInfo').textContent=G.phase==='dawnwait'?'Survived!':'Zombies left: '+left;
+    $('timerBar').classList.add('night');
+    $('timerFill').style.width='100%';
+  }
+}
+
+// ---------------- RADAR ----------------
+const radarCtx=$('radar').getContext('2d');
+function updateRadar(){
+  const c=radarCtx,cx=75,cy=75,range=55,s=70/range;
+  c.clearRect(0,0,150,150);
+  c.strokeStyle='rgba(217,164,65,.28)';c.lineWidth=1;
+  for(const r of [23,46,69]){c.beginPath();c.arc(cx,cy,r,0,7);c.stroke();}
+  c.beginPath();c.moveTo(cx,cy-69);c.lineTo(cx,cy+69);c.moveTo(cx-69,cy);c.lineTo(cx+69,cy);c.stroke();
+  const fx=-Math.sin(P.yaw),fz=-Math.cos(P.yaw);
+  const rx=Math.cos(P.yaw),rz=-Math.sin(P.yaw);
+  function plot(x,z,color,rad){
+    const dx=x-P.pos.x,dz=z-P.pos.z;
+    const sx=dx*rx+dz*rz,sy=dx*fx+dz*fz;
+    if(Math.hypot(sx,sy)>range)return;
+    c.fillStyle=color;c.beginPath();c.arc(cx+sx*s,cy-sy*s,rad,0,7);c.fill();
+  }
+  for(const z of ZOMBIES)plot(z.grp.position.x,z.grp.position.z,'#e04030',z.type==='giant'?4:2.4);
+  if(G.boss)plot(G.boss.grp.position.x,G.boss.grp.position.z,'#ff2010',5.5);
+  if(KAIJU.grp&&(KAIJU.alive||KAIJU.dormant)){ // kolossen — festa til radarkanten til han er innanfor
+    const dx=KAIJU.grp.position.x-P.pos.x,dz=KAIJU.grp.position.z-P.pos.z;
+    const sx=dx*rx+dz*rz,sy=dx*fx+dz*fz;
+    const d=Math.hypot(sx,sy);
+    const rr=Math.min(66,d*s);
+    c.fillStyle='#ff2010';
+    c.beginPath();c.arc(cx+sx/d*rr,cy-sy/d*rr,6,0,7);c.fill();
+    c.strokeStyle='#ff2010';c.beginPath();c.arc(cx+sx/d*rr,cy-sy/d*rr,9,0,7);c.stroke();
+  }
+  for(const sk of SKULLS)plot(sk.m.position.x,sk.m.position.z,'#ffa040',3);
+  for(const f of FIRES)plot(f.x,f.z,'#ff6820',2.5);
+  for(const b of BROS)plot(b.grp.position.x,b.grp.position.z,b.downed?'#7a1a14':b.color,3.2);
+  for(const p of PICKUPS)plot(p.grp.position.x,p.grp.position.z,'#d9a441',2);
+  if(G.churchOpen&&!G.nuked)plot(0,-32,'#ff5040',4); // atombomba
+  // Mio (pil som peikar framover)
+  c.fillStyle='#e8d9b0';
+  c.beginPath();c.moveTo(cx,cy-6);c.lineTo(cx-4.5,cy+4.5);c.lineTo(cx+4.5,cy+4.5);c.closePath();c.fill();
+}
+
+// ---------------- LYN & TORDEN ----------------
+function lightningStrike(){
+  const l=$('lightning');
+  l.style.transition='none';l.style.opacity=0.85;
+  setTimeout(()=>{l.style.transition='opacity .1s';l.style.opacity=0;},80);
+  setTimeout(()=>{
+    l.style.transition='none';l.style.opacity=0.5;
+    setTimeout(()=>{l.style.transition='opacity .25s';l.style.opacity=0;},60);
+  },220);
+  setTimeout(()=>{sfxThunder();G.shake=Math.max(G.shake,0.15);},rnd(400,1400));
+}
+
+// ---------------- AMBIENT ANIMS ----------------
+function updateAmbient(dt){
+  updateDogs(dt);
+  updateHorses(dt);
+  // tumbleweed
+  tumble.position.x+=dt*3.2;
+  tumble.rotation.z-=dt*4;
+  if(tumble.position.x>58){tumble.position.x=-58;tumble.position.z=rnd(-20,20);}
+  // horse
+  horse.userData.head.position.y=1.7+Math.sin(G.time*1.1)*0.06;
+  // lanterns
+  const night=G.envMix>0.55;
+  for(const l of G.lanterns){
+    const f=night?1.1+Math.sin(G.time*9+l.seed)*0.18:0;
+    l.light.intensity=f;
+    l.mat.emissive.setHex(night?0xcc8830:0x000000);
+  }
+  // kyrkjedørene svingar sakte opp
+  if(G.doorAnimT!==undefined&&G.doorAnimT<1){
+    G.doorAnimT=Math.min(1,G.doorAnimT+dt/3);
+    const e=G.doorAnimT*G.doorAnimT*(3-2*G.doorAnimT);
+    G.churchDoors[0].rotation.y=-e*1.62; // venstre svingar ut (93° — klarerer fasaden)
+    G.churchDoors[1].rotation.y=e*1.62;  // høgre svingar ut
+    if(Math.random()<0.3)spawnParts(V3(rnd(-1.5,1.5),rnd(0.2,3),-24.8),1,0x8a7a5c,0.8,0.9,1); // støv
+  }
+  // atombombe-lys pulserer i kyrkja
+  if(G.churchOpen&&!G.nuked){
+    G.nukeLight.intensity=1.6+Math.sin(G.time*4.5)*0.9;
+    if(G.churchGlow)G.churchGlow.intensity=1.4+Math.sin(G.time*3)*0.4;
+  }
+  // bell swing
+  if(G.bellT>0){G.bellT-=dt;G.bellMesh.rotation.z=Math.sin(G.time*9)*0.35;}
+  else if(G.bellMesh)G.bellMesh.rotation.z*=0.9;
+  // subtitle timer
+  if(subT>0){subT-=dt;if(subT<=0)$('subtitle').classList.remove('on');}
+  // dusk transition during last seconds of day
+  if(G.state==='playing'&&G.phase==='day'){
+    if(G.phaseT<10)envApply(clamp(1-G.phaseT/10,0,1));
+  }
+}
+
+// ---------------- MENU BUTTONS ----------------
+$('btnStart').onclick=()=>{
+  auInit();auResume();sfxClick();
+  resetAll();
+  $('menu').classList.add('hidden');
+  const lvl=parseInt($('lvlSelect').value)||1;
+  if(lvl>1){
+    // hopp rett til valt dag med passande utstyr
+    G.day=lvl;
+    P.ammo.bullets=40+lvl*4;
+    if(lvl>=2){P.owned.hagle=true;P.ammo.shells=12;}
+    if(lvl>=3){P.owned.dynamitt=true;P.ammo.dyn=4;}
+    if(lvl>=10){G.endless=true;P.owned.gatling=true;P.owned.bazooka=true;P.ammo.rockets=3;}
+    G.state='playing';
+    $('hud').classList.add('on');
+    P.frozen=false;
+    startDay(false);
+    $('lockHint').classList.add('on');
+    toast('Jumped straight to day '+lvl);
+  }else{
+    G.state='cutscene';
+    introCine();
+  }
+};
+$('btnResume').onclick=()=>{sfxClick();closePause();};
+$('btnMute').onclick=()=>{toggleMute();};
+$('btnQuit').onclick=()=>{sfxClick();location.reload();};
+$('btnRetry').onclick=()=>{sfxClick();retryDay();};
+$('btnDeathMenu').onclick=()=>{sfxClick();location.reload();};
+$('btnVicMenu').onclick=()=>{sfxClick();location.reload();};
+$('btnEndless').onclick=()=>{
+  sfxClick();
+  G.endless=true;
+  for(const z of ZOMBIES)scene.remove(z.grp);
+  ZOMBIES.length=0;
+  G.pending=0;G.bossPending=false;
+  $('victory').classList.add('hidden');
+  $('hud').classList.add('on');
+  G.state='playing';
+  G.day++;
+  startDay(false);
+  P.frozen=false;
+  $('lockHint').classList.add('on');
+  toast('ENDLESS NIGHT: the hordes never stop...');
+};
+if(G.best>0)$('bestNote').textContent='Best score: '+G.best;
+
+// ---------------- MAIN LOOP ----------------
+let lastT=performance.now();
+function loop(){
+  requestAnimationFrame(loop);
+  const now=performance.now();
+  const dt=Math.min((now-lastT)/1000,0.05);
+  lastT=now;
+  G.time+=dt;
+  // slow motion (X etter 8 drap)
+  let simDt=dt;
+  if(G.slowmoT>0){
+    G.slowmoT-=dt;
+    simDt=dt*0.35;
+    if(G.slowmoT<=0)$('slowmoTint').style.opacity=0;
+  }
+  if(AU.ctx&&!G.paused)musicTick(dt);
+  // motorsag-lyd av/på (sjekkes alltid så den aldri henger igjen)
+  const revving=G.state==='playing'&&!G.paused&&P.firing&&P.cur==='pisk'&&!P.frozen;
+  if(revving!==!!P.sawOn){P.sawOn=revving;sawSet(revving);}
+  // FOV-kick for våpenkraft
+  if(G.fovKick===undefined)G.fovKick=0;
+  if(G.fovKick>0.05){
+    camera.fov=72+G.fovKick;
+    G.fovKick*=Math.pow(0.002,dt);
+    camera.updateProjectionMatrix();
+  }else if(camera.fov!==72){
+    camera.fov=72;camera.updateProjectionMatrix();
+  }
+  updateNuke(dt);
+  if(G.state==='menu'){
+    const a=G.time*0.07;
+    camera.position.set(Math.sin(a)*32,13,Math.cos(a)*32);
+    camera.lookAt(0,2,0);
+  }else if(G.state==='cutscene'){
+    cineUpdate(dt);
+    for(const b of BROS)b.animT+=dt;
+  }else if(G.state==='playing'&&!G.paused){
+    updatePlayer(simDt);
+    updateKaiju(simDt); // kolossen ruslar — dag som natt
+    updateFires(simDt); // brannar sloknar ikkje av at sola står opp
+    for(const b of BROS)updateBro(b,simDt);
+    if(G.phase==='day'){
+      G.phaseT-=simDt;
+      if(G.phaseT<=0)startNight();
+    }else if(G.phase==='night'){
+      updateNight(simDt);
+    }
+    for(let i=ZOMBIES.length-1;i>=0;i--)updateZombie(ZOMBIES[i],simDt);
+    if(G.boss)updateZombie(G.boss,simDt);
+    updateDyns(simDt);
+    updateRockets(simDt);
+    updatePickups(simDt);
+    updateNukeDrop(simDt);
+    updateInteract(dt);
+    updateHUD();
+    updateRadar();
+    if(G.tutorialT>0){G.tutorialT-=dt;if(G.tutorialT<=0)$('tutorial').classList.remove('on');}
+  }
+  updateParts(simDt);
+  updateMists(simDt);
+  updateBooms(simDt);
+  updateTracers(simDt);
+  updateSlugs(simDt);
+  updateAmbient(dt);
+  // camera shake
+  if(G.shake>0){
+    camera.position.x+=rnd(-1,1)*G.shake*0.12;
+    camera.position.y+=rnd(-1,1)*G.shake*0.12;
+    G.shake=Math.max(0,G.shake-dt*1.6);
+  }
+  renderer.render(scene,camera);
+}
+loop();
+</script>
+</body>
+</html>
