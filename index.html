@@ -387,21 +387,24 @@ function makeCanvasTex(w,h,fn){
   const t=new THREE.CanvasTexture(cv);return t;
 }
 function textSprite(text,color='#e8d9b0',size=42,scale=1.6,glow){
-  const cv=document.createElement('canvas');cv.width=256;cv.height=64;
+  const cv=document.createElement('canvas');cv.width=320;cv.height=64;
   const g=cv.getContext('2d');
-  g.font=`bold ${size}px "Special Elite",serif`;g.textAlign='center';g.textBaseline='middle';
+  g.textAlign='center';g.textBaseline='middle';
+  // krymp skrifta til teksten GARANTERT får plass — ingen avkutta etikettar
+  do{ g.font=`bold ${size}px "Special Elite",serif`; size-=2; }
+  while(g.measureText(text).width>cv.width-24&&size>12);
   if(glow){ // sjølvlysande etikett — fleire glødpass + varm kjerne
     g.shadowColor=color;g.shadowBlur=20;
     g.fillStyle=color;
-    g.fillText(text,128,34);g.fillText(text,128,34);g.fillText(text,128,34);
+    g.fillText(text,160,34);g.fillText(text,160,34);g.fillText(text,160,34);
     g.shadowBlur=4;g.fillStyle='#fff2d8';
-    g.fillText(text,128,34);
+    g.fillText(text,160,34);
   }else{
     g.shadowColor='#000';g.shadowBlur=6;
-    g.fillStyle=color;g.fillText(text,128,34);
+    g.fillStyle=color;g.fillText(text,160,34);
   }
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthTest:false}));
-  sp.scale.set(scale,scale*0.25,1);
+  sp.scale.set(scale,scale*0.2,1);
   return sp;
 }
 
@@ -767,21 +770,22 @@ const ground=new THREE.Mesh(new THREE.PlaneGeometry(900,900),new THREE.MeshLambe
 ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
 // road strips
 const roadMat=new THREE.MeshLambertMaterial({color:0x9a7850});
-const road1=new THREE.Mesh(new THREE.PlaneGeometry(6.5,120),roadMat);
-road1.rotation.x=-Math.PI/2;road1.position.set(0,0.02,24);scene.add(road1); // hovudgata endar ved kyrkja
-const road2=new THREE.Mesh(new THREE.PlaneGeometry(140,5.5),roadMat);
-road2.rotation.x=-Math.PI/2;road2.position.set(0,0.02,2);scene.add(road2);
-const road3=new THREE.Mesh(new THREE.PlaneGeometry(110,4.5),roadMat);
-road3.rotation.x=-Math.PI/2;road3.position.set(0,0.02,25);scene.add(road3);
-const road4=new THREE.Mesh(new THREE.PlaneGeometry(110,4.5),roadMat);
-road4.rotation.x=-Math.PI/2;road4.position.set(0,0.02,-20);scene.add(road4);
+// (alle gater skalert 20 % opp saman med bygga — TS=1.2)
+const road1=new THREE.Mesh(new THREE.PlaneGeometry(7.8,144),roadMat);
+road1.rotation.x=-Math.PI/2;road1.position.set(0,0.02,28.8);scene.add(road1); // hovudgata endar ved kyrkja
+const road2=new THREE.Mesh(new THREE.PlaneGeometry(168,6.6),roadMat);
+road2.rotation.x=-Math.PI/2;road2.position.set(0,0.02,2.4);scene.add(road2);
+const road3=new THREE.Mesh(new THREE.PlaneGeometry(132,5.4),roadMat);
+road3.rotation.x=-Math.PI/2;road3.position.set(0,0.02,30);scene.add(road3);
+const road4=new THREE.Mesh(new THREE.PlaneGeometry(132,5.4),roadMat);
+road4.rotation.x=-Math.PI/2;road4.position.set(0,0.02,-24);scene.add(road4);
 // sidegater i rutenett
-const road5=new THREE.Mesh(new THREE.PlaneGeometry(4.5,90),roadMat);
-road5.rotation.x=-Math.PI/2;road5.position.set(-22,0.02,14);scene.add(road5);
-const road6=new THREE.Mesh(new THREE.PlaneGeometry(4.5,90),roadMat);
-road6.rotation.x=-Math.PI/2;road6.position.set(22,0.02,14);scene.add(road6);
-const road7=new THREE.Mesh(new THREE.PlaneGeometry(60,4.5),roadMat);
-road7.rotation.x=-Math.PI/2;road7.position.set(0,0.02,48);scene.add(road7);
+const road5=new THREE.Mesh(new THREE.PlaneGeometry(5.4,108),roadMat);
+road5.rotation.x=-Math.PI/2;road5.position.set(-26.4,0.02,16.8);scene.add(road5);
+const road6=new THREE.Mesh(new THREE.PlaneGeometry(5.4,108),roadMat);
+road6.rotation.x=-Math.PI/2;road6.position.set(26.4,0.02,16.8);scene.add(road6);
+const road7=new THREE.Mesh(new THREE.PlaneGeometry(72,5.4),roadMat);
+road7.rotation.x=-Math.PI/2;road7.position.set(0,0.02,57.6);scene.add(road7);
 
 // ---------------- COLLIDERS ----------------
 const COLLIDERS=[]; // {minX,maxX,minZ,maxZ,h}
@@ -872,8 +876,10 @@ function signTex(text){
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{
   for(const s of SIGNS){drawSign(s.cv.getContext('2d'),s.cv.width,s.cv.height,s.text);s.tex.needsUpdate=true;}
 });
+const TS=1.2; // BYSKALA — heile rutenettet er 20 % større (bygga har same storleik, gatene rommelegare)
 function addBuilding(x,z,w,d,h,opts){
   opts=opts||{};
+  x*=TS;z*=TS;
   const grp=new THREE.Group();
   const col=opts.color||woodColors[ri(0,woodColors.length-1)];
   const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:col}));
@@ -898,13 +904,24 @@ function addBuilding(x,z,w,d,h,opts){
   const door=new THREE.Mesh(new THREE.BoxGeometry(1.1,2.1,0.12),new THREE.MeshLambertMaterial({color:0x3a2814}));
   door.position.set(0,1.05,d/2+0.05);grp.add(door);
   grp.userData.door=door;
-  // windows
+  // grunnmur og hjørnelister — bygga ser bygde ut, ikkje berre boksar
+  const trimM=new THREE.MeshLambertMaterial({color:0x4e3a24});
+  const found=new THREE.Mesh(new THREE.BoxGeometry(w+0.16,0.35,d+0.16),new THREE.MeshLambertMaterial({color:0x76685a}));
+  found.position.y=0.17;grp.add(found);
+  for(const cx of [-1,1])for(const cz of [-1,1]){
+    const post=new THREE.Mesh(new THREE.BoxGeometry(0.16,h,0.16),trimM);
+    post.position.set(cx*(w/2-0.02),h/2,cz*(d/2-0.02));grp.add(post);
+  }
+  // windows — med karm
   const nWin=opts.windows!==undefined?opts.windows:2;
   for(let i=0;i<nWin;i++){
+    const wx=(i-(nWin-1)/2)*(w/(nWin+0.4));
+    const frame=new THREE.Mesh(new THREE.BoxGeometry(0.96,1.06,0.08),trimM);
+    frame.position.set(wx,h*0.6,d/2+0.03);grp.add(frame);
     const wm=new THREE.MeshLambertMaterial({color:0x223244,emissive:0x000000});
     WINDOW_MATS.push(wm);
     const win=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.9,0.1),wm);
-    win.position.set((i-(nWin-1)/2)*(w/(nWin+0.4)),h*0.6,d/2+0.05);
+    win.position.set(wx,h*0.6,d/2+0.05);
     grp.add(win);
   }
   // sign — kompakt, øverst på veggen, alltid over verandataket
@@ -977,9 +994,58 @@ addBuilding(38,-14.5,6,5,3.9,{rotY:Math.PI,windows:1,color:0x6e5236});
 addBuilding(-38,53.5,6,5,3.9,{rotY:Math.PI,windows:1,color:0x8a6844});
 addBuilding(38,42.5,6,5,3.9,{windows:1,color:0x7a5a3a});
 
-// church at north end
+// church at north end — bygd av veggsegment slik at døropninga er eit EKTE hol i fasaden
 {
-  const ch=addBuilding(0,-30,8,10,5,{sign:'KIRKE',color:0xd8cdb8,windows:2});
+  const CZ=-36; // TS-skalert plassering (enden av hovudgata)
+  const ch=new THREE.Group();
+  const wallM=new THREE.MeshLambertMaterial({color:0xd8cdb8});
+  const W=8,D=10,H=5,GAPW=3.4,GAPH=3.8;
+  // fasade: to segment + felt over døra = døropning som faktisk er open
+  const segW=(W-GAPW)/2;
+  for(const sx of [-1,1]){
+    const seg=new THREE.Mesh(new THREE.BoxGeometry(segW,H,0.35),wallM);
+    seg.position.set(sx*(GAPW/2+segW/2),H/2,D/2-0.18);seg.castShadow=true;ch.add(seg);
+  }
+  const overDoor=new THREE.Mesh(new THREE.BoxGeometry(GAPW,H-GAPH,0.35),wallM);
+  overDoor.position.set(0,GAPH+(H-GAPH)/2,D/2-0.18);ch.add(overDoor);
+  // bakvegg, sidevegger, golv — interiøret er ekte rom
+  const back=new THREE.Mesh(new THREE.BoxGeometry(W,H,0.35),wallM);
+  back.position.set(0,H/2,-D/2+0.18);back.castShadow=true;ch.add(back);
+  for(const sx of [-1,1]){
+    const side=new THREE.Mesh(new THREE.BoxGeometry(0.35,H,D),wallM);
+    side.position.set(sx*(W/2-0.18),H/2,0);side.castShadow=true;ch.add(side);
+  }
+  const floor=new THREE.Mesh(new THREE.BoxGeometry(W-0.5,0.12,D-0.5),new THREE.MeshLambertMaterial({color:0x4a3626}));
+  floor.position.y=0.06;ch.add(floor);
+  // benkerader inne
+  for(let i=0;i<3;i++)for(const sx of [-1.6,1.6]){
+    const pew=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.55,0.5),new THREE.MeshLambertMaterial({color:0x5a4328}));
+    pew.position.set(sx,0.34,-0.5-i*1.5);ch.add(pew);
+  }
+  // spisstak som addBuilding sitt
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(Math.max(W,D)*0.78,H*0.5,4),new THREE.MeshLambertMaterial({color:0x4a3320}));
+  roof.position.y=H+H*0.25;roof.rotation.y=Math.PI/4;roof.scale.set(W/Math.max(W,D),1,D/Math.max(W,D));
+  roof.castShadow=true;ch.add(roof);
+  // grunnmur
+  const cfound=new THREE.Mesh(new THREE.BoxGeometry(W+0.16,0.35,D+0.16),new THREE.MeshLambertMaterial({color:0x76685a}));
+  cfound.position.y=0.17;ch.add(cfound);
+  // vindauge med karm på framsida
+  for(const wx of [-2.7,2.7]){
+    const frame=new THREE.Mesh(new THREE.BoxGeometry(0.96,1.26,0.08),new THREE.MeshLambertMaterial({color:0x4e3a24}));
+    frame.position.set(wx,3,D/2+0.03);ch.add(frame);
+    const wm=new THREE.MeshLambertMaterial({color:0x223244,emissive:0x000000});
+    WINDOW_MATS.push(wm);
+    const win=new THREE.Mesh(new THREE.BoxGeometry(0.8,1.1,0.1),wm);
+    win.position.set(wx,3,D/2+0.05);ch.add(win);
+  }
+  // skilt på tårnfronten
+  const csign=new THREE.Mesh(new THREE.PlaneGeometry(2.6,0.7),new THREE.MeshBasicMaterial({map:signTex('CHURCH')}));
+  csign.position.set(0,4.72,D/2+0.33);ch.add(csign);
+  ch.position.set(0,0,CZ);
+  scene.add(ch);
+  addCollider(0,CZ,W,D,0.3,H);
+  BUILDING_POS.push([0,CZ]);
+  BREG.push({x:0,z:CZ,grp:ch,name:'CHURCH',h:H,burning:false,burned:false});
   // tårnet svever over inngangen så døra er open inn i kyrkja
   const tower=new THREE.Mesh(new THREE.BoxGeometry(2.6,3.8,2.6),new THREE.MeshLambertMaterial({color:0xd8cdb8}));
   tower.position.set(0,6.1,4);tower.castShadow=true;ch.add(tower);
@@ -995,24 +1061,23 @@ addBuilding(38,42.5,6,5,3.9,{windows:1,color:0x7a5a3a});
   G.bellMesh=bell;
   G.church=ch;
   G.churchColl=COLLIDERS[COLLIDERS.length-1];
-  // atombombe-rommet inne i kyrkja (skjult til siste nivå)
+  // atombombe-rommet inne i kyrkja (skjult til siste nivå) — kyrkja står no på z=-36
   const nk=new THREE.Group();
   const ped=new THREE.Mesh(new THREE.BoxGeometry(1.2,1,1.2),new THREE.MeshLambertMaterial({color:0x3a3f45}));
-  ped.position.set(0,0.5,-32);nk.add(ped);
+  ped.position.set(0,0.5,-38);nk.add(ped);
   const btn=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.34,0.18,12),
     new THREE.MeshLambertMaterial({color:0xd42f2f,emissive:0x661010}));
-  btn.position.set(0,1.1,-32);nk.add(btn);
+  btn.position.set(0,1.1,-38);nk.add(btn);
   const cage=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.1,0.9),new THREE.MeshLambertMaterial({color:0xb08830}));
-  cage.position.set(0,1.02,-32);nk.add(cage);
+  cage.position.set(0,1.02,-38);nk.add(cage);
   const nlbl=textSprite('☢ ATOM BOMB ☢','#ff5040',40,2.2);
-  nlbl.position.set(0,2.3,-32);nk.add(nlbl);
+  nlbl.position.set(0,2.3,-38);nk.add(nlbl);
   const nlight=new THREE.PointLight(0xff3020,0,12,2);
-  nlight.position.set(0,2,-31);nk.add(nlight);
+  nlight.position.set(0,2,-37);nk.add(nlight);
   nk.visible=false;
   scene.add(nk);
   G.nukeRoom=nk;G.nukeLight=nlight;
   // STOR dobbeltdør på kyrkja (hengslar i sidene, svingar opp ved Johns ordre)
-  ch.userData.door.visible=false;
   const doorM=new THREE.MeshLambertMaterial({color:0x4a3320});
   const goldM=new THREE.MeshLambertMaterial({color:0xb08830,emissive:0x221100});
   // solid dørkarm rundt opninga
@@ -1037,33 +1102,22 @@ addBuilding(38,42.5,6,5,3.9,{windows:1,color:0x7a5a3a});
     cv2.position.set(dd[1],0.6,0.1);dd[0].add(cv2);
   }
   G.churchDoors=[dL,dR];
-  // døropning (mørk) + innvendige vegger (synlege frå innsida)
-  const opening=new THREE.Mesh(new THREE.PlaneGeometry(3.2,3.7),
-    new THREE.MeshBasicMaterial({color:0x0c0804}));
-  opening.position.set(0,1.85,5.12);opening.visible=false;ch.add(opening);
-  // varmt lys innanfrå så opninga faktisk ser open ut
+  // varmt lys innanfrå — opninga er no eit ekte hol, interiøret er ekte rom
   const doorGlow=new THREE.PointLight(0xff8840,0,10,2);
   doorGlow.position.set(0,2,3);ch.add(doorGlow);
   G.churchGlow=doorGlow;
-  G.churchOpening=opening;
-  const inner=new THREE.Mesh(new THREE.BoxGeometry(7.4,4.7,9.4),
-    new THREE.MeshLambertMaterial({color:0x3a2a1a,side:THREE.BackSide}));
-  inner.position.set(0,2.35,0);inner.visible=false;ch.add(inner);
-  G.churchInner=inner;
 }
 function openChurch(){
   if(G.churchOpen)return;
   G.churchOpen=true;
   G.doorAnimT=0; // dørene svingar sakte opp (animert i updateAmbient)
-  G.churchOpening.visible=true;
-  G.churchInner.visible=true;
   sfxCreak();
   const i=COLLIDERS.indexOf(G.churchColl);
   if(i>=0)COLLIDERS.splice(i,1);
-  // vegger med opning i front
-  addCollider(-4.2,-30,0.7,10.6,0.1);addCollider(4.2,-30,0.7,10.6,0.1);
-  addCollider(0,-35.2,8.6,0.7,0.1);
-  addCollider(-2.8,-24.8,3,0.7,0.1);addCollider(2.8,-24.8,3,0.7,0.1);
+  // vegger med opning i front (kyrkja på z=-36)
+  addCollider(-4.2,-36,0.7,10.6,0.1);addCollider(4.2,-36,0.7,10.6,0.1);
+  addCollider(0,-41.2,8.6,0.7,0.1);
+  addCollider(-3.2,-30.8,3,0.7,0.1);addCollider(3.2,-30.8,3,0.7,0.1);
   G.nukeRoom.visible=true;
   banner('','☢ THE CHURCH DOOR HAS OPENED ☢');
   toast('Something waits inside the church...','bad');
@@ -1091,18 +1145,35 @@ function updateNuke(dt){
   NUKE.t+=dt;
   const t=NUKE.t;
   NUKE.stem.visible=NUKE.cap.visible=NUKE.ring.visible=true;
-  const h=Math.min(30,t*4.5);          // søyla veks
-  NUKE.stem.scale.set(1+t*0.12,h,1+t*0.12);
+  const h=Math.min(42,t*5.5);          // søyla veks
+  NUKE.stem.scale.set(1+t*0.14,h,1+t*0.14);
   NUKE.stem.position.y=h/2;
   NUKE.cap.position.y=h+2;
-  const cs=Math.min(16,2+t*2.4);       // soppen breier seg
+  const cs=Math.min(22,2+t*2.8);       // soppen breier seg
   NUKE.cap.scale.set(cs,cs*0.62,cs);
-  const rs=1+t*7;                       // trykkbølgja
+  const rs=1+t*9;                       // trykkbølgja
   NUKE.ring.scale.set(rs,rs,1);
-  NUKE.ring.material.opacity=Math.max(0,0.85-t*0.12);
-  NUKE.glow.intensity=Math.max(0,8-t*0.9);
-  G.shake=Math.max(G.shake,Math.max(0,0.6-t*0.06));
-  if(Math.random()<0.5)spawnParts(V3(rnd(-6,6),rnd(0,h),-5+rnd(-6,6)),1,0x777068,2,1.4,-1.5);
+  NUKE.ring.material.opacity=Math.max(0,0.85-t*0.1);
+  NUKE.glow.intensity=Math.max(0,10-t*0.9);
+  G.shake=Math.max(G.shake,Math.max(0,0.7-t*0.06));
+  if(Math.random()<0.6)spawnParts(V3(rnd(-8,8),rnd(0,h),-5+rnd(-8,8)),1,0x777068,2.4,1.4,-1.5);
+  // ØYDELEGGINGSBØLGJA — bygningane blir svidde og knuste utover frå senteret
+  NUKE.waveR=(NUKE.waveR||0)+dt*26;
+  for(const b of BREG){
+    const d=Math.hypot(b.x,b.z+5);
+    if(!b.nukeWrecked&&d<NUKE.waveR){
+      b.nukeWrecked=true;
+      b.grp.traverse(m=>{
+        if(m.isMesh&&m.material&&m.material.color&&!m.material.map){
+          if(m.userData.oc===undefined)m.userData.oc=m.material.color.getHex();
+          m.material.color.setHex(0x14100c);
+        }
+      });
+      boomFx(V3(b.x,1,b.z),7);
+      spawnParts(V3(b.x,b.h*0.6,b.z),16,0x2a2018,7,1.2,3);
+    }
+    if(b.nukeWrecked&&b.grp.scale.y>0.22)b.grp.scale.y=Math.max(0.22,b.grp.scale.y-dt*0.9); // husa seig saman
+  }
   // himmelen mørknar til oske
   _sky.setHex(0x4a3a30);scene.background=_sky;scene.fog.color.copy(_sky);
   scene.fog.density=0.014;
@@ -1111,7 +1182,7 @@ function updateNuke(dt){
 for(let i=0;i<9;i++){
   const gs=new THREE.Mesh(new THREE.BoxGeometry(0.7,rnd(0.8,1.2),0.18),
     new THREE.MeshLambertMaterial({color:0x8f8f88}));
-  gs.position.set(rnd(-8,8)-6,0.5,rnd(-40,-35));
+  gs.position.set(rnd(-8,8)-6,0.5,rnd(-48,-43)); // gravlunden bak den flytta kyrkja
   gs.rotation.y=rnd(-0.3,0.3);gs.rotation.z=rnd(-0.12,0.12);
   gs.castShadow=true;scene.add(gs);
 }
@@ -1266,7 +1337,7 @@ function animalFlee(a,range,dt){ // spring frå nærmaste zombie
       const away=V3().subVectors(a.g.position,z.grp.position).setY(0).normalize();
       a.tgt.copy(a.g.position).addScaledVector(away,22);
       const l=Math.hypot(a.tgt.x,a.tgt.z);
-      if(l>44)a.tgt.multiplyScalar(44/l); // flyktar IKKJE ut av byen — då dreg dei jegerane med seg
+      if(l>52)a.tgt.multiplyScalar(52/l); // flyktar IKKJE ut av byen — då dreg dei jegerane med seg
       a.speed=a.kind==='dog'?rnd(6,7.5):rnd(5.5,7);
       a.waitT=0;
       return;
@@ -1283,7 +1354,7 @@ function updateDogs(dt){
       const to=V3().subVectors(d.tgt,d.g.position);to.y=0;
       if(to.length()<0.9){
         d.waitT=rnd(1,5);
-        const a=rnd(0,Math.PI*2),r=rnd(6,44);
+        const a=rnd(0,Math.PI*2),r=rnd(7,52);
         d.tgt.set(Math.cos(a)*r,0,Math.sin(a)*r);
         d.speed=Math.random()<0.35?rnd(5,7.5):rnd(1.6,2.8);
       }else{
@@ -1293,7 +1364,7 @@ function updateDogs(dt){
         collideCircle(d.g.position,0.3);
         // traff ein vegg → snu med ein gong
         if(Math.hypot(d.g.position.x-px,d.g.position.z-pz)<d.speed*dt*0.25){
-          const a2=rnd(0,Math.PI*2),r2=rnd(6,44);
+          const a2=rnd(0,Math.PI*2),r2=rnd(7,52);
           d.tgt.set(Math.cos(a2)*r2,0,Math.sin(a2)*r2);
         }
         d.g.rotation.y=Math.atan2(-to.z,to.x);
@@ -1338,7 +1409,7 @@ function updateHorses(dt){
       const to=V3().subVectors(h.tgt,h.g.position);to.y=0;
       if(to.length()<1.2){
         h.waitT=rnd(2,8);
-        const a=rnd(0,Math.PI*2),r=rnd(10,44);
+        const a=rnd(0,Math.PI*2),r=rnd(12,52);
         h.tgt.set(Math.cos(a)*r,0,Math.sin(a)*r);
         h.speed=Math.random()<0.3?rnd(5,7):rnd(1.2,2.2);
       }else{
@@ -1347,7 +1418,7 @@ function updateHorses(dt){
         h.g.position.addScaledVector(to,h.speed*dt);
         collideCircle(h.g.position,0.6);
         if(Math.hypot(h.g.position.x-px,h.g.position.z-pz)<h.speed*dt*0.25){
-          const a2=rnd(0,Math.PI*2),r2=rnd(10,55);
+          const a2=rnd(0,Math.PI*2),r2=rnd(12,52);
           h.tgt.set(Math.cos(a2)*r2,0,Math.sin(a2)*r2);
         }
         h.g.rotation.y=Math.atan2(-to.z,to.x);
@@ -1677,10 +1748,10 @@ function makeTurretAt(x,z,top){
 function buildTurrets(){
   if(G.turretsBuilt)return;
   G.turretsBuilt=true;
-  makeTurretAt(-10,-8,5.3);   // saloon (John)
-  makeTurretAt(-10,4,4.9);    // sheriff (Sigbjørn)
-  makeTurretAt(10,-6,4.9);    // landhandel (Kristoffer)
-  makeTurretAt(10,7,4.6);     // stall — MIO sin!
+  makeTurretAt(-12,-9.6,5.3);  // saloon (John) — TS-skalert
+  makeTurretAt(-12,4.8,4.9);   // sheriff (Sigbjørn)
+  makeTurretAt(12,-7.2,4.9);   // landhandel (Kristoffer)
+  makeTurretAt(12,8.4,4.6);    // stall — MIO sin!
   toast('GATLING TURRETS mounted on the roofs! (press E to use)');
 }
 function fireTurretShot(t){
@@ -1707,8 +1778,7 @@ function fireTurretShot(t){
     if(tt>0&&tt<bestT){bestT=tt;kind='zombie';obj=z;}
   }
   const end=bestT<1e9?o.clone().addScaledVector(dir,bestT):o.clone().addScaledVector(dir,700);
-  tracer(from,end,0xffe8a0);
-  spawnSlug(from,end);
+  spawnSlug(from,end); // glødande prosjektil frå kanona
   if(kind==='kaiju'){damageKaiju(220);hitmarker(false);}
   else if(kind==='skull'){damageSkull(obj,220);hitmarker(true);}
   else if(kind==='zombie'){damageZombie(obj,220,false,dir);hitmarker(false);}
@@ -2041,12 +2111,14 @@ function updateParts(dt){
 }
 // synlege kuler som flyg ut av våpna
 const SLUGS=[];
-const slugGeo=new THREE.BoxGeometry(0.05,0.05,0.55);
-const slugMat=new THREE.MeshBasicMaterial({color:0xffd870});
+const slugGeo=new THREE.BoxGeometry(0.06,0.06,0.9);
+const slugMat=new THREE.MeshBasicMaterial({color:0xffeeb0});
 function spawnSlug(from,to){
-  if(SLUGS.length>50)return;
+  if(SLUGS.length>60)return;
   const m=new THREE.Mesh(slugGeo,slugMat);
   m.position.copy(from);m.lookAt(to);
+  const glow=skySprite('#ffc850',1.3); // GLØDANDE sporlyskule
+  m.add(glow);
   scene.add(m);
   SLUGS.push({m:m,v:to.clone().sub(from).normalize().multiplyScalar(120),life:Math.min(1.2,from.distanceTo(to)/120)});
 }
@@ -2228,8 +2300,7 @@ function shootRay(dir,dmg,isPellet){
     }
   }
   const end=best?o.clone().addScaledVector(dir,bestT):o.clone().addScaledVector(dir,60);
-  tracer(muzzlePos(),end);
-  spawnSlug(muzzlePos(),end); // synleg kule
+  spawnSlug(muzzlePos(),end); // berre den glødande prosjektilen — inga strek
   if(best){
     if(bestKind==='skull')damageSkull(best,dmg*2);
     else if(bestKind==='kaiju')damageKaiju(dmg);
@@ -2497,7 +2568,7 @@ function makeZombie(type,night){
     h.grp.position.copy(G.minePos).add(V3(rnd(-2,2),0,rnd(4,7)));
   }else{
     const a=rnd(0,Math.PI*2);
-    const rr=rnd(58,74);
+    const rr=rnd(70,88); // ringen skalert med byen
     h.grp.position.set(Math.cos(a)*rr,0,Math.sin(a)*rr);
   }
   const z={grp:h.grp,parts:h,hp:hp,maxHp:hp,speed:speed,dmg:dmg,scale:scale,type:type,
@@ -2797,13 +2868,29 @@ function bossDied(z){
 
 // ---------------- BROTHERS ----------------
 const BROS=[];
+// takruta blir REKNA UT frå faktisk trappegeometri (RAMPS) — robust mot byskala
+function roofPathTo(bx,bz){
+  let best=null,bd=1e9;
+  for(const r of RAMPS){
+    const tx=r.x+r.dx*r.len,tz=r.z+r.dz*r.len;
+    const d=(tx-bx)*(tx-bx)+(tz-bz)*(tz-bz);
+    if(d<bd){bd=d;best=r;}
+  }
+  if(!best)return [[bx,bz]];
+  return [
+    [best.x,Math.min(best.z+1.5,-2)], // inn i smuget nordfrå
+    [best.x,best.z+1.4],              // fram til trappefoten
+    [best.x+best.dx*best.len,best.z+best.dz*best.len], // opp til toppen
+    [bx,bz]                            // bort til kanonplassen
+  ];
+}
 const BRO_DEFS=[
   {name:'John',shirt:0x8a2f2b,hat:0x4a3320,anchor:V3(-3,0,-3),color:'#e07a6a',
-    roofPath:[[-14.25,-1.4],[-14.25,-11.6],[-10,-8]]},        // saloon-taket (trapp bak)
+    roofPath:roofPathTo(-12,-9.6)},   // saloon-taket (trapp bak)
   {name:'Sigbjørn',shirt:0x2b4a8a,hat:0x1c1c1c,anchor:V3(3,0,-3),color:'#7a9ae0',
-    roofPath:[[-4,9.5],[-13.75,9.5],[-13.75,1.3],[-10,4]]},   // sheriff-taket (rundt huset, trapp bak)
+    roofPath:roofPathTo(-12,4.8)},    // sheriff-taket
   {name:'Kristoffer',shirt:0x2b6e3f,hat:0xcbb58a,anchor:V3(0,0,2.5),color:'#7ad08a',
-    roofPath:[[13.75,0],[13.75,-9.2],[10,-6]]}                // landhandel-taket (trapp bak)
+    roofPath:roofPathTo(12,-7.2)}     // landhandel-taket
 ];
 for(const def of BRO_DEFS){
   const h=makeHumanoid({skin:0xd8a878,shirt:def.shirt,pants:0x4a3a2a,hat:def.hat});
@@ -3215,7 +3302,7 @@ const AMMO_SPOTS=[
   [-12,25],[12,25],[-24,25],[24,25],
   [-12,-20],[12,-20],[-26,-20],[26,-20],
   [-4.6,-6],[4.6,-6],[17,-8],[-17,-10],[5,33],[-3,30],[28,24.5],[-28,22],[0,46],[-2,-38]
-];
+].map(s=>[s[0]*1.2,s[1]*1.2]); // TS-skalert saman med byen
 function spotFree(x,z){
   for(const b of COLLIDERS){
     if(b.h>2&&x>b.minX-0.5&&x<b.maxX+0.5&&z>b.minZ-0.5&&z<b.maxZ+0.5)return false;
@@ -3490,9 +3577,9 @@ function startDay(first){
   // kolossen held seg SKJULT til natt 10 — første glimt skal vere eit sjokk
   // nye dyr finn vegen til byen kvar morgon om nokre vart tekne av zombiar
   const dogCols=[0x8a5a2a,0x55504a,0xc8b090,0x3a3025,0x9a8a70,0x4a3a2c];
-  while(DOGS.length<6){const a=rnd(0,Math.PI*2),r=rnd(20,45);makeDog(dogCols[ri(0,5)],Math.cos(a)*r,Math.sin(a)*r);}
+  while(DOGS.length<6){const a=rnd(0,Math.PI*2),r=rnd(24,54);makeDog(dogCols[ri(0,5)],Math.cos(a)*r,Math.sin(a)*r);}
   const horseCols=[0x6a4426,0x777066,0x33291f,0x8a6a44];
-  while(HORSES.length<4){const a=rnd(0,Math.PI*2),r=rnd(25,50);makeRoamHorse(horseCols[ri(0,3)],Math.cos(a)*r,Math.sin(a)*r);}
+  while(HORSES.length<4){const a=rnd(0,Math.PI*2),r=rnd(30,58);makeRoamHorse(horseCols[ri(0,3)],Math.cos(a)*r,Math.sin(a)*r);}
   envApply(0);
   musicSet('day');
   spawnDayPickups();
@@ -3796,29 +3883,27 @@ function detonateNuke(){
   sfxNuke();
   const wf=$('whiteFade');
   wf.style.transition='opacity .1s';wf.style.opacity=1; // BLENDANDE kvitt lys
+  G.score+=666;
+  saveBest();
+  G.state='cutscene'; // elles køyrer aldri cineUpdate — kameraet og stega står stille
   cineStart([
     {dur:2.6,caption:''},
-    {dur:9,camA:[85,12,72],camB:[98,22,84],lookA:[0,5,-8],lookB:[0,16,-8],
+    {dur:10,camA:[95,16,80],camB:[110,26,94],lookA:[0,6,0],lookB:[0,20,0],
       sfx:()=>{
         wf.style.opacity=0;
         setTimeout(()=>{wf.style.transition='opacity 1.4s';},300);
-        NUKE.active=true;NUKE.t=0;
+        NUKE.active=true;NUKE.t=0;NUKE.waveR=0; // øydeleggingsbølgja startar
       }},
-    {dur:5.5,camA:[98,22,84],camB:[106,26,92],lookA:[0,18,-8],
-      caption:'DUST VALLEY IS ANNIHILATED',small:'and the virus with it'}
+    {dur:6,camA:[110,26,94],camB:[120,32,102],lookA:[0,22,0],
+      caption:'DUST VALLEY IS ANNIHILATED',small:'and the virus with it'},
+    {dur:5.5,camA:[120,32,102],camB:[128,36,108],lookA:[0,26,0],
+      caption:'☢ THE NUCLEAR ENDING ☢',
+      small:G.kills+' zombies slain · '+G.score+' points — «Rest in peace, brothers.»'}
   ],()=>{
+    // attende til hovudmenyen
     NUKE.active=false;
-    G.state='victory';
-    G.score+=666;
-    saveBest();
-    document.querySelector('#victory .title').textContent='☢ THE NUCLEAR ENDING ☢';
-    $('victoryStats').innerHTML='Mio chose the final solution.<br>Dust Valley, the zombies and the virus — gone in a flash.<br><br>'+
-      G.kills+' zombies slain · '+G.headshots+' hovudskot · <b style="color:var(--gold)">'+G.score+' points</b><br><br>'+
-      '<i>«Rest in peace, brothers.»</i>';
-    $('btnEndless').style.display='none';
-    $('victory').classList.remove('hidden');
-    $('hud').classList.remove('on');
-    if(document.pointerLockElement)document.exitPointerLock();
+    $('blackFade').style.opacity=1;
+    setTimeout(()=>location.reload(),900);
   });
 }
 
@@ -3896,7 +3981,7 @@ function updateInteract(dt){
       $('reviveFill').style.width=clamp(P.reviveT/2.5*100,0,100)+'%';
       if(P.reviveT>=2.5){reviveBro(target);P.reviveT=0;}
     }else{P.reviveT=Math.max(0,P.reviveT-dt*2);$('reviveFill').style.width=clamp(P.reviveT/2.5*100,0,100)+'%';}
-  }else if(G.churchOpen&&!G.nuked&&Math.hypot(P.pos.x,P.pos.z+32)<2.6){
+  }else if(G.churchOpen&&!G.nuked&&Math.hypot(P.pos.x,P.pos.z+38)<2.6){
     // atombombe-knappen i kyrkja
     shown=true;
     ptext.innerHTML='Hold <b>E</b> — ☢ ARM THE ATOM BOMB ☢';
@@ -4025,7 +4110,7 @@ function updateRadar(){
   for(const f of FIRES)plot(f.x,f.z,'#ff6820',2.5);
   for(const b of BROS)plot(b.grp.position.x,b.grp.position.z,b.downed?'#7a1a14':b.color,3.2);
   for(const p of PICKUPS)plot(p.grp.position.x,p.grp.position.z,'#d9a441',2);
-  if(G.churchOpen&&!G.nuked)plot(0,-32,'#ff5040',4); // atombomba
+  if(G.churchOpen&&!G.nuked)plot(0,-38,'#ff5040',4); // atombomba
   // Mio (pil som peikar framover)
   c.fillStyle='#e8d9b0';
   c.beginPath();c.moveTo(cx,cy-6);c.lineTo(cx-4.5,cy+4.5);c.lineTo(cx+4.5,cy+4.5);c.closePath();c.fill();
@@ -4066,7 +4151,7 @@ function updateAmbient(dt){
     const e=G.doorAnimT*G.doorAnimT*(3-2*G.doorAnimT);
     G.churchDoors[0].rotation.y=-e*1.62; // venstre svingar ut (93° — klarerer fasaden)
     G.churchDoors[1].rotation.y=e*1.62;  // høgre svingar ut
-    if(Math.random()<0.3)spawnParts(V3(rnd(-1.5,1.5),rnd(0.2,3),-24.8),1,0x8a7a5c,0.8,0.9,1); // støv
+    if(Math.random()<0.3)spawnParts(V3(rnd(-1.5,1.5),rnd(0.2,3),-30.8),1,0x8a7a5c,0.8,0.9,1); // støv
   }
   // atombombe-lys pulserer i kyrkja
   if(G.churchOpen&&!G.nuked){
