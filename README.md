@@ -1,68 +1,71 @@
-# ☠ DØDENS PRÆRIE ☠
-### Et 3D zombie-western FPS — Støvdalen, 1887
+﻿# â˜  PRAIRIE OF THE DEAD â˜ 
+### Et 3D zombie-western FPS â€” Dust Valley, 1887
 
-Mio ankommer den forlatte cowboylandsbyen Støvdalen, der brødrene John, Sigbjørn
-og Kristoffer har sverget en pakt: utslett zombie-viruset — eller dø i forsøket.
-Samle våpen om dagen, overlev hordene om natten. Hver tredje natt kommer en boss.
-På siste nivå venter gatling, bazooka... og en atombombe i kirken.
+**ðŸŽ® Spill nÃ¥: https://krbj.github.io/prairie-of-the-dead/** *(krever passord â€” spÃ¸r eieren!)*
 
-## ▶ Slik spiller du
+Mio ankommer den forlatte cowboylandsbyen StÃ¸vdalen, der brÃ¸drene John, SigbjÃ¸rn
+og Kristoffer har sverget en pakt: utslett zombie-viruset â€” eller dÃ¸ i forsÃ¸ket.
+Samle vÃ¥pen om dagen, overlev hordene om natten. Hver tredje natt kommer en boss.
+PÃ¥ siste nivÃ¥ venter gatling, bazooka... og en atombombe i kirken.
 
-**Dobbeltklikk `index.html`** — det er alt! Spillet kjører i nettleseren
-(Chrome/Edge anbefales) og all lyd/tale følger med i mappa.
-Krever internett første gang (henter 3D-motoren og skrifttyper fra CDN).
+## â–¶ Slik spiller du
+
+**Dobbeltklikk `index.html`** â€” det er alt! Spillet kjÃ¸rer i nettleseren
+(Chrome/Edge anbefales) og all lyd/tale fÃ¸lger med i mappa.
+Krever internett fÃ¸rste gang (henter 3D-motoren og skrifttyper fra CDN).
 
 | Tast | Handling |
 |---|---|
-| WASD | beveg deg (Shift = løp, Mellomrom = hopp) |
+| WASD | beveg deg (Shift = lÃ¸p, Mellomrom = hopp) |
 | Mus / venstreklikk | sikt og skyt |
-| 1–6 | revolver · hagle · motorsag · dynamitt · gatling · bazooka |
-| R | lad om (lades også automatisk) |
+| 1â€“6 | revolver Â· hagle Â· motorsag Â· dynamitt Â· gatling Â· bazooka |
+| R | lad om (lades ogsÃ¥ automatisk) |
 | E | plukk opp / snakk / gjenoppliv / **aktiver atombomba** |
-| Esc / M | pause / lyd av-på |
+| Esc / M | pause / lyd av-pÃ¥ |
 
-I hovedmenyen kan du velge hvilken dag du vil starte på (1–12).
+I hovedmenyen kan du velge hvilken dag du vil starte pÃ¥ (1â€“12).
 
-## 📤 Slik deler du spillet med andre
+## ðŸ“¤ Slik deler du spillet med andre
 
-**Enklest — send mappa:**
-1. Høyreklikk mappa `3dzombiecowboyspill` → *Komprimer til ZIP-fil* (~5 MB)
+**Enklest â€” send mappa:**
+1. HÃ¸yreklikk mappa `3dzombiecowboyspill` â†’ *Komprimer til ZIP-fil* (~5 MB)
 2. Send zip-en (e-post, Messenger, minnepinne...)
-3. Mottakeren pakker ut og dobbeltklikker `index.html` — ferdig!
+3. Mottakeren pakker ut og dobbeltklikker `index.html` â€” ferdig!
 
-**Best — legg det på nett (gratis, gir deg en lenke alle kan åpne):**
-- **[itch.io](https://itch.io)** (laget for spill): opprett bruker → *Upload new project* →
-  last opp zip-en → huk av *«This file will be played in the browser»* → publiser.
-  Da får du en side hvor hvem som helst spiller rett i nettleseren.
-- **[Netlify Drop](https://app.netlify.com/drop)**: dra hele mappa inn i nettsiden →
-  du får en offentlig lenke på sekunder.
-- **GitHub Pages**: legg mappa i et repo → Settings → Pages → ferdig.
+**Best â€” legg det pÃ¥ nett (gratis, gir deg en lenke alle kan Ã¥pne):**
+- **[itch.io](https://itch.io)** (laget for spill): opprett bruker â†’ *Upload new project* â†’
+  last opp zip-en â†’ huk av *Â«This file will be played in the browserÂ»* â†’ publiser.
+  Da fÃ¥r du en side hvor hvem som helst spiller rett i nettleseren.
+- **[Netlify Drop](https://app.netlify.com/drop)**: dra hele mappa inn i nettsiden â†’
+  du fÃ¥r en offentlig lenke pÃ¥ sekunder.
+- **GitHub Pages**: legg mappa i et repo â†’ Settings â†’ Pages â†’ ferdig.
 
-## 🎙 Lag dine egne stemmer og lyder
+## ðŸŽ™ Lag dine egne stemmer og lyder
 
-- **MANUS.md** — innspillingsmanus for alle 63 replikker (sunnmørsk!), sortert
+- **MANUS.md** â€” innspillingsmanus for alle 76 replikker (sunnmÃ¸rsk!), sortert
   per rolle med toneanvisning og eksakt filnavn
-- **LYDLISTE.md** — komplett liste over lydeffekter og musikkspor du kan erstatte
+- **LYDLISTE.md** â€” komplett liste over lydeffekter og musikkspor du kan erstatte
 
-Legg MP3-filene i `audio/voice/`, `audio/sfx/` eller `audio/music/`, og kjør:
+Legg MP3-filene i `audio/voice/`, `audio/sfx/` eller `audio/music/`, og kjÃ¸r:
 ```
 node generate-audio.js --manifest
 ```
 (Krever [Node.js](https://nodejs.org). Vil du generere nye AI-stemmer med ElevenLabs,
-lagre API-nøkkelen din i `elevenlabs-key.txt` her i mappa og kjør uten `--manifest`.
-**Ikke del mappa med nøkkelfila i!**)
+lagre API-nÃ¸kkelen din i `elevenlabs-key.txt` her i mappa og kjÃ¸r uten `--manifest`.
+**Ikke del mappa med nÃ¸kkelfila i!**)
 
-## 📁 Innhold
+## ðŸ“ Innhold
 
 ```
-index.html          ← hele spillet (dobbeltklikk denne)
-audio/voice/        ← 63 talte replikker (ElevenLabs, sunnmørsk)
-audio/music/        ← dag-, natt-, boss- og finalemusikk
-audio/sfx/          ← (tom — legg egne lydeffekter her)
-audio/manifest.*    ← liste over lydfiler (auto-generert)
-generate-audio.js   ← regenererer stemmer/manifest
-MANUS.md            ← innspillingsmanus
-LYDLISTE.md         ← teknisk lydliste
+index.html          â† hele spillet (dobbeltklikk denne)
+audio/voice/        â† 63 talte replikker (ElevenLabs, sunnmÃ¸rsk)
+audio/music/        â† dag-, natt-, boss- og finalemusikk
+audio/sfx/          â† (tom â€” legg egne lydeffekter her)
+audio/manifest.*    â† liste over lydfiler (auto-generert)
+generate-audio.js   â† regenererer stemmer/manifest
+MANUS.md            â† innspillingsmanus
+LYDLISTE.md         â† teknisk lydliste
 ```
 
-Laget med Claude Code · Three.js · ElevenLabs
+Laget med Claude Code Â· Three.js Â· ElevenLabs
+
