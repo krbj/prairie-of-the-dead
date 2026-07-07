@@ -2943,9 +2943,9 @@ function killZombie(z,head,expl){
 
 // ---------------- BOSS ----------------
 const BOSS_DEFS=[
-  {name:'THE GRAVE ROBBER',hp:350,color:0x3f5a30,dmg:26,speed:1.9,scale:2.2},
-  {name:'THE BUTCHER',hp:650,color:0x5a2a2a,dmg:32,speed:2.1,scale:2.5},
-  {name:'THE PLAGUE KING',hp:1000,color:0x2a3a2a,dmg:38,speed:2.2,scale:2.9}
+  {name:'THE GRAVE ROBBER',hp:1200,color:0x3f5a30,dmg:26,speed:1.9,scale:2.2},
+  {name:'THE BUTCHER',hp:2400,color:0x5a2a2a,dmg:32,speed:2.1,scale:2.5},
+  {name:'THE PLAGUE KING',hp:3800,color:0x2a3a2a,dmg:38,speed:2.2,scale:2.9}
 ];
 function spawnBoss(night){
   let tier=Math.min(3,Math.floor(night/3)); // 3->1, 6->2, 9->3
@@ -3113,7 +3113,7 @@ for(const def of BRO_DEFS){
     new THREE.MeshBasicMaterial({color:0x5a0f0a,transparent:true,opacity:0.85}));
   pool.rotation.x=-Math.PI/2;pool.position.y=0.03;pool.visible=false;
   scene.add(pool);
-  BROS.push({name:def.name,color:def.color,grp:h.grp,parts:h,hp:220,maxHp:220,
+  BROS.push({name:def.name,color:def.color,grp:h.grp,parts:h,hp:450,maxHp:450,hurtT:0,
     downed:false,fireT:rnd(0.5,1.5),wanderT:0,wander:V3(),anchor:def.anchor.clone(),
     animT:rnd(0,9),barkCd:0,mode:'well',wpts:null,wpi:0,roofUntil:0,roofPath:def.roofPath,
     pool:pool,cryT:0,helper:null,helpT:0,tHeat:0,tPause:0,
@@ -3123,6 +3123,7 @@ const DOWNED_CRY='I am down, boys! Help me now!! I am going to die!';
 function damageBro(b,dmg){
   if(b.downed)return;
   b.hp-=dmg;
+  b.hurtT=6; // regen-pause etter treff
   blood(b.grp.position.clone().add(V3(0,1.1,0)),5);
   if(b.hp<=0){
     b.hp=0;b.downed=true;
@@ -3144,7 +3145,7 @@ function damageBro(b,dmg){
   }
 }
 function reviveBro(b){
-  b.downed=false;b.hp=Math.round(b.maxHp*0.5);
+  b.downed=false;b.hp=Math.round(b.maxHp*0.6);b.hurtT=0;
   b.grp.rotation.x=0;b.grp.scale.y=1;
   b.pool.visible=false;
   b.helper=null;
@@ -3200,6 +3201,9 @@ function updateBro(b,dt){
     return;
   }
   b.animT+=dt;
+  // seig kropp: heler sakte når han ikkje har tatt skade på ei stund
+  b.hurtT-=dt;
+  if(b.hurtT<=0&&b.hp<b.maxHp)b.hp=Math.min(b.maxHp,b.hp+9*dt);
   // høyde: tak og trapper
   b.grp.position.y=groundHeightAt(b.grp.position.x,b.grp.position.z,b.grp.position.y+0.7);
   // hjelper ein bror som ligg nede
