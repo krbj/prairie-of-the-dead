@@ -1918,10 +1918,8 @@ function fireTurretShot(t){
     if(tt>0&&tt<bestT){bestT=tt;kind='zombie';obj=z;}
   }
   const end=bestT<1e9?o.clone().addScaledVector(dir,bestT):o.clone().addScaledVector(dir,700);
-  spawnSlug(from,end); // glødande prosjektil frå kanona
-  if(kind==='kaiju'){damageKaiju(220);hitmarker(false);}
-  else if(kind==='skull'){damageSkull(obj,220);hitmarker(true);}
-  else if(kind==='zombie'){damageZombie(obj,220,false,dir);hitmarker(false);}
+  // glødande prosjektil frå kanona — skaden fylgjer kula (sjå slugImpact)
+  spawnSlug(from,end,{dmg:220,pellet:true,sk:1});
 }
 
 // ---------------- ENVIRONMENT (day/night mix) ----------------
@@ -2253,14 +2251,47 @@ function updateParts(dt){
 const SLUGS=[];
 const slugGeo=new THREE.BoxGeometry(0.06,0.06,0.9);
 const slugMat=new THREE.MeshBasicMaterial({color:0xffeeb0});
-function spawnSlug(from,to){
+function spawnSlug(from,to,pay){
   if(SLUGS.length>90)return;
   const m=new THREE.Mesh(slugGeo,slugMat);
   m.position.copy(from);m.lookAt(to);
   const glow=skySprite('#ffc850',1.3); // GLØDANDE sporlyskule
   m.add(glow);
   scene.add(m);
-  SLUGS.push({m:m,v:to.clone().sub(from).normalize().multiplyScalar(120),life:Math.min(1.2,from.distanceTo(to)/120)});
+  // pay = {dmg,pellet,sk}: kula BER skaden — treff skjer fyrst når prosjektilet fysisk når målet
+  const sp=pay?240:120;
+  SLUGS.push({m:m,v:to.clone().sub(from).normalize().multiplyScalar(sp),
+    life:pay?Math.min(3,from.distanceTo(to)/sp+0.15):Math.min(1.2,from.distanceTo(to)/120),pay:pay||null});
+}
+// segment a→b mot kule (c,r) — fangar kuler som «tunnellerer» gjennom mål på ein frame
+function segHit(a,b,c,r){
+  const abx=b.x-a.x,aby=b.y-a.y,abz=b.z-a.z;
+  const q=abx*abx+aby*aby+abz*abz;
+  let t=q>1e-8?((c.x-a.x)*abx+(c.y-a.y)*aby+(c.z-a.z)*abz)/q:0;
+  t=clamp(t,0,1);
+  const dx=a.x+abx*t-c.x,dy=a.y+aby*t-c.y,dz=a.z+abz*t-c.z;
+  return dx*dx+dy*dy+dz*dz<=r*r;
+}
+function slugImpact(s,a){ // true = kula trefte noko og er brukt opp
+  const b=s.m.position,pay=s.pay;
+  const mark=(head)=>{if(!pay.pellet||Math.random()<0.4)hitmarker(head);};
+  for(const sk of SKULLS){
+    if(segHit(a,b,sk.m.position,1.6)){damageSkull(sk,pay.dmg*(pay.sk||1));mark(true);return true;}
+  }
+  if(KAIJU.alive){
+    const ks=150,bp=KAIJU.grp.position;
+    if(segHit(a,b,V3(bp.x,1.05*ks,bp.z),0.45*ks)||segHit(a,b,V3(bp.x,1.62*ks,bp.z),0.28*ks)){
+      damageKaiju(pay.dmg);mark(false);return true;
+    }
+  }
+  const targets=G.boss?ZOMBIES.concat([G.boss]):ZOMBIES;
+  const dir=s.v.clone().normalize();
+  for(const z of targets){
+    const sc=z.scale||1,zp=z.grp.position;
+    if(segHit(a,b,V3(zp.x,zp.y+1.62*sc,zp.z),0.34*sc)){damageZombie(z,pay.dmg*1.8,true,dir);mark(true);return true;}
+    if(segHit(a,b,V3(zp.x,zp.y+1.0*sc,zp.z),0.62*sc)){damageZombie(z,pay.dmg,false,dir);mark(false);return true;}
+  }
+  return false;
 }
 // gjenbrukspool av lys — kulene lyser opp omgivnadene dei passerer (fast tal lys = ingen shader-hakking)
 const SLUGLIGHTS=[];
@@ -2272,7 +2303,9 @@ function updateSlugs(dt){
   for(let i=SLUGS.length-1;i>=0;i--){
     const s=SLUGS[i];
     s.life-=dt;
+    const a=s.pay?s.m.position.clone():null;
     s.m.position.addScaledVector(s.v,dt);
+    if(s.pay&&slugImpact(s,a)){scene.remove(s.m);SLUGS.splice(i,1);continue;}
     if(s.life<=0){scene.remove(s.m);SLUGS.splice(i,1);}
   }
   for(let i=0;i<SLUGLIGHTS.length;i++){
@@ -2456,13 +2489,9 @@ function shootRay(dir,dmg,isPellet){
     }
   }
   const end=best?o.clone().addScaledVector(dir,bestT):o.clone().addScaledVector(dir,60);
-  spawnSlug(gunMuzzleWorld(),end); // glødande prosjektil FRÅ LØPET — konvergerer mot crosshairen
-  if(best){
-    if(bestKind==='skull')damageSkull(best,dmg*2);
-    else if(bestKind==='kaiju')damageKaiju(dmg);
-    else damageZombie(best,bestHead?dmg*1.8:dmg,bestHead,dir);
-    if(!isPellet||Math.random()<0.4)hitmarker(bestHead);
-  }
+  // glødande prosjektil FRÅ LØPET mot crosshair-punktet — SKADEN sit i kula og
+  // vert fyrst påført når prosjektilet fysisk treffer (sjå slugImpact)
+  spawnSlug(gunMuzzleWorld(),end,{dmg:dmg,pellet:isPellet,sk:2});
   return !!best;
 }
 function hitmarker(head){
@@ -2681,7 +2710,7 @@ function makeHumanoid(o){ // {skin,shirt,pants,hat,eyes}
       const eye=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.05,0.02),
         new THREE.MeshBasicMaterial({color:o.eyes}));
       eye.position.set(ex,0.02,0.19);head.add(eye);
-      const eg=skySprite('#ff2010',0.34); // GLØDANDE augo
+      const eg=skySprite('#ff2010',0.24); // GLØDANDE augo (dempa glød)
       eg.position.set(ex,0.02,0.22);head.add(eg);
     }
   }
