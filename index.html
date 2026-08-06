@@ -383,6 +383,15 @@ document.getElementById('btnCoverStart').addEventListener('click',()=>{
 <script src="audio/manifest.js"></script><!-- valgfri: gjør at lyden virker uten webserver (file://) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
+// Three r128 har ingen automatisk fargestyring: hex-verdiar er skrivne som sRGB,
+// men lyshandsaminga skjer i lineært rom. Vi konverterer sentralt, før noko blir laga,
+// slik at renderaren kan køyre sRGB-utgang + filmisk tonekartlegging.
+(function(){
+  const _setHex=THREE.Color.prototype.setHex;
+  THREE.Color.prototype.setHex=function(hex){_setHex.call(this,hex);return this.convertSRGBToLinear();};
+})();
+</script>
+<script>
 "use strict";
 /* ============================================================
    DØDENS PRÆRIE — zombie-western FPS
@@ -407,7 +416,16 @@ function raySphere(o,d,c,r){ // origin,dir(norm),center,radius -> t or -1
 function makeCanvasTex(w,h,fn){
   const cv=document.createElement('canvas');cv.width=w;cv.height=h;
   fn(cv.getContext('2d'),w,h);
-  const t=new THREE.CanvasTexture(cv);return t;
+  const t=new THREE.CanvasTexture(cv);
+  t.encoding=THREE.sRGBEncoding;          // kanvasfargar er skrivne i sRGB
+  t.anisotropy=window.MAXANISO||1;        // skarpe teksturar i skrå vinkel
+  return t;
+}
+// kakleteksturar: same bilete, men UV-ane blir skalerte per objekt (sjå uvBox)
+function repeatTex(w,h,fn){
+  const t=makeCanvasTex(w,h,fn);
+  t.wrapS=t.wrapT=THREE.RepeatWrapping;
+  return t;
 }
 function textSprite(text,color='#e8d9b0',size=42,scale=1.6,glow){
   const cv=document.createElement('canvas');cv.width=320;cv.height=64;
@@ -746,11 +764,15 @@ const G={
 try{G.best=parseInt(localStorage.getItem('dp_best')||'0')||0;}catch(e){}
 
 // ---------------- RENDERER / SCENE ----------------
-const renderer=new THREE.WebGLRenderer({canvas:$('c'),antialias:true});
+const renderer=new THREE.WebGLRenderer({canvas:$('c'),antialias:true,powerPreference:'high-performance'});
 renderer.setSize(innerWidth,innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.outputEncoding=THREE.sRGBEncoding;        // korrekt fargerom heilt ut til skjermen
+renderer.toneMapping=THREE.ACESFilmicToneMapping;  // filmisk kurve — held på detalj i sol OG skugge
+renderer.toneMappingExposure=0.98;
+window.MAXANISO=renderer.capabilities.getMaxAnisotropy();
 
 const scene=new THREE.Scene();
 scene.background=new THREE.Color(0xbfd3e0);
@@ -766,15 +788,17 @@ addEventListener('resize',()=>{
 });
 
 // lights
-const hemi=new THREE.HemisphereLight(0xdfe8f0,0x8a6b4a,0.75);scene.add(hemi);
-const sun=new THREE.DirectionalLight(0xffe8c0,0.95);
-sun.position.set(30,50,20);sun.castShadow=true;
-sun.shadow.mapSize.set(1024,1024);
-sun.shadow.camera.left=-85;sun.shadow.camera.right=85;
-sun.shadow.camera.top=85;sun.shadow.camera.bottom=-85;
-sun.shadow.camera.far=140;
+const hemi=new THREE.HemisphereLight(0x9dc4ea,0xa07c50,0.42); // himmelblått ovanfrå, sandbrunt attkast nedanfrå
+scene.add(hemi);
+const sun=new THREE.DirectionalLight(0xffdca4,2.05);
+sun.position.set(48,58,26);sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+sun.shadow.camera.left=-95;sun.shadow.camera.right=95;
+sun.shadow.camera.top=95;sun.shadow.camera.bottom=-95;
+sun.shadow.camera.far=210;
+sun.shadow.bias=-0.0007;sun.shadow.normalBias=0.035; // ingen skuggestriper på veggene
 scene.add(sun);
-const amb=new THREE.AmbientLight(0x404050,0.3);scene.add(amb);
+const amb=new THREE.AmbientLight(0x46536e,0.18);scene.add(amb);
 
 // sky sprites
 function skySprite(color,size){
@@ -789,6 +813,57 @@ function skySprite(color,size){
 const sunSprite=skySprite('#fff3c8',36);sunSprite.position.set(80,70,-120);scene.add(sunSprite);
 const moonSprite=skySprite('#cfd8ee',22);moonSprite.position.set(-90,80,-110);scene.add(moonSprite);
 
+// ---------------- HIMMELKUPPEL ----------------
+// ekte fargeovergang frå senit til horisont, med sol-glorie som fylgjer sola over himmelen
+const SKYU={
+  top:{value:new THREE.Color(0x2f6ec4)},
+  hor:{value:new THREE.Color(0xdce8f0)},
+  gnd:{value:new THREE.Color(0xb08d63)},
+  sunDir:{value:V3(0.5,0.5,-0.7).normalize()},
+  sunCol:{value:new THREE.Color(0xffd9a0)},
+  sunI:{value:1}
+};
+const skyDome=new THREE.Mesh(new THREE.SphereGeometry(1700,32,20),new THREE.ShaderMaterial({
+  side:THREE.BackSide,depthWrite:false,uniforms:SKYU,
+  vertexShader:'varying vec3 vD;void main(){vD=normalize(position);gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}',
+  fragmentShader:[
+    // (renderaren injiserer allereie tonemapping- og encoding-funksjonane i prefikset)
+    'uniform vec3 top,hor,gnd,sunCol,sunDir;uniform float sunI;varying vec3 vD;',
+    'void main(){',
+    '  vec3 d=normalize(vD);float h=d.y;',
+    '  vec3 col=mix(hor,top,pow(clamp(h,0.0,1.0),0.45));',      // senit -> horisont
+    '  col=mix(col,gnd,pow(clamp(-h*2.4,0.0,1.0),0.8));',       // dis ned mot bakken
+    '  float sd=max(dot(d,normalize(sunDir)),0.0);',
+    '  col+=sunCol*(pow(sd,6.0)*0.34+pow(sd,190.0)*2.6)*sunI;', // glorie + skarp solskive
+    '  col+=sunCol*pow(clamp(1.0-abs(h)*3.4,0.0,1.0),3.0)*0.13*sunI;', // varm horisontstripe
+    '  gl_FragColor=vec4(col,1.0);',
+    '  #include <tonemapping_fragment>',
+    '  #include <encodings_fragment>',
+    '}'
+  ].join('\n')
+}));
+skyDome.renderOrder=-2;scene.add(skyDome);
+
+// drivande skyer
+const cloudTex=makeCanvasTex(256,128,(g,w,h)=>{
+  g.clearRect(0,0,w,h);
+  for(let i=0;i<26;i++){
+    const cx=rnd(40,w-40),cy=rnd(46,h-26),r=rnd(16,40);
+    const gr=g.createRadialGradient(cx,cy,2,cx,cy,r);
+    gr.addColorStop(0,'rgba(255,255,255,0.85)');gr.addColorStop(0.55,'rgba(252,250,248,0.42)');gr.addColorStop(1,'rgba(250,248,246,0)');
+    g.fillStyle=gr;g.beginPath();g.arc(cx,cy,r,0,6.29);g.fill();
+  }
+});
+const CLOUDS=[];
+for(let i=0;i<16;i++){
+  const m=new THREE.SpriteMaterial({map:cloudTex,transparent:true,depthWrite:false,fog:false,opacity:0.75});
+  const s=new THREE.Sprite(m);
+  const a=rnd(0,Math.PI*2),r=rnd(260,760);
+  s.position.set(Math.cos(a)*r,rnd(90,210),Math.sin(a)*r);
+  const sc=rnd(180,420);s.scale.set(sc,sc*0.46,1);
+  s.renderOrder=-1;scene.add(s);CLOUDS.push({s:s,sp:rnd(0.6,1.9)});
+}
+
 // stars
 const starGeo=new THREE.BufferGeometry();
 {
@@ -802,55 +877,313 @@ const starGeo=new THREE.BufferGeometry();
 const starMat=new THREE.PointsMaterial({color:0xdfe8ff,size:2,transparent:true,opacity:0,fog:false,sizeAttenuation:false});
 const stars=new THREE.Points(starGeo,starMat);scene.add(stars);
 
-// ---------------- GROUND ----------------
-const sandTex=makeCanvasTex(512,512,(g,w,h)=>{
-  g.fillStyle='#c2996a';g.fillRect(0,0,w,h);
-  for(let i=0;i<9000;i++){
-    g.fillStyle='rgba('+ri(140,205)+','+ri(105,160)+','+ri(60,105)+','+rnd(0.08,0.3).toFixed(2)+')';
-    g.fillRect(rnd(0,w),rnd(0,h),rnd(1,3),rnd(1,3));
+// ---------------- MATERIALBIBLIOTEK ----------------
+// Alle teksturane er nøytrale (gråbrune) og blir FARGA av material.color.
+// Slik deler heile byen éin tekstur, men kvart hus har sin eigen kulør.
+const TEX={};
+TEX.wood=repeatTex(256,256,(g,w,h)=>{           // liggjande vestlandspanel
+  g.fillStyle='#c6b6a2';g.fillRect(0,0,w,h);
+  const rows=7,rh=h/rows;
+  for(let r=0;r<rows;r++){
+    const y=r*rh,b=rnd(0.88,1.08);
+    g.fillStyle='rgb('+ri(184*b,203*b)+','+ri(170*b,188*b)+','+ri(150*b,170*b)+')';
+    g.fillRect(0,y,w,rh-1);
+    for(let i=0;i<22;i++){                       // treårer
+      g.strokeStyle='rgba('+ri(118,168)+','+ri(106,152)+','+ri(90,134)+','+rnd(0.10,0.30).toFixed(2)+')';
+      g.lineWidth=rnd(0.4,1.3);
+      const yy=y+rnd(1,rh-2);g.beginPath();g.moveTo(0,yy);
+      for(let x=0;x<=w;x+=16)g.lineTo(x,yy+rnd(-0.7,0.7));
+      g.stroke();
+    }
+    g.fillStyle='rgba(58,44,30,0.45)';g.fillRect(0,y+rh-1.7,w,1.7); // skuggelinje under bordet
+    for(let i=0;i<5;i++){g.fillStyle='rgba(66,54,42,0.5)';g.beginPath();g.arc(rnd(6,w-6),y+rh*0.5,1.1,0,6.29);g.fill();} // spikrar
+  }
+  for(let i=0;i<44;i++){                         // vêrslitasje og flassande måling
+    g.fillStyle='rgba('+ri(150,205)+','+ri(140,190)+','+ri(124,172)+','+rnd(0.08,0.26).toFixed(2)+')';
+    g.fillRect(rnd(0,w),rnd(0,h),rnd(4,28),rnd(2,9));
   }
 });
-sandTex.wrapS=sandTex.wrapT=THREE.RepeatWrapping;sandTex.repeat.set(80,80);
-const ground=new THREE.Mesh(new THREE.PlaneGeometry(1900,1900),new THREE.MeshLambertMaterial({map:sandTex}));
+TEX.plank=repeatTex(256,256,(g,w,h)=>{          // golv-/takbord med tydelege glipper
+  g.fillStyle='#b5a68f';g.fillRect(0,0,w,h);
+  const cols=6,cw=w/cols;
+  for(let c=0;c<cols;c++){
+    const x=c*cw,b=rnd(0.84,1.1);
+    g.fillStyle='rgb('+ri(168*b,196*b)+','+ri(154*b,180*b)+','+ri(134*b,160*b)+')';
+    g.fillRect(x+1,0,cw-2,h);
+    for(let i=0;i<16;i++){
+      g.strokeStyle='rgba('+ri(112,160)+','+ri(102,146)+','+ri(88,128)+','+rnd(0.12,0.3).toFixed(2)+')';
+      g.lineWidth=rnd(0.4,1.1);const xx=x+rnd(2,cw-3);
+      g.beginPath();g.moveTo(xx,0);
+      for(let y=0;y<=h;y+=18)g.lineTo(xx+rnd(-0.7,0.7),y);
+      g.stroke();
+    }
+    g.fillStyle='rgba(52,40,28,0.5)';g.fillRect(x,0,1.4,h);         // glipa mellom borda
+  }
+});
+TEX.stone=repeatTex(256,256,(g,w,h)=>{          // grunnmur i naturstein
+  g.fillStyle='#6e675c';g.fillRect(0,0,w,h);
+  const rows=6,rh=h/rows,cols=5,cw=w/cols;
+  for(let r=0;r<rows;r++){
+    const y=r*rh,off=(r%2)*0.5;
+    for(let c=-1;c<cols;c++){
+      const x=(c+off)*cw,b=rnd(0.8,1.14);
+      g.fillStyle='rgb('+ri(126*b,162*b)+','+ri(120*b,152*b)+','+ri(108*b,138*b)+')';
+      g.fillRect(x+2,y+2,cw-4,rh-4);
+      for(let i=0;i<9;i++){
+        g.fillStyle='rgba('+ri(88,148)+','+ri(84,140)+','+ri(74,126)+',0.34)';
+        g.beginPath();g.arc(x+rnd(3,cw-3),y+rnd(3,rh-3),rnd(1,3.6),0,6.29);g.fill();
+      }
+      g.fillStyle='rgba(255,250,238,0.13)';g.fillRect(x+2,y+2,cw-4,1.6); // lyskant oppå steinen
+    }
+  }
+});
+TEX.adobe=repeatTex(256,256,(g,w,h)=>{          // kalkpussa mur med sprekker
+  g.fillStyle='#d9d2c4';g.fillRect(0,0,w,h);
+  for(let i=0;i<2600;i++){
+    g.fillStyle='rgba('+ri(180,232)+','+ri(174,226)+','+ri(160,212)+','+rnd(0.06,0.22).toFixed(2)+')';
+    g.fillRect(rnd(0,w),rnd(0,h),rnd(1,4),rnd(1,4));
+  }
+  g.strokeStyle='rgba(96,84,66,0.32)';
+  for(let i=0;i<26;i++){
+    g.lineWidth=rnd(0.5,1.4);g.beginPath();
+    let x=rnd(0,w),y=rnd(0,h);g.moveTo(x,y);
+    for(let s=0;s<ri(2,4);s++){x+=rnd(-46,46);y+=rnd(-46,46);g.lineTo(x,y);}
+    g.stroke();
+  }
+  for(let i=0;i<16;i++){                         // avflassa puss — mursteinen syner
+    g.fillStyle='rgba(150,116,88,'+rnd(0.14,0.34).toFixed(2)+')';
+    g.fillRect(rnd(0,w),rnd(0,h),rnd(8,30),rnd(6,18));
+  }
+});
+TEX.shingle=repeatTex(256,256,(g,w,h)=>{        // takspon
+  g.fillStyle='#8d8272';g.fillRect(0,0,w,h);
+  const rows=8,rh=h/rows,cols=7,cw=w/cols;
+  for(let r=0;r<rows;r++){
+    const y=r*rh,off=(r%2)*0.5;
+    for(let c=-1;c<cols;c++){
+      const x=(c+off)*cw,b=rnd(0.78,1.12);
+      g.fillStyle='rgb('+ri(120*b,158*b)+','+ri(112*b,146*b)+','+ri(98*b,128*b)+')';
+      g.fillRect(x+1,y+1,cw-2,rh-1);
+      g.fillStyle='rgba(40,32,24,0.42)';g.fillRect(x+1,y+rh-2,cw-2,2);
+    }
+  }
+});
+TEX.road=repeatTex(512,512,(g,w,h)=>{           // hardtrampa gate med hjulspor
+  g.fillStyle='#a08560';g.fillRect(0,0,w,h);
+  for(let i=0;i<16000;i++){
+    g.fillStyle='rgba('+ri(120,190)+','+ri(98,152)+','+ri(66,108)+','+rnd(0.08,0.3).toFixed(2)+')';
+    g.fillRect(rnd(0,w),rnd(0,h),rnd(1,3),rnd(1,3));
+  }
+  for(let i=0;i<14;i++){                         // nokre få, svake hjulspor
+    g.strokeStyle='rgba('+ri(110,150)+','+ri(90,126)+','+ri(64,96)+','+rnd(0.06,0.16).toFixed(2)+')';
+    g.lineWidth=rnd(2,6);const xx=rnd(0,w);
+    g.beginPath();g.moveTo(xx,0);
+    for(let y=0;y<=h;y+=26)g.lineTo(xx+rnd(-3,3),y);
+    g.stroke();
+  }
+  for(let i=0;i<900;i++){                        // hovavtrykk, grus og småstein
+    g.fillStyle='rgba('+ri(92,140)+','+ri(78,118)+','+ri(58,94)+','+rnd(0.14,0.38).toFixed(2)+')';
+    g.beginPath();g.ellipse(rnd(0,w),rnd(0,h),rnd(1.4,3.6),rnd(1.1,2.8),rnd(0,3),0,6.29);g.fill();
+  }
+  for(let i=0;i<300;i++){                        // lyse grusknausar
+    g.fillStyle='rgba('+ri(190,235)+','+ri(168,212)+','+ri(130,176)+','+rnd(0.12,0.3).toFixed(2)+')';
+    g.beginPath();g.arc(rnd(0,w),rnd(0,h),rnd(0.8,2.2),0,6.29);g.fill();
+  }
+});
+TEX.metal=repeatTex(128,128,(g,w,h)=>{
+  g.fillStyle='#9aa0a6';g.fillRect(0,0,w,h);
+  for(let i=0;i<900;i++){
+    g.fillStyle='rgba('+ri(120,200)+','+ri(124,204)+','+ri(130,210)+','+rnd(0.06,0.22).toFixed(2)+')';
+    g.fillRect(rnd(0,w),rnd(0,h),rnd(1,10),rnd(1,2));
+  }
+  for(let i=0;i<40;i++){                          // rustflekkar
+    g.fillStyle='rgba('+ri(120,165)+','+ri(70,100)+','+ri(40,62)+','+rnd(0.1,0.3).toFixed(2)+')';
+    g.beginPath();g.arc(rnd(0,w),rnd(0,h),rnd(2,7),0,6.29);g.fill();
+  }
+});
+
+// UV-skalering: same teksturstorleik i meter på alle flater, uansett kor stort objektet er
+function uvBox(geo,w,h,d,s){
+  const uv=geo.attributes.uv;
+  const f=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]]; // +x,-x,+y,-y,+z,-z
+  for(let i=0;i<6;i++){
+    const su=f[i][0]*s,sv=f[i][1]*s;
+    for(let k=0;k<4;k++){const j=i*4+k;uv.setXY(j,uv.getX(j)*su,uv.getY(j)*sv);}
+  }
+  uv.needsUpdate=true;return geo;
+}
+function uvPlane(geo,w,h,s){
+  const uv=geo.attributes.uv;
+  for(let i=0;i<uv.count;i++)uv.setXY(i,uv.getX(i)*w*s,uv.getY(i)*h*s);
+  uv.needsUpdate=true;return geo;
+}
+// Slår saman mange småbitar til éin geometri — held teikneoppkalla nede sjølv om
+// husa no har mange gonger fleire detaljar enn før.
+const _mgV=new THREE.Vector3(),_mgN=new THREE.Matrix3();
+function mergeGeos(items){
+  let vc=0,ic=0,anyC=false;
+  // NB: polyeder-geometriane (Ico/Dodeka) er UINDEKSERTE — då lagar vi indeksen sjølve
+  for(const it of items){
+    const n=it.g.attributes.position.count;
+    vc+=n;ic+=it.g.index?it.g.index.count:n;
+    if(it.c)anyC=true;
+  }
+  const pos=new Float32Array(vc*3),nor=new Float32Array(vc*3),uvs=new Float32Array(vc*2);
+  const cols=anyC?new Float32Array(vc*3):null;
+  const idx=vc>65535?new Uint32Array(ic):new Uint16Array(ic);
+  let vo=0,io=0;
+  for(const it of items){
+    if(!it.g.attributes.normal)it.g.computeVertexNormals();
+    const p=it.g.attributes.position,n=it.g.attributes.normal,u=it.g.attributes.uv,gi=it.g.index;
+    _mgN.getNormalMatrix(it.m);
+    for(let i=0;i<p.count;i++){
+      _mgV.fromBufferAttribute(p,i).applyMatrix4(it.m);
+      pos[(vo+i)*3]=_mgV.x;pos[(vo+i)*3+1]=_mgV.y;pos[(vo+i)*3+2]=_mgV.z;
+      _mgV.fromBufferAttribute(n,i).applyMatrix3(_mgN).normalize();
+      nor[(vo+i)*3]=_mgV.x;nor[(vo+i)*3+1]=_mgV.y;nor[(vo+i)*3+2]=_mgV.z;
+      if(u){uvs[(vo+i)*2]=u.getX(i);uvs[(vo+i)*2+1]=u.getY(i);}
+      if(cols){const c=it.c;cols[(vo+i)*3]=c?c.r:1;cols[(vo+i)*3+1]=c?c.g:1;cols[(vo+i)*3+2]=c?c.b:1;}
+    }
+    const icount=gi?gi.count:p.count;
+    for(let i=0;i<icount;i++)idx[io+i]=(gi?gi.getX(i):i)+vo;
+    vo+=p.count;io+=icount;
+  }
+  const out=new THREE.BufferGeometry();
+  out.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  out.setAttribute('normal',new THREE.BufferAttribute(nor,3));
+  out.setAttribute('uv',new THREE.BufferAttribute(uvs,2));
+  if(cols)out.setAttribute('color',new THREE.BufferAttribute(cols,3));
+  out.setIndex(new THREE.BufferAttribute(idx,1));
+  return out;
+}
+const _bQ=new THREE.Quaternion(),_bE=new THREE.Euler(),_bS=new THREE.Vector3(1,1,1),_bP=new THREE.Vector3();
+function Batch(mat){this.mat=mat;this.items=[];}
+Batch.prototype.add=function(geo,x,y,z,rx,ry,rz,col){
+  const m=new THREE.Matrix4();
+  _bE.set(rx||0,ry||0,rz||0);_bQ.setFromEuler(_bE);_bP.set(x,y,z);
+  m.compose(_bP,_bQ,_bS);
+  this.items.push({g:geo,m:m,c:col});return this;
+};
+// del med eigen farge — heile figuren blir éin mesh med vertexfargar i staden for 20 småmeshar
+Batch.prototype.part=function(geo,col,x,y,z,rx,ry,rz){return this.add(geo,x,y,z,rx,ry,rz,col);};
+Batch.prototype.pbox=function(bw,bh,bd,col,x,y,z,rx,ry,rz){
+  return this.add(new THREE.BoxGeometry(bw,bh,bd),x,y,z,rx,ry,rz,col);
+};
+Batch.prototype.box=function(w,h,d,x,y,z,s,rx,ry,rz){
+  return this.add(uvBox(new THREE.BoxGeometry(w,h,d),w,h,d,s===undefined?0.45:s),x,y,z,rx,ry,rz);
+};
+Batch.prototype.into=function(parent,cast,recv){
+  if(!this.items.length)return null;
+  const me=new THREE.Mesh(mergeGeos(this.items),this.mat);
+  me.castShadow=cast!==false;me.receiveShadow=recv!==false;parent.add(me);return me;
+};
+
+// ---------------- GROUND ----------------
+// tørr, sprukken ørkenjord: korn + småstein + rissa sprekker + lyse saltflekkar
+const sandTex=repeatTex(1024,1024,(g,w,h)=>{
+  g.fillStyle='#c9a071';g.fillRect(0,0,w,h);
+  for(let i=0;i<70;i++){ // brede, mjuke fargeflekkar
+    const r=rnd(60,200),cx=rnd(0,w),cy=rnd(0,h);
+    const gr=g.createRadialGradient(cx,cy,4,cx,cy,r);
+    gr.addColorStop(0,'rgba('+ri(140,210)+','+ri(112,168)+','+ri(70,122)+',0.38)');
+    gr.addColorStop(1,'rgba(0,0,0,0)');
+    g.fillStyle=gr;g.fillRect(cx-r,cy-r,r*2,r*2);
+  }
+  for(let i=0;i<30000;i++){ // sandkorn
+    g.fillStyle='rgba('+ri(120,225)+','+ri(88,178)+','+ri(48,122)+','+rnd(0.10,0.40).toFixed(2)+')';
+    g.fillRect(rnd(0,w),rnd(0,h),rnd(1,2.8),rnd(1,2.8));
+  }
+  for(let i=0;i<520;i++){ // småstein med lyskant
+    const x=rnd(0,w),y=rnd(0,h),r=rnd(1.6,4.2);
+    g.fillStyle='rgba('+ri(96,150)+','+ri(84,126)+','+ri(66,100)+',0.7)';
+    g.beginPath();g.ellipse(x,y,r,r*rnd(0.6,1),rnd(0,3),0,6.29);g.fill();
+    g.fillStyle='rgba(255,240,215,0.30)';
+    g.beginPath();g.ellipse(x-r*0.25,y-r*0.3,r*0.5,r*0.34,0,0,6.29);g.fill();
+  }
+  g.strokeStyle='rgba(96,74,48,0.34)';                      // tørkesprekker
+  for(let i=0;i<140;i++){
+    g.lineWidth=rnd(0.5,1.5);g.beginPath();
+    let x=rnd(0,w),y=rnd(0,h);g.moveTo(x,y);
+    for(let s=0;s<ri(2,5);s++){x+=rnd(-40,40);y+=rnd(-40,40);g.lineTo(x,y);}
+    g.stroke();
+  }
+});
+sandTex.repeat.set(230,230);
+// storskala variasjon i vertexfargar bryt opp kaklinga — ingen synleg rutemønster
+const groundGeo=new THREE.PlaneGeometry(1900,1900,72,72);
+{
+  const p=groundGeo.attributes.position,cols=[];
+  for(let i=0;i<p.count;i++){
+    const x=p.getX(i),y=p.getY(i);
+    let n=Math.sin(x*0.013)*Math.cos(y*0.017)+Math.sin(x*0.031+1.7)*Math.cos(y*0.023-0.6)*0.55
+         +Math.sin(x*0.072-2.1)*Math.cos(y*0.061)*0.28;
+    n=0.90+n*0.10;
+    cols.push(n*1.02,n*0.985,n*0.94);
+  }
+  groundGeo.setAttribute('color',new THREE.Float32BufferAttribute(cols,3));
+}
+const ground=new THREE.Mesh(groundGeo,new THREE.MeshStandardMaterial({map:sandTex,vertexColors:true,roughness:1,metalness:0}));
 ground.rotation.x=-Math.PI/2;ground.receiveShadow=true;scene.add(ground);
 // ---------------- FJELLKJEDER I HORISONTEN ----------------
+const MOUNTMATS=[]; // fjellmaterial som blir tinta etter tid på døgnet
 // dekkjer alle retningar — UNNTATT bak kyrkja (nord, -z): der er det berre endelaus ørken
 {
-  function mountainRing(R,col,hMin,hMax,n,seed){
-    const m=new THREE.MeshLambertMaterial({color:col,fog:false});
+  // ujamne toppar: kjegler med forskjøvne hjørne gjev ekte fjellsilhuett, ikkje pyntekjegler
+  function craggy(r,h,seg){
+    const g=new THREE.ConeGeometry(r,h,seg,2);
+    const p=g.attributes.position;
+    for(let i=0;i<p.count;i++){
+      const y=p.getY(i);
+      const k=clamp(1-(y+h/2)/h,0,1);           // meir utslag nedst, spiss topp
+      p.setX(i,p.getX(i)*(1+rnd(-0.3,0.34)*k)+rnd(-6,6)*k);
+      p.setZ(i,p.getZ(i)*(1+rnd(-0.3,0.34)*k)+rnd(-6,6)*k);
+      p.setY(i,y+rnd(-4,4)*(1-k));
+    }
+    g.computeVertexNormals();return g;
+  }
+  function mesa(r,h,seg){                        // flat-toppa bordfjell — ekte western
+    const g=new THREE.CylinderGeometry(r*0.72,r,h,seg,1);
+    const p=g.attributes.position;
+    for(let i=0;i<p.count;i++){p.setX(i,p.getX(i)+rnd(-5,5));p.setZ(i,p.getZ(i)+rnd(-5,5));}
+    g.computeVertexNormals();return g;
+  }
+  function mountainRing(R,col,hMin,hMax,n,mesaP,haze){
+    // fjella er DIS-SILHUETTAR, ikkje opplyste objekt — elles blir dei blåsne ut av sola
+    const m=new THREE.MeshBasicMaterial({color:col,fog:false});
+    MOUNTMATS.push({m:m,base:new THREE.Color(col),haze:haze});
     for(let i=0;i<n;i++){
-      const a=(i+rnd(-0.3,0.3))/n*Math.PI*2;
-      // gap mot -z (retninga bak kyrkja): sin(a)≈-1
+      const a=(i+rnd(-0.34,0.34))/n*Math.PI*2;
+      // gap mot -z (retninga bak kyrkja): der er det berre endelaus ørken
       let gd=Math.abs(a-(Math.PI*1.5));gd=Math.min(gd,Math.PI*2-gd);
       if(gd<0.62)continue;
-      const h=rnd(hMin,hMax),r=rnd(70,150);
-      const mt=new THREE.Mesh(new THREE.ConeGeometry(r,h,ri(4,6)),m);
-      mt.position.set(Math.cos(a)*R+rnd(-40,40),h/2-3,Math.sin(a)*R+rnd(-40,40));
+      const h=rnd(hMin,hMax),r=rnd(70,160);
+      const useMesa=Math.random()<(mesaP||0);
+      const mt=new THREE.Mesh(useMesa?mesa(r*0.8,h*0.62,ri(6,9)):craggy(r,h,ri(6,9)),m);
+      const hh=useMesa?h*0.62:h;
+      mt.position.set(Math.cos(a)*R+rnd(-46,46),hh/2-4,Math.sin(a)*R+rnd(-46,46));
       mt.rotation.y=rnd(0,6.28);
       scene.add(mt);
     }
   }
-  mountainRing(830,0x9aa2b4,70,170,44); // fjern rekkje — disblå
-  mountainRing(650,0x7e8698,45,110,30); // nærare rekkje — mørkare
+  mountainRing(1180,0x7d92b4,90,200,34,0.15,0.46); // fjernaste rekkje — mest oppløyst i dis
+  mountainRing(880,0x64789c,70,175,34,0.2,0.28);   // midtre rekkje
+  mountainRing(650,0x4c5c7e,45,115,26,0.3,0.12);   // nære rekkje — mørkast, mest detalj
 }
-// road strips
-const roadMat=new THREE.MeshLambertMaterial({color:0x9a7850});
+// road strips — hardtrampa jord med hjulspor, litt mørkare enn ørkenen rundt
+const roadMat=new THREE.MeshStandardMaterial({map:TEX.road,color:0xc6ab86,roughness:1,metalness:0});
 // (alle gater skalert 20 % opp saman med bygga — TS=1.2)
-const road1=new THREE.Mesh(new THREE.PlaneGeometry(7.8,144),roadMat);
-road1.rotation.x=-Math.PI/2;road1.position.set(0,0.02,28.8);scene.add(road1); // hovudgata endar ved kyrkja
-const road2=new THREE.Mesh(new THREE.PlaneGeometry(168,6.6),roadMat);
-road2.rotation.x=-Math.PI/2;road2.position.set(0,0.02,2.4);scene.add(road2);
-const road3=new THREE.Mesh(new THREE.PlaneGeometry(132,5.4),roadMat);
-road3.rotation.x=-Math.PI/2;road3.position.set(0,0.02,30);scene.add(road3);
-const road4=new THREE.Mesh(new THREE.PlaneGeometry(132,5.4),roadMat);
-road4.rotation.x=-Math.PI/2;road4.position.set(0,0.02,-24);scene.add(road4);
+function addRoad(w,d,x,z){
+  const m=new THREE.Mesh(uvPlane(new THREE.PlaneGeometry(w,d),w,d,0.62),roadMat);
+  m.rotation.x=-Math.PI/2;m.position.set(x,0.02,z);m.receiveShadow=true;scene.add(m);return m;
+}
+const road1=addRoad(7.8,144,0,28.8);   // hovudgata endar ved kyrkja
+const road2=addRoad(168,6.6,0,2.4);
+const road3=addRoad(132,5.4,0,30);
+const road4=addRoad(132,5.4,0,-24);
 // sidegater i rutenett
-const road5=new THREE.Mesh(new THREE.PlaneGeometry(5.4,108),roadMat);
-road5.rotation.x=-Math.PI/2;road5.position.set(-26.4,0.02,16.8);scene.add(road5);
-const road6=new THREE.Mesh(new THREE.PlaneGeometry(5.4,108),roadMat);
-road6.rotation.x=-Math.PI/2;road6.position.set(26.4,0.02,16.8);scene.add(road6);
-const road7=new THREE.Mesh(new THREE.PlaneGeometry(72,5.4),roadMat);
-road7.rotation.x=-Math.PI/2;road7.position.set(0,0.02,57.6);scene.add(road7);
+const road5=addRoad(5.4,108,-26.4,16.8);
+const road6=addRoad(5.4,108,26.4,16.8);
+const road7=addRoad(72,5.4,0,57.6);
 
 // ---------------- COLLIDERS ----------------
 const COLLIDERS=[]; // {minX,maxX,minZ,maxZ,h}
@@ -918,6 +1251,7 @@ function collideCircle(pos,r,feetY){
 
 // ---------------- BUILDINGS ----------------
 const WINDOW_MATS=[];
+const NIGHTGLOWS=[]; // lykter og lyskastar som berre syner om natta
 const woodColors=[0x8a6844,0x7a5a3a,0x96714c,0x6e5236];
 const SIGNS=[];
 function drawSign(g,w,h,text){
@@ -948,66 +1282,109 @@ function addBuilding(x,z,w,d,h,opts){
   opts.flat=true; // ALLE bygg har flate tak med rekkverk (som hotellet) — berre kyrkja har spisstak
   const grp=new THREE.Group();
   const col=opts.color||woodColors[ri(0,woodColors.length-1)];
-  const body=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),new THREE.MeshLambertMaterial({color:col}));
+  const adobe=(col===0xd8cdb8||col===0x8f8f88);   // bank og arrest er pussa mur
+  // eit materialsett per hus: veggen får sin kulør, listverket ein mørkare variant
+  const wallM=new THREE.MeshStandardMaterial({map:adobe?TEX.adobe:TEX.wood,color:col,roughness:adobe?0.99:0.93,metalness:0});
+  wallM.color.multiplyScalar(adobe?0.92:1.38); // teksturen er mørkare enn 1.0 — kompenser så kulørane held seg
+  const trimM=new THREE.MeshStandardMaterial({map:TEX.wood,roughness:0.9,metalness:0});
+  trimM.color.copy(wallM.color).multiplyScalar(0.5);
+  const plankM=new THREE.MeshStandardMaterial({map:TEX.plank,color:0x8a7250,roughness:0.95,metalness:0});
+  const stoneM=new THREE.MeshStandardMaterial({map:TEX.stone,color:0xa39a8c,roughness:1,metalness:0});
+  const ironM=new THREE.MeshStandardMaterial({map:TEX.metal,color:0x50505a,roughness:0.5,metalness:0.8});
+  const tb=new Batch(trimM), pb=new Batch(plankM), ib=new Batch(ironM);
+
+  const body=new THREE.Mesh(uvBox(new THREE.BoxGeometry(w,h,d),w,h,d,0.5),wallM);
   body.position.y=h/2;body.castShadow=true;body.receiveShadow=true;grp.add(body);
-  // roof — flatt (med rekkverk) hvis man skal kunne gå på det, ellers spisst
-  if(opts.flat){
-    const slab=new THREE.Mesh(new THREE.BoxGeometry(w+0.3,0.3,d+0.3),new THREE.MeshLambertMaterial({color:0x4a3320}));
-    slab.position.y=h+0.15;slab.castShadow=true;grp.add(slab);
-    const parM=new THREE.MeshLambertMaterial({color:0x3a2814});
-    for(const sw of [-1,1]){
-      const p1=new THREE.Mesh(new THREE.BoxGeometry(w+0.3,0.4,0.12),parM);
-      p1.position.set(0,h+0.45,sw*(d/2+0.09));grp.add(p1);
-      const p2=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.4,d+0.3),parM);
-      p2.position.set(sw*(w/2+0.09),h+0.45,0);grp.add(p2);
-    }
-  }else{
-    const roof=new THREE.Mesh(new THREE.ConeGeometry(Math.max(w,d)*0.78,h*0.5,4),new THREE.MeshLambertMaterial({color:0x4a3320}));
-    roof.position.y=h+h*0.25;roof.rotation.y=Math.PI/4;roof.scale.set(w/Math.max(w,d),1,d/Math.max(w,d));
-    roof.castShadow=true;grp.add(roof);
+  // grunnmur i naturstein
+  const found=new THREE.Mesh(uvBox(new THREE.BoxGeometry(w+0.24,0.46,d+0.24),w+0.24,0.46,d+0.24,0.65),stoneM);
+  found.position.y=0.21;found.castShadow=true;found.receiveShadow=true;grp.add(found);
+  // hjørnestolpar + gesims heilt rundt
+  for(const cx of [-1,1])for(const cz of [-1,1])tb.box(0.2,h-0.4,0.2,cx*(w/2-0.02),h/2+0.2,cz*(d/2-0.02),0.6);
+  tb.box(w+0.44,0.24,d+0.44,0,h-0.1,0,0.5);
+  // flatt tak med bordkledning og rekkverk (som hotellet) — det er her brørne står
+  const roof=new THREE.Mesh(uvBox(new THREE.BoxGeometry(w+0.3,0.3,d+0.3),w+0.3,0.3,d+0.3,0.55),plankM);
+  roof.position.y=h+0.15;roof.castShadow=true;roof.receiveShadow=true;grp.add(roof);
+  for(const sw of [-1,1]){
+    tb.box(w+0.36,0.52,0.14,0,h+0.56,sw*(d/2+0.11),0.55);
+    tb.box(0.14,0.52,d+0.36,sw*(w/2+0.11),h+0.56,0,0.55);
   }
-  // door
-  const door=new THREE.Mesh(new THREE.BoxGeometry(1.1,2.1,0.12),new THREE.MeshLambertMaterial({color:0x3a2814}));
-  door.position.set(0,1.05,d/2+0.05);grp.add(door);
+  // takbjelkar som stikk ut av fasaden
+  const nB=Math.max(2,Math.round(w/1.6));
+  for(let i=0;i<nB;i++)tb.box(0.13,0.13,0.46,-w/2+0.5+i*(w-1)/(nB-1),h-0.32,d/2+0.2,0.8);
+  // pipe på nokre av husa
+  if(Math.random()<0.45){
+    const cx=(Math.random()<0.5?-1:1)*(w/2-0.7), cz=-d/2+0.7;
+    const ch=new THREE.Mesh(uvBox(new THREE.BoxGeometry(0.62,1.5,0.62),0.62,1.5,0.62,0.9),stoneM);
+    ch.position.set(cx,h+0.9,cz);ch.castShadow=true;grp.add(ch);
+    tb.box(0.76,0.13,0.76,cx,h+1.68,cz,0.9);
+  }
+
+  // dør: karm, plankedør med jernbeslag, og eit steintrinn
+  tb.box(1.44,2.42,0.14,0,1.2,d/2+0.04,0.7);
+  const door=new THREE.Mesh(uvBox(new THREE.BoxGeometry(1.12,2.14,0.12),1.12,2.14,0.12,0.8),plankM);
+  door.position.set(0,1.07,d/2+0.09);door.castShadow=true;grp.add(door);
   grp.userData.door=door;
-  // grunnmur og hjørnelister — bygga ser bygde ut, ikkje berre boksar
-  const trimM=new THREE.MeshLambertMaterial({color:0x4e3a24});
-  const found=new THREE.Mesh(new THREE.BoxGeometry(w+0.16,0.35,d+0.16),new THREE.MeshLambertMaterial({color:0x76685a}));
-  found.position.y=0.17;grp.add(found);
-  for(const cx of [-1,1])for(const cz of [-1,1]){
-    const post=new THREE.Mesh(new THREE.BoxGeometry(0.16,h,0.16),trimM);
-    post.position.set(cx*(w/2-0.02),h/2,cz*(d/2-0.02));grp.add(post);
-  }
-  // windows — med karm
+  ib.box(1.02,0.09,0.05,0,1.62,d/2+0.16,1);
+  ib.box(1.02,0.09,0.05,0,0.56,d/2+0.16,1);
+  ib.add(new THREE.SphereGeometry(0.055,8,6),0.4,1.08,d/2+0.17);
+  const step=new THREE.Mesh(uvBox(new THREE.BoxGeometry(1.7,0.16,0.5),1.7,0.16,0.5,0.8),stoneM);
+  step.position.set(0,0.08,d/2+0.36);step.receiveShadow=true;grp.add(step);
+
+  // vindauge: karm, sålbenk, sprosser, glas — og skodder på nokre
   const nWin=opts.windows!==undefined?opts.windows:2;
+  const wm=new THREE.MeshStandardMaterial({color:0x1c2c40,roughness:0.22,metalness:0.15,emissive:0x000000});
+  WINDOW_MATS.push(wm);
+  const gb=new Batch(wm);
+  const shut=Math.random()<0.4;
   for(let i=0;i<nWin;i++){
     const wx=(i-(nWin-1)/2)*(w/(nWin+0.4));
-    const frame=new THREE.Mesh(new THREE.BoxGeometry(0.96,1.06,0.08),trimM);
-    frame.position.set(wx,h*0.6,d/2+0.03);grp.add(frame);
-    const wm=new THREE.MeshLambertMaterial({color:0x223244,emissive:0x000000});
-    WINDOW_MATS.push(wm);
-    const win=new THREE.Mesh(new THREE.BoxGeometry(0.8,0.9,0.1),wm);
-    win.position.set(wx,h*0.6,d/2+0.05);
-    grp.add(win);
+    tb.box(1.16,1.28,0.1,wx,h*0.58,d/2+0.03,0.75);
+    gb.box(0.88,1.0,0.06,wx,h*0.58,d/2+0.08,0.75);
+    tb.box(0.07,1.02,0.05,wx,h*0.58,d/2+0.11,0.9);   // sprosse loddrett
+    tb.box(0.9,0.07,0.05,wx,h*0.58,d/2+0.11,0.9);    // sprosse vassrett
+    tb.box(1.32,0.1,0.26,wx,h*0.58-0.68,d/2+0.06,0.8); // sålbenk
+    if(shut)for(const s of [-1,1])tb.box(0.36,1.28,0.08,wx+s*0.78,h*0.58,d/2+0.07,0.9);
   }
-  // sign — kompakt, øverst på veggen, alltid over verandataket
+
+  // skilt: måla plate på treramme med jernbrakettar
   if(opts.sign){
     const signH=Math.min(w*0.18,0.95);
+    tb.box(signH*4.2,signH*1.2,0.1,0,h-signH/2-0.12,d/2+0.06,0.7);
     const sg=new THREE.Mesh(new THREE.PlaneGeometry(signH*4,signH),
       new THREE.MeshBasicMaterial({map:signTex(opts.sign)}));
-    sg.position.set(0,h-signH/2-0.12,d/2+0.09);grp.add(sg);
+    sg.position.set(0,h-signH/2-0.12,d/2+0.12);grp.add(sg);
   }
-  // porch
+
+  // veranda: golvbord, stolpar med knekter, rekkverk og spontak
   if(opts.porch){
-    const pr=new THREE.Mesh(new THREE.BoxGeometry(w,0.16,1.8),new THREE.MeshLambertMaterial({color:0x6e5236}));
-    pr.position.set(0,0.08,d/2+0.95);grp.add(pr);
-    const proof=new THREE.Mesh(new THREE.BoxGeometry(w,0.12,2),new THREE.MeshLambertMaterial({color:0x4a3320}));
-    proof.position.set(0,h*0.68,d/2+1);proof.castShadow=true;grp.add(proof);
-    for(const sx of [-w/2+0.25,w/2-0.25]){
-      const post=new THREE.Mesh(new THREE.BoxGeometry(0.16,h*0.68,0.16),new THREE.MeshLambertMaterial({color:0x5a4328}));
-      post.position.set(sx,h*0.34,d/2+1.75);grp.add(post);
+    const pd=1.9, pz=d/2+pd/2+0.05, ph=h*0.7;
+    const deck=new THREE.Mesh(uvBox(new THREE.BoxGeometry(w+0.2,0.18,pd),w+0.2,0.18,pd,0.75),plankM);
+    deck.position.set(0,0.4,pz);deck.castShadow=true;deck.receiveShadow=true;grp.add(deck);
+    pb.box(w+0.2,0.12,0.34,0,0.28,pz+pd/2-0.1,0.75);      // trappetrinn ned til gata
+    pb.box(w+0.5,0.16,pd+0.3,0,ph,pz,0.6);                 // taket
+    for(const sx of [-1,1]){                               // stolpar + knekter
+      const px=sx*(w/2-0.2);
+      tb.box(0.18,ph-0.5,0.18,px,ph/2+0.24,pz+pd/2-0.2,0.7);
+      tb.box(0.12,0.5,0.5,px,ph-0.36,pz+pd/2-0.5,0.9,0,0,sx*0.0);
+      tb.box(0.14,0.1,pd,px,0.98,pz,0.8);                  // rekkverk-handlist
+      tb.box(0.1,0.6,0.1,px,0.7,pz-pd/2+0.3,0.9);
     }
+    tb.box(w+0.5,0.26,0.14,0,ph-0.2,pz+pd/2+0.08,0.6);     // frontlist på verandataket
   }
+
+  // lykt ved døra — lyser opp fasaden når mørket kjem
+  {
+    const lx=w/2-0.5;
+    ib.box(0.1,0.34,0.1,lx,h*0.52+0.28,d/2+0.14,1);
+    const lamp=new THREE.Mesh(new THREE.BoxGeometry(0.2,0.26,0.2),
+      new THREE.MeshStandardMaterial({color:0x2a2118,emissive:0x000000,roughness:0.6}));
+    lamp.position.set(lx,h*0.52,d/2+0.24);grp.add(lamp);
+    WINDOW_MATS.push(lamp.material);
+    const gl=skySprite('#ffb44a',1.5);
+    gl.position.set(lx,h*0.52,d/2+0.3);gl.material.opacity=0;
+    gl.userData.gmax=0.85;grp.add(gl);NIGHTGLOWS.push(gl);
+  }
+  tb.into(grp);pb.into(grp);ib.into(grp);gb.into(grp,false,false);
   grp.position.set(x,0,z);
   if(opts.rotY)grp.rotation.y=opts.rotY;
   scene.add(grp);
@@ -1064,46 +1441,61 @@ addBuilding(38,42.5,6,5,3.9,{windows:1,color:0x7a5a3a});
 {
   const CZ=-36; // TS-skalert plassering (enden av hovudgata)
   const ch=new THREE.Group();
-  const wallM=new THREE.MeshLambertMaterial({color:0xd8cdb8});
+  const wallM=new THREE.MeshStandardMaterial({map:TEX.adobe,color:0xf0e8d8,roughness:0.99,metalness:0});
+  const chTrimM=new THREE.MeshStandardMaterial({map:TEX.wood,color:0x6e5238,roughness:0.92,metalness:0});
+  const chStoneM=new THREE.MeshStandardMaterial({map:TEX.stone,color:0xa39a8c,roughness:1,metalness:0});
+  const chb=new Batch(chTrimM);
   const W=8,D=10,H=5,GAPW=3.4,GAPH=3.8;
   // fasade: to segment + felt over døra = døropning som faktisk er open
   const segW=(W-GAPW)/2;
   for(const sx of [-1,1]){
-    const seg=new THREE.Mesh(new THREE.BoxGeometry(segW,H,0.35),wallM);
-    seg.position.set(sx*(GAPW/2+segW/2),H/2,D/2-0.18);seg.castShadow=true;ch.add(seg);
+    const seg=new THREE.Mesh(uvBox(new THREE.BoxGeometry(segW,H,0.35),segW,H,0.35,0.45),wallM);
+    seg.position.set(sx*(GAPW/2+segW/2),H/2,D/2-0.18);seg.castShadow=true;seg.receiveShadow=true;ch.add(seg);
   }
-  const overDoor=new THREE.Mesh(new THREE.BoxGeometry(GAPW,H-GAPH,0.35),wallM);
+  const overDoor=new THREE.Mesh(uvBox(new THREE.BoxGeometry(GAPW,H-GAPH,0.35),GAPW,H-GAPH,0.35,0.45),wallM);
   overDoor.position.set(0,GAPH+(H-GAPH)/2,D/2-0.18);ch.add(overDoor);
+  chb.box(GAPW+0.5,0.26,0.5,0,GAPH+0.12,D/2-0.05,0.7);   // dørkarm-overligger
+  for(const sx of [-1,1])chb.box(0.26,GAPH,0.5,sx*(GAPW/2+0.1),GAPH/2,D/2-0.05,0.7);
   // bakvegg, sidevegger, golv — interiøret er ekte rom
-  const back=new THREE.Mesh(new THREE.BoxGeometry(W,H,0.35),wallM);
-  back.position.set(0,H/2,-D/2+0.18);back.castShadow=true;ch.add(back);
+  const back=new THREE.Mesh(uvBox(new THREE.BoxGeometry(W,H,0.35),W,H,0.35,0.45),wallM);
+  back.position.set(0,H/2,-D/2+0.18);back.castShadow=true;back.receiveShadow=true;ch.add(back);
   for(const sx of [-1,1]){
-    const side=new THREE.Mesh(new THREE.BoxGeometry(0.35,H,D),wallM);
-    side.position.set(sx*(W/2-0.18),H/2,0);side.castShadow=true;ch.add(side);
+    const side=new THREE.Mesh(uvBox(new THREE.BoxGeometry(0.35,H,D),0.35,H,D,0.45),wallM);
+    side.position.set(sx*(W/2-0.18),H/2,0);side.castShadow=true;side.receiveShadow=true;ch.add(side);
   }
-  const floor=new THREE.Mesh(new THREE.BoxGeometry(W-0.5,0.12,D-0.5),new THREE.MeshLambertMaterial({color:0x4a3626}));
-  floor.position.y=0.06;ch.add(floor);
-  // benkerader inne
+  const floor=new THREE.Mesh(uvBox(new THREE.BoxGeometry(W-0.5,0.12,D-0.5),W-0.5,0.12,D-0.5,0.7),
+    new THREE.MeshStandardMaterial({map:TEX.plank,color:0x7a5c3e,roughness:0.95,metalness:0}));
+  floor.position.y=0.06;floor.receiveShadow=true;ch.add(floor);
+  // benkerader inne — med rygg og bein
+  const pewM=new THREE.MeshStandardMaterial({map:TEX.plank,color:0x8a6a44,roughness:0.9,metalness:0});
+  const pb=new Batch(pewM);
   for(let i=0;i<3;i++)for(const sx of [-1.6,1.6]){
-    const pew=new THREE.Mesh(new THREE.BoxGeometry(2.4,0.55,0.5),new THREE.MeshLambertMaterial({color:0x5a4328}));
-    pew.position.set(sx,0.34,-0.5-i*1.5);ch.add(pew);
+    pb.box(2.4,0.14,0.5,sx,0.5,-0.5-i*1.5,0.8);           // sete
+    pb.box(2.4,0.5,0.12,sx,0.72,-0.72-i*1.5,0.8);         // rygg
+    for(const ex of [-1,1])pb.box(0.12,0.44,0.42,sx+ex*1.08,0.22,-0.5-i*1.5,0.8); // vange
   }
-  // spisstak som addBuilding sitt
-  const roof=new THREE.Mesh(new THREE.ConeGeometry(Math.max(W,D)*0.78,H*0.5,4),new THREE.MeshLambertMaterial({color:0x4a3320}));
+  pb.into(ch);
+  // spisstak med spontekking
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(Math.max(W,D)*0.78,H*0.5,4),
+    new THREE.MeshStandardMaterial({map:TEX.shingle,color:0x8a6a4a,roughness:0.95,metalness:0}));
   roof.position.y=H+H*0.25;roof.rotation.y=Math.PI/4;roof.scale.set(W/Math.max(W,D),1,D/Math.max(W,D));
   roof.castShadow=true;ch.add(roof);
+  chb.box(W+0.5,0.22,D+0.5,0,H-0.06,0,0.5);               // gesims
   // grunnmur
-  const cfound=new THREE.Mesh(new THREE.BoxGeometry(W+0.16,0.35,D+0.16),new THREE.MeshLambertMaterial({color:0x76685a}));
-  cfound.position.y=0.17;ch.add(cfound);
-  // vindauge med karm på framsida
+  const cfound=new THREE.Mesh(uvBox(new THREE.BoxGeometry(W+0.24,0.42,D+0.24),W+0.24,0.42,D+0.24,0.65),chStoneM);
+  cfound.position.y=0.2;cfound.receiveShadow=true;ch.add(cfound);
+  // vindauge med karm og sprosser på framsida
+  const cwm=new THREE.MeshStandardMaterial({color:0x1c2c40,roughness:0.22,metalness:0.15,emissive:0x000000});
+  WINDOW_MATS.push(cwm);
+  const cgb=new Batch(cwm);
   for(const wx of [-2.7,2.7]){
-    const frame=new THREE.Mesh(new THREE.BoxGeometry(0.96,1.26,0.08),new THREE.MeshLambertMaterial({color:0x4e3a24}));
-    frame.position.set(wx,3,D/2+0.03);ch.add(frame);
-    const wm=new THREE.MeshLambertMaterial({color:0x223244,emissive:0x000000});
-    WINDOW_MATS.push(wm);
-    const win=new THREE.Mesh(new THREE.BoxGeometry(0.8,1.1,0.1),wm);
-    win.position.set(wx,3,D/2+0.05);ch.add(win);
+    chb.box(1.1,1.44,0.1,wx,3,D/2+0.03,0.75);
+    cgb.box(0.82,1.14,0.06,wx,3,D/2+0.08,0.75);
+    chb.box(0.07,1.16,0.05,wx,3,D/2+0.11,0.9);
+    chb.box(0.84,0.07,0.05,wx,3,D/2+0.11,0.9);
+    chb.box(1.24,0.1,0.24,wx,2.26,D/2+0.06,0.8);
   }
+  cgb.into(ch,false,false);chb.into(ch);
   // skilt på tårnfronten
   const csign=new THREE.Mesh(new THREE.PlaneGeometry(2.6,0.7),new THREE.MeshBasicMaterial({map:signTex('CHURCH')}));
   csign.position.set(0,4.72,D/2+0.33);ch.add(csign);
@@ -1230,8 +1622,8 @@ function updateNuke(dt){
     if(!b.nukeWrecked&&d<NUKE.waveR){
       b.nukeWrecked=true;
       b.grp.traverse(m=>{
-        if(m.isMesh&&m.material&&m.material.color&&!m.material.map){
-          if(m.userData.oc===undefined)m.userData.oc=m.material.color.getHex();
+        if(m.isMesh&&m.material&&m.material.color){
+          if(m.userData.oc===undefined)m.userData.oc=m.material.color.clone();
           m.material.color.setHex(0x14100c);
         }
       });
@@ -1244,26 +1636,50 @@ function updateNuke(dt){
   _sky.setHex(0x4a3a30);scene.background=_sky;scene.fog.color.copy(_sky);
   scene.fog.density=0.014;
 }
-// gravestones
-for(let i=0;i<9;i++){
-  const gs=new THREE.Mesh(new THREE.BoxGeometry(0.7,rnd(0.8,1.2),0.18),
-    new THREE.MeshLambertMaterial({color:0x8f8f88}));
-  gs.position.set(rnd(-8,8)-6,0.5,rnd(-48,-43)); // gravlunden bak den flytta kyrkja
-  gs.rotation.y=rnd(-0.3,0.3);gs.rotation.z=rnd(-0.12,0.12);
-  gs.castShadow=true;scene.add(gs);
+// gravestones — skeive, forvitra steinar med jordhaug framfor
+{
+  const gsM=new THREE.MeshStandardMaterial({map:TEX.stone,color:0xb4aea4,roughness:1,metalness:0});
+  const gb=new Batch(gsM);
+  const soilM=new THREE.MeshStandardMaterial({map:TEX.road,color:0x8a6c4c,roughness:1,metalness:0});
+  const sb=new Batch(soilM);
+  for(let i=0;i<11;i++){
+    const gx=rnd(-8,8)-6, gz=rnd(-48,-43), ry=rnd(-0.35,0.35), rz=rnd(-0.14,0.14), gh=rnd(0.8,1.25);
+    if(Math.random()<0.72){                       // vanleg gravstein med rund topp
+      gb.box(0.66,gh,0.17,gx,gh/2,gz,1.1,0,ry,rz);
+      gb.add(new THREE.CylinderGeometry(0.33,0.33,0.17,10,1,false,0,Math.PI),gx,gh,gz,Math.PI/2,0,rz+Math.PI/2);
+    }else{                                        // enkelt trekross
+      gb.box(0.15,gh*1.2,0.13,gx,gh*0.6,gz,1.1,0,ry,rz);
+      gb.box(0.62,0.14,0.12,gx,gh*0.92,gz,1.1,0,ry,rz);
+    }
+    sb.box(1.05,0.12,1.7,gx,0.06,gz+0.9,0.6,0,ry,0); // oppkasta jord
+  }
+  gb.into(scene);sb.into(scene,false,true);
 }
 
 // well (center)
 {
   const well=new THREE.Group();
-  const base=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.3,1,10),new THREE.MeshLambertMaterial({color:0x8f8579}));
-  base.position.y=0.5;base.castShadow=true;well.add(base);
-  const rf=new THREE.Mesh(new THREE.ConeGeometry(1.5,1,6),new THREE.MeshLambertMaterial({color:0x4a3320}));
-  rf.position.y=2.6;rf.castShadow=true;well.add(rf);
+  const wStone=new THREE.MeshStandardMaterial({map:TEX.stone,color:0xa89e90,roughness:1,metalness:0});
+  const wWood=new THREE.MeshStandardMaterial({map:TEX.wood,color:0x8a6a44,roughness:0.93,metalness:0});
+  const base=new THREE.Mesh(uvPlane(new THREE.CylinderGeometry(1.2,1.3,1,14,1),5,1,0.9),wStone);
+  base.position.y=0.5;base.castShadow=true;base.receiveShadow=true;well.add(base);
+  const rim=new THREE.Mesh(uvPlane(new THREE.CylinderGeometry(1.32,1.32,0.16,14,1),5,1,0.9),wWood);
+  rim.position.y=1.04;rim.castShadow=true;well.add(rim);
+  const rf=new THREE.Mesh(new THREE.ConeGeometry(1.55,1,6),
+    new THREE.MeshStandardMaterial({map:TEX.shingle,color:0x8a6a4a,roughness:0.95,metalness:0}));
+  rf.position.y=2.65;rf.castShadow=true;well.add(rf);
+  const wb=new Batch(wWood);
   for(const sx of [-1,1]){
-    const p=new THREE.Mesh(new THREE.BoxGeometry(0.14,1.7,0.14),new THREE.MeshLambertMaterial({color:0x5a4328}));
-    p.position.set(sx*1.05,1.75,0);well.add(p);
+    wb.box(0.16,1.75,0.16,sx*1.05,1.78,0,1);
+    wb.box(0.12,0.5,0.12,sx*0.86,2.28,0,1,0,0,sx*0.5); // skråstiver opp mot taket
   }
+  wb.add(new THREE.CylinderGeometry(0.11,0.11,2.1,10),0,2.42,0,0,0,Math.PI/2); // vinsjaksel
+  wb.box(0.1,0.34,0.1,1.22,2.24,0,1);                  // sveiv
+  wb.box(0.4,0.34,0.4,0,1.9,0,1.4);                    // bøtta heng i tauet
+  wb.into(well);
+  const ropeM=new THREE.MeshStandardMaterial({color:0x9a8a68,roughness:1,metalness:0});
+  const rope=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.5,6),ropeM);
+  rope.position.set(0,2.15,0);well.add(rope);
   well.position.set(0,0,-1);scene.add(well);
   addCollider(0,-1,2.6,2.6,0.15);
 }
@@ -1292,29 +1708,57 @@ for(let i=0;i<9;i++){
 }
 
 // props
-const propM={barrel:new THREE.MeshLambertMaterial({color:0x6e4f2e}),crate:new THREE.MeshLambertMaterial({color:0x9a7850}),
-  cactus:new THREE.MeshLambertMaterial({color:0x4a7a3a}),rock:new THREE.MeshLambertMaterial({color:0x8a8078})};
+const propM={barrel:new THREE.MeshStandardMaterial({map:TEX.plank,color:0xa87b4c,roughness:0.92,metalness:0}),
+  crate:new THREE.MeshStandardMaterial({map:TEX.plank,color:0xc09a68,roughness:0.94,metalness:0}),
+  iron:new THREE.MeshStandardMaterial({map:TEX.metal,color:0x5a5a62,roughness:0.5,metalness:0.8}),
+  cactus:new THREE.MeshStandardMaterial({color:0x5f9448,roughness:0.85,metalness:0}),
+  rock:new THREE.MeshStandardMaterial({color:0x9c9288,roughness:1,metalness:0,flatShading:true})};
+// tønne med stavar og jernband — ikkje berre ein sylinder
 function addBarrel(x,z){
-  const b=new THREE.Mesh(new THREE.CylinderGeometry(0.45,0.5,1,10),propM.barrel);
-  b.position.set(x,0.5,z);b.castShadow=true;scene.add(b);addCollider(x,z,0.95,0.95,0.05,1.05);
+  const g=new THREE.Group();
+  const bg=new THREE.CylinderGeometry(0.45,0.5,1,12,1);
+  uvPlane(bg,3,1,1); // bordbreidda følgjer rundinga
+  const b=new THREE.Mesh(bg,propM.barrel);
+  b.castShadow=true;b.receiveShadow=true;b.position.y=0.5;g.add(b);
+  const ib=new Batch(propM.iron);
+  for(const y of [0.16,0.5,0.86])ib.add(new THREE.CylinderGeometry(0.475,0.5,0.09,12,1),0,y,0);
+  ib.into(g);
+  g.position.set(x,0,z);g.rotation.y=rnd(0,6.28);scene.add(g);
+  addCollider(x,z,0.95,0.95,0.05,1.05);
 }
+// kasse med bordkledning og spikra rammeverk
 function addCrate(x,z,s){
   s=s||1;
-  const c=new THREE.Mesh(new THREE.BoxGeometry(s,s,s),propM.crate);
-  c.position.set(x,s/2,z);c.rotation.y=rnd(0,1.5);c.castShadow=true;scene.add(c);addCollider(x,z,s,s,0.05,s);
+  const g=new THREE.Group();
+  const c=new THREE.Mesh(uvBox(new THREE.BoxGeometry(s,s,s),s,s,s,1.3),propM.crate);
+  c.position.y=s/2;c.castShadow=true;c.receiveShadow=true;g.add(c);
+  const fb=new Batch(new THREE.MeshStandardMaterial({map:TEX.wood,color:0x8a6a42,roughness:0.94,metalness:0}));
+  for(const sz of [-1,1]){                       // ramme rundt kanten
+    fb.box(s*1.02,0.07,0.07,0,s-0.05,sz*(s/2),1.2);
+    fb.box(s*1.02,0.07,0.07,0,0.05,sz*(s/2),1.2);
+    fb.box(0.07,0.07,s*1.02,sz*(s/2),s-0.05,0,1.2);
+    fb.box(0.07,0.07,s*1.02,sz*(s/2),0.05,0,1.2);
+  }
+  fb.into(g);
+  g.position.set(x,0,z);g.rotation.y=rnd(0,1.5);scene.add(g);
+  addCollider(x,z,s,s,0.05,s);
 }
 addBarrel(-4.6,-4);addBarrel(-4.6,-2.6);addBarrel(6.6,3);addBarrel(-7.8,12);
 addBarrel(-21,2);addBarrel(21.5,7);addBarrel(-12,31);addBarrel(15.5,32);
 addCrate(16.5,-1,1.1);addCrate(4.2,-3.6,0.8);addCrate(29,22.5,1);addCrate(-12,11,0.9);
 addCrate(-20,-14,1);addCrate(20,20,0.9);addCrate(-27,18,0.8);addCrate(5,42,1);
+const fenceM=new THREE.MeshStandardMaterial({map:TEX.wood,color:0xa2825a,roughness:0.96,metalness:0});
 function addFence(x,z,len,rotY){
   const f=new THREE.Group();
-  const m=new THREE.MeshLambertMaterial({color:0x6e5236});
+  const b=new Batch(fenceM);
   for(let i=0;i<=len;i+=2){
-    const p=new THREE.Mesh(new THREE.BoxGeometry(0.12,1.1,0.12),m);p.position.set(i-len/2,0.55,0);f.add(p);
+    const lean=rnd(-0.05,0.05);                    // ingen stolpe står heilt rett etter 20 år i sola
+    b.box(0.13,1.14,0.13,i-len/2,0.57,0,1.1,0,0,lean);
+    b.box(0.17,0.09,0.17,i-len/2,1.16,0,1.1,0,0,lean); // stolpehatt
   }
-  const r1=new THREE.Mesh(new THREE.BoxGeometry(len,0.09,0.09),m);r1.position.y=0.85;f.add(r1);
-  const r2=r1.clone();r2.position.y=0.45;f.add(r2);
+  b.box(len,0.1,0.1,0,0.87,0,1.1);                 // øvre slå
+  b.box(len,0.1,0.1,0,0.47,0,1.1);                 // nedre slå
+  b.into(f);
   f.position.set(x,0,z);f.rotation.y=rotY;scene.add(f);
 }
 // GJERDE FØLGJER VEIENE — langs hovudgata, innfartsvegane og rundt gravlunden
@@ -1335,52 +1779,68 @@ addFence(-38,-28,14,0);addFence(38,-28,14,0);
 addFence(-6,-42,17,0);addFence(-6,-49.5,17,0);
 addFence(-14.5,-45.7,8,Math.PI/2);addFence(2.5,-45.7,8,Math.PI/2);
 // ØRKENEN UTANFOR BYEN — godt utval av kaktusar, buskar og steinar
-const bushM=new THREE.MeshLambertMaterial({color:0x5a6e3a});
-const dryM=new THREE.MeshLambertMaterial({color:0x8a7a4e});
-for(let i=0;i<190;i++){
-  const a=rnd(0,Math.PI*2),r=rnd(72,320);
-  const x=Math.cos(a)*r,z=Math.sin(a)*r;
-  const shadow=r<130; // skugge berre på dei nære (yting)
-  const kind=Math.random();
-  if(kind<0.28){ // saguaro-kaktus med armar
-    const cac=new THREE.Group();
-    const th=rnd(1.8,3.2);
-    const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.28,th,7),propM.cactus);
-    trunk.position.y=th/2;trunk.castShadow=shadow;cac.add(trunk);
-    for(const s of (Math.random()<0.6?[-1,1]:[1])){
-      const arm=new THREE.Mesh(new THREE.CylinderGeometry(0.13,0.16,rnd(0.7,1.2),6),propM.cactus);
-      arm.position.set(s*0.42,th*rnd(0.45,0.7),0);arm.rotation.z=-s*0.7;cac.add(arm);
-    }
-    cac.position.set(x,0,z);cac.rotation.y=rnd(0,6.28);scene.add(cac);
-  }else if(kind<0.4){ // tønnekaktus
-    const bc=new THREE.Mesh(new THREE.SphereGeometry(rnd(0.3,0.5),8,6),propM.cactus);
-    bc.scale.y=1.3;bc.position.set(x,0.35,z);bc.castShadow=shadow;scene.add(bc);
-  }else if(kind<0.62){ // grøn busk (2–3 klumpar)
-    const bs=new THREE.Group();
-    for(let j=0;j<ri(2,3);j++){
-      const bl=new THREE.Mesh(new THREE.IcosahedronGeometry(rnd(0.35,0.6),0),bushM);
-      bl.position.set(rnd(-0.4,0.4),rnd(0.2,0.45),rnd(-0.4,0.4));bl.scale.y=0.7;bs.add(bl);
-    }
-    bs.position.set(x,0,z);scene.add(bs);
-  }else if(kind<0.74){ // turr salvie-busk
-    const db=new THREE.Mesh(new THREE.IcosahedronGeometry(rnd(0.4,0.7),0),dryM);
-    db.position.set(x,0.3,z);db.scale.y=0.55;scene.add(db);
-  }else if(kind<0.92){ // stein
-    const rk=new THREE.Mesh(new THREE.DodecahedronGeometry(rnd(0.5,1.6),0),propM.rock);
-    rk.position.set(x,0.3,z);rk.rotation.set(rnd(0,1),rnd(0,3),rnd(0,1));rk.castShadow=shadow;scene.add(rk);
-  }else{ // steinrøys (2–3 store)
-    for(let j=0;j<ri(2,3);j++){
-      const rk=new THREE.Mesh(new THREE.DodecahedronGeometry(rnd(0.8,2),0),propM.rock);
-      rk.position.set(x+rnd(-1.6,1.6),rnd(0.3,0.7),z+rnd(-1.6,1.6));
-      rk.rotation.set(rnd(0,1),rnd(0,3),rnd(0,1));rk.castShadow=shadow;scene.add(rk);
+const bushM=new THREE.MeshStandardMaterial({color:0x7a9450,roughness:0.95,metalness:0,flatShading:true});
+const dryM=new THREE.MeshStandardMaterial({color:0xb0a068,roughness:1,metalness:0,flatShading:true});
+const grassM=new THREE.MeshStandardMaterial({color:0xa8a068,roughness:1,metalness:0,side:THREE.DoubleSide});
+{
+  // Alt ørkenkrattet blir samla i FÅ meshar — 250 planter kostar då nesten ingenting
+  const cacB=new Batch(propM.cactus), rockB=new Batch(propM.rock);
+  const bushB=new Batch(bushM), dryB=new Batch(dryM), grassB=new Batch(grassM);
+  const flowerB=new Batch(new THREE.MeshStandardMaterial({color:0xe8b0c0,roughness:0.9,metalness:0}));
+  for(let i=0;i<250;i++){
+    const a=rnd(0,Math.PI*2),r=rnd(72,320);
+    const x=Math.cos(a)*r,z=Math.sin(a)*r;
+    const kind=Math.random();
+    if(kind<0.26){ // saguaro med ribber og blomar på toppen
+      const th=rnd(1.8,3.4),ry=rnd(0,6.28);
+      cacB.add(new THREE.CylinderGeometry(0.22,0.28,th,9),x,th/2,z,0,ry,0);
+      for(let k=0;k<6;k++){ // loddrette ribber
+        const ra=ry+k/6*Math.PI*2;
+        cacB.box(0.05,th*0.94,0.05,x+Math.cos(ra)*0.24,th/2,z+Math.sin(ra)*0.24,1);
+      }
+      for(const s of (Math.random()<0.6?[-1,1]:[1])){
+        const al=rnd(0.7,1.25), ay=th*rnd(0.45,0.7);
+        cacB.add(new THREE.CylinderGeometry(0.13,0.16,al,7),x+s*0.42*Math.cos(ry),ay,z+s*0.42*Math.sin(ry),0,ry,-s*0.7);
+        cacB.add(new THREE.CylinderGeometry(0.12,0.13,al*0.7,7),
+          x+s*0.72*Math.cos(ry),ay+al*0.55,z+s*0.72*Math.sin(ry),0,ry,0); // armen bøyer opp
+      }
+      if(Math.random()<0.35)flowerB.add(new THREE.SphereGeometry(0.1,6,5),x,th+0.06,z);
+    }else if(kind<0.38){ // tønnekaktus med ribber
+      const br=rnd(0.3,0.52);
+      cacB.add(new THREE.SphereGeometry(br,9,7),x,br*1.2,z);
+      for(let k=0;k<7;k++){
+        const ra=k/7*Math.PI*2;
+        cacB.box(0.045,br*1.9,0.045,x+Math.cos(ra)*br*0.92,br*1.2,z+Math.sin(ra)*br*0.92,1);
+      }
+      if(Math.random()<0.45)flowerB.add(new THREE.SphereGeometry(0.09,6,5),x,br*2.2,z);
+    }else if(kind<0.58){ // grøn busk (fleire klumpar)
+      for(let j=0;j<ri(3,5);j++)
+        bushB.add(new THREE.IcosahedronGeometry(rnd(0.28,0.55),0),x+rnd(-0.45,0.45),rnd(0.2,0.5),z+rnd(-0.45,0.45));
+    }else if(kind<0.7){ // turr salvie
+      for(let j=0;j<ri(2,4);j++)
+        dryB.add(new THREE.IcosahedronGeometry(rnd(0.3,0.6),0),x+rnd(-0.35,0.35),rnd(0.22,0.42),z+rnd(-0.35,0.35));
+    }else if(kind<0.84){ // stein
+      rockB.add(new THREE.DodecahedronGeometry(rnd(0.5,1.6),0),x,rnd(0.2,0.4),z,rnd(0,1),rnd(0,3),rnd(0,1));
+    }else if(kind<0.9){ // steinrøys
+      for(let j=0;j<ri(2,4);j++)
+        rockB.add(new THREE.DodecahedronGeometry(rnd(0.7,1.9),0),x+rnd(-1.7,1.7),rnd(0.25,0.7),z+rnd(-1.7,1.7),rnd(0,1),rnd(0,3),rnd(0,1));
+    }else{ // tørre grastustar — kryssande plan
+      for(let j=0;j<ri(3,6);j++){
+        const gx=x+rnd(-1.1,1.1),gz=z+rnd(-1.1,1.1),gh=rnd(0.3,0.6);
+        grassB.add(new THREE.PlaneGeometry(0.5,gh),gx,gh/2,gz,0,rnd(0,3.14),0);
+        grassB.add(new THREE.PlaneGeometry(0.5,gh),gx,gh/2,gz,0,rnd(0,3.14),0);
+      }
     }
   }
+  cacB.into(scene,true,true);rockB.into(scene,true,true);
+  bushB.into(scene,true,true);dryB.into(scene,false,true);
+  flowerB.into(scene,false,false);grassB.into(scene,false,false);
 }
 // BRANNBØTTER — ei ved kvart hus; hald E i 3 sekund for å sløkkje brannen (nivå 10)
 const BUCKETS=[];
 {
-  const bm=new THREE.MeshLambertMaterial({color:0x4a6070});
-  const wm2=new THREE.MeshLambertMaterial({color:0x3a6a9a});
+  const bm=new THREE.MeshStandardMaterial({map:TEX.plank,color:0x9a8a70,roughness:0.9,metalness:0.05});
+  const wm2=new THREE.MeshStandardMaterial({color:0x4a8ad0,roughness:0.15,metalness:0.2});
   for(const b of BREG){
     const dl=Math.hypot(b.x,b.z)||1;
     const bx=b.x-b.x/dl*4.6,bz=b.z-b.z/dl*4.6; // står framfor huset, mot gata
@@ -1785,8 +2245,8 @@ function burnDownBuilding(f){
   const b=f.b;
   b.burned=true;b.burning=false;
   b.grp.traverse(m=>{ // forkola vegger
-    if(m.isMesh&&m.material&&m.material.color&&!m.material.map){
-      if(m.userData.oc===undefined)m.userData.oc=m.material.color.getHex();
+    if(m.isMesh&&m.material&&m.material.color){
+      if(m.userData.oc===undefined)m.userData.oc=m.material.color.clone();
       m.material.color.setHex(0x16100a);
     }
   });
@@ -1855,7 +2315,7 @@ function unburnAll(){ // nullstill brannskadar (retry / nytt spel)
   for(const b of BREG){
     b.burning=false;b.burned=false;
     b.grp.scale.y=1;
-    b.grp.traverse(m=>{if(m.isMesh&&m.userData&&m.userData.oc!==undefined)m.material.color.setHex(m.userData.oc);});
+    b.grp.traverse(m=>{if(m.isMesh&&m.userData&&m.userData.oc!==undefined)m.material.color.copy(m.userData.oc);});
   }
   G.burnedHouses=0;
 }
@@ -1925,20 +2385,41 @@ function fireTurretShot(t){
 // ---------------- ENVIRONMENT (day/night mix) ----------------
 const SKY_DAY=new THREE.Color(0xbfd3e0),SKY_DUSK=new THREE.Color(0xd97a3d),SKY_NIGHT=new THREE.Color(0x0a0e1c);
 const _sky=new THREE.Color();
+// himmelpalettar for dag / skumring / natt — kuppelen blandar mjukt mellom dei
+const SKYPAL=[
+  {top:0x1a52ab,hor:0x9dc0dd,gnd:0x9c7c56,sun:0xffdca0,i:0.95}, // dag
+  {top:0x5c3778,hor:0xdd7a34,gnd:0x6f4630,sun:0xff6a18,i:1.30}, // skumring
+  {top:0x04060f,hor:0x101a2e,gnd:0x070a11,sun:0x3c4c7c,i:0.28}  // natt
+];
+const _c1=new THREE.Color(),_c2=new THREE.Color();
+function _palLerp(uni,key,a,b,t){_c1.setHex(a[key]);_c2.setHex(b[key]);uni.value.copy(_c1).lerp(_c2,t);}
 function envApply(mix){ // 0 dag .. 0.5 skumring .. 1 natt
   G.envMix=mix;
-  if(mix<0.5)_sky.copy(SKY_DAY).lerp(SKY_DUSK,mix*2);
-  else _sky.copy(SKY_DUSK).lerp(SKY_NIGHT,(mix-0.5)*2);
+  const a=mix<0.5?SKYPAL[0]:SKYPAL[1], b=mix<0.5?SKYPAL[1]:SKYPAL[2], t=mix<0.5?mix*2:(mix-0.5)*2;
+  _palLerp(SKYU.top,'top',a,b,t);_palLerp(SKYU.hor,'hor',a,b,t);
+  _palLerp(SKYU.gnd,'gnd',a,b,t);_palLerp(SKYU.sunCol,'sun',a,b,t);
+  SKYU.sunI.value=lerp(a.i,b.i,t);
+  SKYU.sunDir.value.copy(sunSprite.position).normalize();
+  // tåka tek fargen frå horisonten, så byen smeltar saman med himmelen i det fjerne
+  _sky.copy(SKYU.hor.value).lerp(SKYU.gnd.value,0.35);
   scene.background=_sky;scene.fog.color.copy(_sky);
-  scene.fog.density=lerp(0.006,0.015,mix);
-  sun.intensity=lerp(0.95,0.07,mix);
-  sun.color.setHex(mix>0.8?0x8899cc:0xffe8c0);
-  hemi.intensity=lerp(0.75,0.14,mix);
+  scene.fog.density=lerp(0.0042,0.016,mix);
+  // skyene blir gylne i skumringa og nesten usynlege om natta
+  const cl=SKYU.hor.value;
+  for(const c of CLOUDS){c.s.material.color.copy(cl).multiplyScalar(mix<0.5?1.35:0.95);c.s.material.opacity=lerp(0.7,0.16,mix);}
+  // fjella blandar seg inn i horisonten — meir dis di lenger unna, mørke silhuettar om natta
+  for(const q of MOUNTMATS)q.m.color.copy(q.base).lerp(SKYU.hor.value,q.haze).multiplyScalar(lerp(1,0.34,mix));
+  sun.intensity=lerp(2.05,0.09,Math.pow(mix,0.85));
+  sun.color.setHex(mix>0.8?0x8fa4d8:(mix>0.45?0xff9a4a:0xffdca4));
+  hemi.intensity=lerp(0.42,0.055,mix);
+  hemi.groundColor.setHex(mix>0.6?0x2a3348:0xa07c50); // kaldt månelys nedanfrå om natta
+  amb.intensity=lerp(0.18,0.07,mix);
   starMat.opacity=clamp((mix-0.6)*2.6,0,1);
   sunSprite.material.opacity=clamp(1-mix*1.6,0,1);
   moonSprite.material.opacity=clamp((mix-0.55)*2.4,0,0.95);
   const night=mix>0.6;
   for(const wm of WINDOW_MATS)wm.emissive.setHex(night?0xcc8830:0x000000);
+  for(const q of NIGHTGLOWS)q.material.opacity=night?q.userData.gmax:0;
   for(const e of (G.mineEyes||[]))e.material.opacity=night?0.9:0;
 }
 envApply(0);
@@ -2259,7 +2740,7 @@ function spawnSlug(from,to,pay){
   m.add(glow);
   scene.add(m);
   // pay = {dmg,pellet,sk}: kula BER skaden — treff skjer fyrst når prosjektilet fysisk når målet
-  const sp=pay?240:120;
+  const sp=pay?430:300;   // rifleskotfart: nesten momentant på gatelengd, men framleis synleg spor
   SLUGS.push({m:m,v:to.clone().sub(from).normalize().multiplyScalar(sp),
     life:pay?Math.min(3,from.distanceTo(to)/sp+0.15):Math.min(1.2,from.distanceTo(to)/120),pay:pay||null});
 }
@@ -2696,38 +3177,105 @@ function updatePlayer(dt){
 </script>
 <script>
 // ---------------- HUMANOID FACTORY ----------------
-function makeHumanoid(o){ // {skin,shirt,pants,hat,eyes}
+// ---------------- FIGURAR ----------------
+// Kvar figur blir bygd av mange småbitar, men slått saman til seks meshar med
+// vertexfargar: skuldre, hals, belte, støvlar, hatt og hender utan at teikneoppkalla veks.
+// Leddpunkta (skulder y=1.4, hofte y=0.7, hovud y=1.62) er DEI SAME som før,
+// så all animasjon og all våpenfesting held fram med å stemme.
+const _hc=(hex,mul)=>{const c=new THREE.Color(hex);if(mul)c.multiplyScalar(mul);return c;};
+function makeHumanoid(o){ // {skin,shirt,pants,hat,eyes,style}
   const grp=new THREE.Group();
-  const skinM=new THREE.MeshLambertMaterial({color:o.skin});
-  const shirtM=new THREE.MeshLambertMaterial({color:o.shirt});
-  const pantsM=new THREE.MeshLambertMaterial({color:o.pants});
-  const body=new THREE.Mesh(new THREE.BoxGeometry(0.52,0.75,0.3),shirtM);
-  body.position.y=1.05;body.castShadow=true;grp.add(body);
-  const head=new THREE.Mesh(new THREE.BoxGeometry(0.36,0.36,0.36),skinM);
-  head.position.y=1.62;head.castShadow=true;grp.add(head);
-  if(o.eyes){
-    for(const ex of [-0.09,0.09]){
-      const eye=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.05,0.02),
-        new THREE.MeshBasicMaterial({color:o.eyes}));
-      eye.position.set(ex,0.02,0.19);head.add(eye);
-      const eg=skySprite('#ff2010',0.24); // GLØDANDE augo (dempa glød)
-      eg.position.set(ex,0.02,0.22);head.add(eg);
-    }
+  const zomb=o.style==='zombie';
+  const skin=_hc(o.skin), shirt=_hc(o.shirt), pants=_hc(o.pants);
+  const dark=_hc(o.shirt,0.55), leather=_hc(0x7d5a38), boot=_hc(0x5e4633);
+  const bone=_hc(0xe4dac0), blood=_hc(0x93221a);
+  const M=()=>new THREE.MeshStandardMaterial({vertexColors:true,roughness:0.92,metalness:0.02});
+
+  // --- overkropp (eigen gruppe så zombiane kan lute framover utan å øydeleggje animasjonen)
+  const torso=new THREE.Group();torso.position.y=1.05;grp.add(torso);
+  if(zomb)torso.rotation.x=0.19;
+  const tb=new Batch(M());
+  tb.pbox(0.46,0.28,0.29,pants,0,-0.22,0);                 // hofte
+  tb.pbox(0.5,0.5,0.31,shirt,0,0.1,0);                     // bryst
+  tb.pbox(0.56,0.16,0.33,shirt,0,0.33,0);                  // skuldrer
+  tb.pbox(0.15,0.13,0.15,skin,0,0.44,0);                   // hals
+  tb.pbox(0.53,0.09,0.33,leather,0,-0.09,0);               // belte
+  tb.pbox(0.11,0.085,0.05,_hc(0xb08a3a),0,-0.09,0.17);     // beltespenne i messing
+  if(zomb){
+    tb.pbox(0.3,0.05,0.06,bone,0,0.16,0.15);               // ribbein stikk ut av det opprivne brystet
+    tb.pbox(0.26,0.05,0.06,bone,0.01,0.07,0.16);
+    tb.pbox(0.2,0.05,0.06,bone,-0.01,-0.01,0.16);
+    tb.pbox(0.34,0.14,0.02,blood,0.03,0.2,0.17);           // blodflekkar
+    tb.pbox(0.16,0.2,0.02,blood,-0.14,0.02,0.17);
+    for(let i=0;i<5;i++)                                    // fillete skjortesnipp
+      tb.pbox(0.09,rnd(0.08,0.2),0.3,shirt,-0.2+i*0.1,-0.36-rnd(0,0.06),0);
+  }else{
+    tb.pbox(0.14,0.44,0.03,dark,-0.16,0.1,0.16);           // vestkantar
+    tb.pbox(0.14,0.44,0.03,dark,0.16,0.1,0.16);
+    tb.pbox(0.44,0.42,0.05,dark,0,-0.42,-0.15);            // frakkeskjøt bak
   }
-  const armG=new THREE.BoxGeometry(0.14,0.68,0.14);armG.translate(0,-0.3,0);
-  const armL=new THREE.Mesh(armG,shirtM);armL.position.set(-0.34,1.4,0);grp.add(armL);
-  const armR=new THREE.Mesh(armG.clone(),shirtM);armR.position.set(0.34,1.4,0);grp.add(armR);
-  const legG=new THREE.BoxGeometry(0.17,0.7,0.17);legG.translate(0,-0.35,0);
-  const legL=new THREE.Mesh(legG,pantsM);legL.position.set(-0.14,0.7,0);grp.add(legL);
-  const legR=new THREE.Mesh(legG.clone(),pantsM);legR.position.set(0.14,0.7,0);grp.add(legR);
+  const bodyMesh=tb.into(torso,true,true);
+
+  // --- hovud
+  const head=new THREE.Group();head.position.y=0.57;torso.add(head);
+  const hb=new Batch(M());
+  hb.pbox(0.34,0.34,0.34,skin,0,0,0);
+  hb.pbox(0.27,0.11,0.3,skin,0,-0.19,0.02);                // kjeve
+  hb.pbox(0.06,0.06,0.06,skin,0,-0.02,0.18);               // nase
+  if(zomb){
+    hb.pbox(0.2,0.05,0.05,_hc(0x2e241c),0,-0.11,0.17);     // open, hengande munn
+    hb.pbox(0.15,0.13,0.02,blood,0.02,-0.16,0.17);
+    hb.pbox(0.1,0.12,0.02,_hc(o.skin,0.5),-0.12,0.06,0.17); // rotnande flekk
+  }
   if(o.hat!==undefined&&o.hat!==null){
-    const hatM=new THREE.MeshLambertMaterial({color:o.hat});
-    const brim=new THREE.Mesh(new THREE.CylinderGeometry(0.34,0.34,0.04,10),hatM);
-    brim.position.y=0.19;head.add(brim);
-    const top=new THREE.Mesh(new THREE.CylinderGeometry(0.17,0.19,0.2,10),hatM);
-    top.position.y=0.3;head.add(top);
+    const hat=_hc(o.hat);
+    hb.part(new THREE.CylinderGeometry(0.33,0.35,0.05,12),hat,0,0.19,0);   // brem
+    hb.part(new THREE.CylinderGeometry(0.16,0.185,0.22,12),hat,0,0.32,0);  // pull
+    hb.part(new THREE.CylinderGeometry(0.192,0.192,0.05,12),_hc(o.hat,0.5),0,0.23,0); // hattebånd
+  }else if(!zomb){
+    hb.pbox(0.35,0.09,0.35,_hc(0x54392a),0,0.15,0);        // hår
+  }else if(Math.random()<0.5){
+    hb.pbox(0.3,0.07,0.3,_hc(0x7c6e58),0,0.16,0);          // tynne hårtjafsar
   }
-  return {grp:grp,head:head,armL:armL,armR:armR,legL:legL,legR:legR};
+  hb.into(head,true,false);
+  if(o.eyes){
+    const eb=new Batch(new THREE.MeshBasicMaterial({color:o.eyes}));
+    eb.pbox(0.062,0.05,0.02,null,-0.09,0.02,0.175);
+    eb.pbox(0.062,0.05,0.02,null,0.09,0.02,0.175);
+    eb.into(head,false,false);
+    const eg=skySprite('#ff2010',0.3);                      // dempa glød over begge augo
+    eg.position.set(0,0.02,0.2);head.add(eg);
+  }
+
+  // --- armar (pivot i skuldra, nøyaktig som før: y=1.4 i figurens rom)
+  function arm(side){
+    const b=new Batch(M());
+    b.pbox(0.17,0.34,0.17,shirt,0,-0.17,0);                // overarm
+    b.pbox(0.135,0.3,0.135,zomb?skin:shirt,0,-0.46,0);     // underarm (zombiane har berr arm)
+    b.pbox(0.14,0.13,0.16,zomb?skin:leather,0,-0.66,0.01); // hand/hanske
+    if(zomb){
+      b.pbox(0.155,0.06,0.155,blood,0,-0.32,0);            // sår ved olbogen
+      for(const f of [-0.04,0.04])b.pbox(0.03,0.09,0.03,skin,f,-0.75,0.03); // klør
+    }else b.pbox(0.185,0.07,0.185,dark,0,-0.33,0);         // ermelinning
+    const me=new THREE.Mesh(mergeGeos(b.items),M());
+    me.castShadow=true;me.position.set(side*0.34,0.35,0);torso.add(me);return me;
+  }
+  const armL=arm(-1), armR=arm(1);
+
+  // --- bein (pivot i hofta, y=0.7 som før)
+  function leg(side){
+    const b=new Batch(M());
+    b.pbox(0.19,0.36,0.19,pants,0,-0.18,0);                // lår
+    b.pbox(0.165,0.3,0.165,pants,0,-0.5,0);                // legg
+    b.pbox(0.2,0.15,0.28,boot,0,-0.72,0.03);               // støvel
+    b.pbox(0.21,0.05,0.21,_hc(0x423326),0,-0.63,0);        // støvelskaft
+    if(zomb&&Math.random()<0.4)b.pbox(0.17,0.1,0.17,blood,0,-0.36,0);
+    const me=new THREE.Mesh(mergeGeos(b.items),M());
+    me.castShadow=true;me.position.set(side*0.14,0.7,0);grp.add(me);return me;
+  }
+  const legL=leg(-1), legR=leg(1);
+
+  return {grp:grp,head:head,armL:armL,armR:armR,legL:legL,legR:legR,torso:torso,body:bodyMesh};
 }
 
 // ---------------- ZOMBIES ----------------
@@ -2735,18 +3283,18 @@ const ZOMBIES=[];
 function makeZombie(type,night){
   let o,hp,speed,dmg,scale=1;
   if(type==='giant'){ // kjempe — siste nivå
-    o={skin:0x3a4a2a,shirt:0x241f1a,pants:0x1a1512,eyes:0xff2010};
+    o={skin:0x6f9048,shirt:0x5c5348,pants:0x4a4238,eyes:0xff2010,style:'zombie'};
     hp=500+30*night;speed=rnd(1.5,1.9);dmg=45;scale=1.9;
   }else if(type==='fast'){
-    o={skin:0x7a8a4a,shirt:0x6a4438,pants:0x3a3028,eyes:0xff3020};
+    o={skin:0xb2c47e,shirt:0xb0705a,pants:0x766554,eyes:0xff3020,style:'zombie'};
     hp=40+5*night;speed=rnd(3.8,4.6)+Math.min(1.5,night*0.06);dmg=8+Math.floor(night/2);scale=0.9;
   }else if(type==='tank'){
-    o={skin:0x4a5a34,shirt:0x2e2a24,pants:0x24201c,eyes:0xff3020};
+    o={skin:0x7d9457,shirt:0x6b6157,pants:0x574e44,eyes:0xff3020,style:'zombie'};
     hp=200+16*night;speed=rnd(1.2,1.6)+Math.min(0.8,night*0.04);dmg=Math.min(40,20+night);scale=1.45;
   }else{
-    o={skin:0x5f7a40,shirt:[0x5a4a3a,0x4a5a6a,0x6a5a3a][ri(0,2)],pants:0x3a3028,eyes:0xff3020};
+    o={skin:0x8fae62,shirt:[0x9a8468,0x7d90a8,0xa89372][ri(0,2)],pants:0x6a5c4c,eyes:0xff3020,style:'zombie'};
     hp=60+7*night;speed=rnd(1.9,2.7)+Math.min(1.6,night*0.07);dmg=Math.min(28,12+Math.floor(night*0.7));scale=rnd(0.95,1.08);
-    if(Math.random()<0.35)o.hat=0x3a2c1c; // tidligere landsbybeboer
+    if(Math.random()<0.35)o.hat=0x6a5240; // tidligere landsbybeboer
   }
   const h=makeHumanoid(o);
   h.grp.scale.setScalar(scale);
@@ -2972,9 +3520,9 @@ function killZombie(z,head,expl){
 
 // ---------------- BOSS ----------------
 const BOSS_DEFS=[
-  {name:'THE GRAVE ROBBER',hp:1200,color:0x3f5a30,dmg:26,speed:1.9,scale:2.2},
-  {name:'THE BUTCHER',hp:2400,color:0x5a2a2a,dmg:32,speed:2.1,scale:2.5},
-  {name:'THE PLAGUE KING',hp:3800,color:0x2a3a2a,dmg:38,speed:2.2,scale:2.9}
+  {name:'THE GRAVE ROBBER',hp:1200,color:0x6a8f4e,dmg:26,speed:1.9,scale:2.2},
+  {name:'THE BUTCHER',hp:2400,color:0x9c4a44,dmg:32,speed:2.1,scale:2.5},
+  {name:'THE PLAGUE KING',hp:3800,color:0x4e6b4e,dmg:38,speed:2.2,scale:2.9}
 ];
 function spawnBoss(night){
   let tier=Math.min(3,Math.floor(night/3)); // 3->1, 6->2, 9->3
@@ -2985,7 +3533,7 @@ function spawnBoss(night){
   }
   const def=BOSS_DEFS[tier-1];
   const bossDmg=Math.round(def.dmg*(1+(mult-1)*0.5));
-  const h=makeHumanoid({skin:def.color,shirt:0x1a1512,pants:0x14100c,eyes:0xff2010});
+  const h=makeHumanoid({skin:def.color,shirt:0x4e463c,pants:0x413a32,eyes:0xff2010,style:'zombie'});
   h.grp.scale.setScalar(def.scale);
   h.grp.position.set(-8,0,-38); // graveyard
   // cosmetics
@@ -3080,11 +3628,11 @@ function roofPathTo(bx,bz){
   ];
 }
 const BRO_DEFS=[
-  {name:'John',shirt:0x8a2f2b,hat:0x4a3320,anchor:V3(-3,0,-3),color:'#e07a6a',
+  {name:'John',shirt:0xc0524a,hat:0x7a5c3c,anchor:V3(-3,0,-3),color:'#e07a6a',
     wpn:'hagle',roofPath:roofPathTo(-12,-9.6)},      // saloon-taket — John har HAGLE
-  {name:'Sigbjørn',shirt:0x2b4a8a,hat:0x1c1c1c,anchor:V3(3,0,-3),color:'#7a9ae0',
+  {name:'Sigbjørn',shirt:0x4a76c0,hat:0x4a4a50,anchor:V3(3,0,-3),color:'#7a9ae0',
     wpn:'rifle',roofPath:roofPathTo(-12,4.8)},       // sheriff-taket — Sigbjørn har RIFLE
-  {name:'Kristoffer',shirt:0x2b6e3f,hat:0xcbb58a,anchor:V3(0,0,2.5),color:'#7ad08a',
+  {name:'Kristoffer',shirt:0x46a068,hat:0xd8c9a4,anchor:V3(0,0,2.5),color:'#7ad08a',
     wpn:'revolver',roofPath:roofPathTo(12,-7.2)}     // landhandel-taket — Kristoffer har REVOLVER
 ];
 // synlege våpenmodellar — ein ser kva kvar bror skyt med
@@ -3683,7 +4231,7 @@ function cineSkip(){
 let mioModel=null;
 function ensureMio(){
   if(mioModel)return mioModel;
-  const h=makeHumanoid({skin:0xd8a878,shirt:0x8a6a3a,pants:0x3a3028,hat:0x2a1c12});
+  const h=makeHumanoid({skin:0xe8bd8e,shirt:0xa8834a,pants:0x6a5c4e,hat:0x5a4230});
   const serape=new THREE.Mesh(new THREE.BoxGeometry(0.62,0.36,0.42),new THREE.MeshLambertMaterial({color:0x8a2f2b}));
   serape.position.y=1.26;h.grp.add(serape);
   const stripe=new THREE.Mesh(new THREE.BoxGeometry(0.64,0.07,0.44),new THREE.MeshLambertMaterial({color:0xd9a441}));
@@ -4214,7 +4762,7 @@ function updateInteract(dt){
       VM.group.visible=false;
       P.vel.set(0,0,0);P.firing=false;
       if(!G.mioBody){ // synleg kropp for tredjeperson
-        G.mioBody=makeHumanoid({skin:0xd8a878,shirt:0x4a5a7a,pants:0x3a332c,hat:0x2a2018});
+        G.mioBody=makeHumanoid({skin:0xe8bd8e,shirt:0x6a7fa8,pants:0x6a6156,hat:0x53483c});
         scene.add(G.mioBody.grp);
       }
       G.mioBody.grp.visible=true;
