@@ -801,6 +801,16 @@ scene.add(sun);
 const amb=new THREE.AmbientLight(0x46536e,0.18);scene.add(amb);
 
 // sky sprites
+// liten, skarp gløde-prikk — brukt til zombieaugo (tett kjerne, mjuk kant)
+const skyDot=makeCanvasTex(64,64,(g,w,h)=>{
+  g.clearRect(0,0,w,h);
+  const gr=g.createRadialGradient(32,32,0,32,32,32);
+  gr.addColorStop(0,'rgba(255,255,255,1)');
+  gr.addColorStop(0.18,'rgba(255,235,205,0.95)');
+  gr.addColorStop(0.42,'rgba(255,120,60,0.55)');
+  gr.addColorStop(1,'rgba(255,40,10,0)');
+  g.fillStyle=gr;g.fillRect(0,0,w,h);
+});
 function skySprite(color,size){
   const cv=document.createElement('canvas');cv.width=128;cv.height=128;
   const g=cv.getContext('2d');
@@ -989,6 +999,47 @@ TEX.road=repeatTex(512,512,(g,w,h)=>{           // hardtrampa gate med hjulspor
     g.fillStyle='rgba('+ri(190,235)+','+ri(168,212)+','+ri(130,176)+','+rnd(0.12,0.3).toFixed(2)+')';
     g.beginPath();g.arc(rnd(0,w),rnd(0,h),rnd(0.8,2.2),0,6.29);g.fill();
   }
+});
+// FLAMMETUNGE — brei og kvitglødande nedst, smal og raud i toppen.
+// Brukt av dødningeskallane sin eldhale; teikna slik at spissen peikar opp (+Y).
+TEX.fire=makeCanvasTex(128,256,(g,w,h)=>{
+  g.clearRect(0,0,w,h);
+  g.globalCompositeOperation='lighter';
+  const cx=w/2;
+  // Bygd av mange mjuke, overlappande blobbar langs ei tåreforma akse. Ingen rette
+  // kantar nokon stad, så flammen smeltar ut i lufta i staden for å sjå utklipt ut.
+  const blob=(x,y,r,col,a)=>{
+    const gr=g.createRadialGradient(x,y,0,x,y,r);
+    gr.addColorStop(0,'rgba('+col+','+a+')');
+    gr.addColorStop(0.45,'rgba('+col+','+(a*0.42).toFixed(3)+')');
+    gr.addColorStop(1,'rgba('+col+',0)');
+    g.fillStyle=gr;g.beginPath();g.arc(x,y,r,0,6.29);g.fill();
+  };
+  for(let i=0;i<46;i++){
+    const t=i/45;                                  // 0 = rot (nedst), 1 = spiss (øvst)
+    const y=h*(0.96-t*0.92);
+    const spread=w*0.30*(1-t*0.72);                // smalnar oppover
+    const x=cx+Math.sin(t*7.5)*w*0.055*(1-t*0.5)+rnd(-2,2);
+    const r=spread*rnd(0.85,1.25)+4;
+    // farge: kvit rot -> gul -> oransje -> raud spiss
+    let col,a;
+    if(t<0.22){col='255,252,236';a=0.30;}
+    else if(t<0.45){col='255,224,132';a=0.24;}
+    else if(t<0.72){col='255,158,44';a=0.19;}
+    else{col='236,74,14';a=0.14;}
+    blob(x,y,r,col,a);
+  }
+  for(let i=0;i<10;i++){                            // små gneistar i randsona
+    const t=rnd(0.15,0.95);
+    blob(cx+rnd(-1,1)*w*0.22*(1-t*0.5),h*(0.96-t*0.92),rnd(3,7),'255,236,180',0.3);
+  }
+  blob(cx,h*0.88,w*0.34,'255,255,246',0.42);        // heit rot
+  // tona ut heilt i kantane av ruta så sprite-firkanten aldri syner
+  g.globalCompositeOperation='destination-in';
+  const fade=g.createRadialGradient(cx,h*0.6,w*0.1,cx,h*0.6,h*0.56);
+  fade.addColorStop(0,'rgba(0,0,0,1)');fade.addColorStop(0.72,'rgba(0,0,0,0.92)');
+  fade.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=fade;g.fillRect(0,0,w,h);
 });
 TEX.metal=repeatTex(128,128,(g,w,h)=>{
   g.fillStyle='#9aa0a6';g.fillRect(0,0,w,h);
@@ -1687,24 +1738,99 @@ function updateNuke(dt){
 // mine (east)
 {
   const mine=new THREE.Group();
-  const rock=new THREE.Mesh(new THREE.DodecahedronGeometry(6,0),new THREE.MeshLambertMaterial({color:0x7a6a58}));
-  rock.position.set(0,2.5,0);rock.scale.set(1.4,0.9,1);rock.castShadow=true;mine.add(rock);
-  const frameM=new THREE.MeshLambertMaterial({color:0x4a3320});
-  const f1=new THREE.Mesh(new THREE.BoxGeometry(0.4,3.2,0.4),frameM);f1.position.set(-1.6,1.6,4.6);mine.add(f1);
-  const f2=f1.clone();f2.position.x=1.6;mine.add(f2);
-  const f3=new THREE.Mesh(new THREE.BoxGeometry(4,0.45,0.5),frameM);f3.position.set(0,3.2,4.6);mine.add(f3);
-  const hole=new THREE.Mesh(new THREE.PlaneGeometry(2.9,2.9),new THREE.MeshBasicMaterial({color:0x030303}));
-  hole.position.set(0,1.45,4.55);mine.add(hole);
+  const rockM=new THREE.MeshStandardMaterial({map:TEX.stone,color:0x9a8a74,roughness:1,metalness:0,flatShading:true});
+  const timberM=new THREE.MeshStandardMaterial({map:TEX.wood,color:0x7a5636,roughness:0.95,metalness:0});
+  const railM=new THREE.MeshStandardMaterial({map:TEX.metal,color:0x8a7060,roughness:0.55,metalness:0.75});
+  const tim=new Batch(timberM), rail=new Batch(railM);
+  // FJELLSIDA — fleire steinblokker slik at fjellet ser oppsprukke og gravd i ut
+  for(let i=0;i<7;i++){
+    const rr=rnd(2.6,4.6);
+    const rk=new THREE.Mesh(new THREE.DodecahedronGeometry(rr,0),rockM);
+    rk.position.set(rnd(-5,5),rnd(1.4,3.6),rnd(-3.5,1.6));
+    rk.scale.set(rnd(1.1,1.7),rnd(0.7,1.1),rnd(0.9,1.4));
+    rk.rotation.set(rnd(0,1),rnd(0,3),rnd(0,1));
+    rk.castShadow=true;rk.receiveShadow=true;mine.add(rk);
+  }
+  // TUNNELEN — eit ekte hol med djupn, ikkje ein svart flekk
+  const tunnelM=new THREE.MeshStandardMaterial({map:TEX.stone,color:0x2a2420,roughness:1,metalness:0,side:THREE.BackSide});
+  const tunnel=new THREE.Mesh(uvBox(new THREE.BoxGeometry(3.1,3.1,7),3.1,3.1,7,0.5),tunnelM);
+  tunnel.position.set(0,1.5,1.4);mine.add(tunnel);
+  const backWall=new THREE.Mesh(new THREE.PlaneGeometry(3.1,3.1),
+    new THREE.MeshBasicMaterial({color:0x050403}));
+  backWall.position.set(0,1.5,-2.05);mine.add(backWall);
+  // stolpar og bjelkar innover i tunnelen — klassisk gruvestøtte
+  for(let i=0;i<4;i++){
+    const tz=4.6-i*1.8, sc=1-i*0.04;
+    for(const sx of [-1,1])tim.box(0.42*sc,3.3*sc,0.42*sc,sx*1.62*sc,1.65*sc,tz,0.8);
+    tim.box(4.1*sc,0.48*sc,0.52*sc,0,3.3*sc,tz,0.7);
+    tim.box(3.3*sc,0.2,0.3,0,3.0*sc,tz,0.9);        // tverrplanke under bjelken
+    for(const sx of [-1,1])                          // skråstiver i hjørna
+      tim.box(0.26,0.8,0.26,sx*1.34*sc,2.86*sc,tz,0.9,0,0,sx*0.7);
+  }
+  // planker over portalen med skiltet
+  for(let i=0;i<5;i++)tim.box(4.3,0.34,0.12,0,3.72+i*0.34,4.68,0.7);
+  const msign=new THREE.Mesh(new THREE.PlaneGeometry(3.4,0.85),
+    new THREE.MeshBasicMaterial({map:signTex('DUST VALLEY MINE'),transparent:true}));
+  msign.position.set(0,4.4,4.79);mine.add(msign);
+  // SKINNEGANG ut av tunnelen
+  for(let i=0;i<26;i++){                             // sviller
+    const tz=5.6-i*0.62;
+    tim.box(1.9,0.12,0.26,0,0.06,tz,1.2,0,rnd(-0.03,0.03),0);
+  }
+  for(const sx of [-0.62,0.62]){
+    rail.box(0.09,0.11,16.4,sx,0.17,-2.2,1.5);       // skjener
+    for(let i=0;i<26;i++)rail.box(0.14,0.05,0.1,sx,0.1,5.6-i*0.62,2); // festeklammer
+  }
+  // MALMVOGN på skinnene
+  {
+    const cart=new THREE.Group();
+    const cb=new Batch(new THREE.MeshStandardMaterial({map:TEX.metal,color:0x6a5a4e,roughness:0.7,metalness:0.6}));
+    const cw=new Batch(new THREE.MeshStandardMaterial({map:TEX.metal,color:0x3e3a36,roughness:0.6,metalness:0.8}));
+    for(const sz of [-1,1])cb.box(1.5,0.9,0.1,0,0.75,sz*0.6,1.4);   // sider
+    for(const sx of [-1,1])cb.box(0.1,0.9,1.3,sx*0.7,0.75,0,1.4);
+    cb.box(1.5,0.1,1.3,0,0.32,0,1.4);                                // botn
+    cb.box(1.62,0.12,1.42,0,1.22,0,1.4);                             // kant rundt toppen
+    for(const sx of [-0.62,0.62])for(const sz of [-0.45,0.45])       // hjul
+      cw.add(new THREE.CylinderGeometry(0.26,0.26,0.09,14),sx,0.26,sz,0,0,Math.PI/2);
+    cw.box(1.4,0.1,0.1,0,0.26,-0.45,2);                              // aksler
+    cw.box(1.4,0.1,0.1,0,0.26,0.45,2);
+    cb.into(cart);cw.into(cart);
+    const ore=new THREE.Mesh(new THREE.DodecahedronGeometry(0.62,0),
+      new THREE.MeshStandardMaterial({color:0x6e6258,roughness:0.9,metalness:0.25,flatShading:true}));
+    ore.position.set(0,1.15,0);ore.scale.set(1.1,0.5,0.95);cart.add(ore);
+    cart.position.set(0,0,3.2);mine.add(cart);
+  }
+  // TIPPHAUGAR med utgraven stein på kvar side av opninga
+  {
+    const tb=new Batch(new THREE.MeshStandardMaterial({map:TEX.stone,color:0x8a7a66,roughness:1,metalness:0,flatShading:true}));
+    for(const sx of [-1,1])for(let i=0;i<9;i++)
+      tb.add(new THREE.DodecahedronGeometry(rnd(0.3,0.95),0),
+        sx*rnd(2.6,4.4),rnd(0.1,0.6),rnd(3,6.5),rnd(0,1),rnd(0,3),rnd(0,1));
+    tb.into(mine,true,true);
+  }
+  // hakke, spade og tønne ved inngangen
+  tim.box(0.09,1.5,0.09,2.35,0.75,5.3,1.4,0,0,0.24);
+  rail.box(0.62,0.09,0.1,2.53,1.46,5.3,2,0,0,0.24);
+  tim.box(0.09,1.4,0.09,-2.5,0.7,5.5,1.4,0,0,-0.3);
+  rail.box(0.26,0.34,0.06,-2.71,1.32,5.5,2,0,0,-0.3);
+  tim.into(mine);rail.into(mine);
+  // lykt over portalen — lyser raudt når mørket kjem
   G.mineEyes=[];
-  for(let i=0;i<2;i++){
-    const e=skySprite('#ff2211',0.5);
-    e.position.set(-0.35+i*0.7,1.5,4.4);e.material.opacity=0;mine.add(e);G.mineEyes.push(e);
+  {
+    const lamp=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.36,0.3),
+      new THREE.MeshStandardMaterial({color:0x2a2118,emissive:0x000000,roughness:0.6}));
+    lamp.position.set(0,3.05,4.9);mine.add(lamp);
+    WINDOW_MATS.push(lamp.material);
+    const lg=skySprite('#ffa030',2.2);lg.position.set(0,3.05,5.05);lg.material.opacity=0;
+    lg.userData.gmax=0.8;mine.add(lg);NIGHTGLOWS.push(lg);
+  }
+  for(let i=0;i<2;i++){ // augo som glor ut av mørket om natta
+    const e=skySprite('#ff2211',0.55);
+    e.position.set(-0.4+i*0.8,1.6,3.2);e.material.opacity=0;mine.add(e);G.mineEyes.push(e);
   }
   mine.position.set(34,0,20);mine.rotation.y=-0.9;scene.add(mine);
   addCollider(34,20,9,7,0.4);
   G.minePos=V3(34,0,20);
-  const cart=new THREE.Mesh(new THREE.BoxGeometry(1.6,0.9,1),new THREE.MeshLambertMaterial({color:0x3a3a3a}));
-  cart.position.set(30,0.55,24);cart.rotation.y=0.5;cart.castShadow=true;scene.add(cart);
 }
 
 // props
@@ -2149,6 +2275,7 @@ function updateKaiju(dt){
 
 // ---------------- FLYGANDE DØDNINGSKALLAR ----------------
 const SKULLS=[];const FIRES=[];
+const _skA=V3(),_skB=V3();
 function spawnSkull(){
   const g=new THREE.Group();
   const sk=new THREE.Mesh(new THREE.SphereGeometry(1.15,10,8),
@@ -2160,13 +2287,35 @@ function spawnSkull(){
   }
   const jaw=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.4,0.6),new THREE.MeshLambertMaterial({color:0xd0c8b8}));
   jaw.position.set(0,-0.85,0.35);g.add(jaw);
-  const glow=skySprite('#ff8830',11);g.add(glow);
-  // METEORITT — innhylla i flammar
+  const glow=skySprite('#ff7a24',3.4);glow.material.blending=THREE.AdditiveBlending;
+  glow.material.opacity=0.7;g.add(glow); // berre ein varm aura tett på skallen — halen gjer resten
+  // METEORITT — ein ekte, strekt eldhale som alltid peikar motsett veg av farten.
+  // Halen ligg i ei eiga gruppe som blir retta etter fartsvektoren kvar frame.
+  // halen ligg på scenenivå, ikkje under skallen: skallen roterer heile tida,
+  // og då ville orienteringa av halen bli dregen med rundt
+  const tail=new THREE.Group();scene.add(tail);
   const flames=[];
-  for(let i=0;i<5;i++){
-    const fl=skySprite(i<2?'#ffd952':(Math.random()<0.5?'#ff7020':'#ff4810'),rnd(3.5,6));
-    fl.position.set(rnd(-1,1),rnd(-1,1),rnd(-1,1));
-    fl.userData={seed:rnd(0,9),s:fl.scale.x,ox:fl.position.x,oy:fl.position.y,oz:fl.position.z};
+  const FLDEF=[ // [farge, lengd, breidd, avstand bakover, flimrefart]
+    ['#fff8dc',3.2,2.2,0.3,17],['#ffe08a',4.4,2.7,1.2,15],['#ffc24a',5.6,3.2,2.3,13],
+    ['#ff9a26',6.8,3.7,3.7,11],['#ff6a16',7.8,4.1,5.4,9],['#e8400e',8.6,4.4,7.4,8],
+    ['#a82a08',9.2,4.6,9.6,6],['#4a4038',9.6,4.8,12.2,4]
+  ];
+  for(let i=0;i<FLDEF.length;i++){
+    const d=FLDEF[i], smoke=i===FLDEF.length-1;
+    const fl=new THREE.Sprite(new THREE.SpriteMaterial({map:TEX.fire,color:new THREE.Color(d[0]),
+      transparent:true,depthWrite:false,fog:false,
+      blending:smoke?THREE.NormalBlending:THREE.AdditiveBlending,opacity:smoke?0.42:0.62}));
+    fl.position.set(0,0,-d[3]);        // halen strekk seg bakover langs -Z i tail-rommet
+    fl.scale.set(d[2],d[1],1);
+    fl.userData={seed:rnd(0,9),len:d[1],wid:d[2],off:d[3],sp:d[4],smoke:smoke};
+    tail.add(fl);flames.push(fl);
+  }
+  for(let i=0;i<3;i++){                // små tungar som slikkar rundt sjølve skallen
+    const fl=new THREE.Sprite(new THREE.SpriteMaterial({map:TEX.fire,color:new THREE.Color(i?'#ff9c20':'#ffe06a'),
+      transparent:true,depthWrite:false,fog:false,blending:THREE.AdditiveBlending,opacity:0.8}));
+    fl.scale.set(rnd(1.6,2.4),rnd(2.2,3.2),1);
+    fl.userData={seed:rnd(0,9),len:fl.scale.y,wid:fl.scale.x,lick:true,
+      ox:rnd(-0.8,0.8),oy:rnd(-0.3,0.9),oz:rnd(-0.6,0.6)};
     g.add(fl);flames.push(fl);
   }
   const a=rnd(0,Math.PI*2);
@@ -2179,7 +2328,7 @@ function spawnSkull(){
   const tb=cands[ri(0,cands.length-1)];
   const v=V3(tb.x-g.position.x,2-g.position.y,tb.z-g.position.z).normalize().multiplyScalar(rnd(17,27));
   scene.add(g);
-  SKULLS.push({m:g,v:v,hp:60,b:tb,flames:flames});
+  SKULLS.push({m:g,v:v,hp:60,b:tb,flames:flames,tail:tail});
 }
 function damageSkull(s,d){
   s.hp-=d;
@@ -2189,7 +2338,7 @@ function damageSkull(s,d){
     sfxZombieDie();
     G.score+=50;G.kills++;
     G.slowCharge=Math.min(8,(G.slowCharge||0)+1);
-    scene.remove(s.m);
+    scene.remove(s.m);if(s.tail)scene.remove(s.tail);
     const i=SKULLS.indexOf(s);if(i>=0)SKULLS.splice(i,1);
     toast('Flying skull shot down! +50');
   }
@@ -2199,22 +2348,45 @@ function updateSkulls(dt){
     const s=SKULLS[i];
     s.m.position.addScaledVector(s.v,dt);
     s.m.rotation.y+=dt*3;
-    // flammane flakrar rundt skallen — brennande meteoritt
+    // halen skal alltid peike motsett veg av farten — som ein ekte meteor
+    let frot=0;
+    if(s.tail){
+      s.tail.position.copy(s.m.position);
+      _skA.copy(s.m.position).addScaledVector(s.v,1);
+      s.tail.lookAt(_skA);                 // +Z peikar framover, så halen ligg på -Z
+      // flammespritane er skjermflater: vri dei så tunga peikar bakover PÅ SKJERMEN
+      _skA.copy(s.m.position).project(camera);
+      _skB.copy(s.m.position).addScaledVector(s.v,2).project(camera);
+      frot=Math.atan2(-(_skB.y-_skA.y)*innerHeight,-(_skB.x-_skA.x)*innerWidth)-Math.PI/2;
+    }
     for(const fl of s.flames){
       const u=fl.userData;
-      const sc=u.s*(0.7+Math.sin(G.time*14+u.seed*4)*0.35);
-      fl.scale.set(sc,sc,1);
-      fl.material.opacity=0.55+Math.sin(G.time*17+u.seed*3)*0.35;
-      fl.position.set(u.ox+Math.sin(G.time*9+u.seed)*0.4,u.oy+Math.cos(G.time*8+u.seed)*0.4,u.oz);
+      if(!u.lick)fl.material.rotation=frot+Math.sin(G.time*6+u.seed)*0.09;
+      else fl.material.rotation=Math.sin(G.time*5+u.seed)*0.2;
+      // to usamstemte svingingar gjev uroleg, levande eld i staden for jamn pulsering
+      const fk=Math.sin(G.time*u.sp*0.9+u.seed*4)*0.5+Math.sin(G.time*u.sp*2.3+u.seed)*0.28;
+      if(u.lick){                          // tungene som slikkar rundt skallen
+        fl.scale.set(u.wid*(0.72+fk*0.4),u.len*(0.8+fk*0.55),1);
+        fl.material.opacity=0.55+fk*0.4;
+        fl.position.set(u.ox+Math.sin(G.time*9+u.seed)*0.35,
+                        u.oy+Math.abs(Math.sin(G.time*7+u.seed))*0.5,
+                        u.oz+Math.cos(G.time*8+u.seed)*0.35);
+      }else{
+        fl.scale.set(u.wid*(0.82+fk*0.3),u.len*(0.85+fk*0.42),1);
+        fl.material.opacity=(u.smoke?0.42:0.62)*(0.72+fk*0.35);
+        fl.position.z=-u.off*(0.9+fk*0.16); // halen pustar inn og ut
+        fl.position.x=Math.sin(G.time*5+u.seed)*0.25*u.off*0.2;
+        fl.position.y=Math.cos(G.time*4.4+u.seed)*0.25*u.off*0.2;
+      }
     }
-    // eldhale + gneistar + røyk bak
+    // gneistar og røyk som losnar frå halen
     spawnParts(s.m.position,1,Math.random()<0.6?0xff7020:0xffd050,2,0.55,-2);
     if(Math.random()<0.6)spawnParts(s.m.position,1,0xff4810,1.5,0.8,-1);
     if(Math.random()<0.35)spawnParts(s.m.position,1,0x3a3a3a,1.8,1.1,-1.2);
     if(s.m.position.y<=2.2){ // nedslag — bygningen brenn!
       explode(V3(s.b.x,0,s.b.z),80,7);
       startFire(s.b.x,s.b.z);
-      scene.remove(s.m);SKULLS.splice(i,1);
+      scene.remove(s.m);if(s.tail)scene.remove(s.tail);SKULLS.splice(i,1);
     }
   }
 }
@@ -2529,133 +2701,171 @@ function selectWeapon(w){
 const VM={group:new THREE.Group(),models:{},bobT:0,recoil:0,whipT:-1};
 camera.add(VM.group);
 VM.group.position.set(0.32,-0.34,-0.55);
+// eit eige, kort lys som fylgjer kameraet — våpenet er alltid lesbart, òg midt på natta
+const vmLight=new THREE.PointLight(0xfff0d8,1.5,1.7,2);
+vmLight.position.set(0.28,0.06,-0.3);camera.add(vmLight);
 {
-  const steel=new THREE.MeshLambertMaterial({color:0x555a60});
-  const steelD=new THREE.MeshLambertMaterial({color:0x2f3338});
-  const steelL=new THREE.MeshLambertMaterial({color:0x7a828a});
-  const gold=new THREE.MeshLambertMaterial({color:0xb08830,emissive:0x221100});
-  const wood=new THREE.MeshLambertMaterial({color:0x5a3a22});
-  const walnut=new THREE.MeshLambertMaterial({color:0x4a2c18});
-  // revolver — «Præriens Dronning»
+  // ekte metall: høg metalness + låg roughness gjev skarpe høglys som fylgjer sola
+  const steel=new THREE.MeshStandardMaterial({map:TEX.metal,color:0x9aa2aa,metalness:0.92,roughness:0.33});
+  const steelD=new THREE.MeshStandardMaterial({map:TEX.metal,color:0x424952,metalness:0.95,roughness:0.27}); // blånert stål
+  const steelL=new THREE.MeshStandardMaterial({map:TEX.metal,color:0xc2cad2,metalness:0.96,roughness:0.16}); // polert
+  const gold=new THREE.MeshStandardMaterial({color:0xe8b44a,metalness:1,roughness:0.19,emissive:0x2a1a00});
+  const wood=new THREE.MeshStandardMaterial({map:TEX.wood,color:0x9a6238,roughness:0.5,metalness:0});
+  const walnut=new THREE.MeshStandardMaterial({map:TEX.wood,color:0x6e3c1e,roughness:0.42,metalness:0.05});
+  const rubber=new THREE.MeshStandardMaterial({color:0x2a2724,roughness:0.85,metalness:0});
+  // revolver — «Præriens Dronning»: gravert Peacemaker med perlemorsgrep
   const rv=new THREE.Group();
-  const barrel=new THREE.Mesh(new THREE.CylinderGeometry(0.022,0.022,0.36,10),steelD);
-  barrel.rotation.x=Math.PI/2;barrel.position.set(0,0.012,-0.2);rv.add(barrel);
-  const underlug=new THREE.Mesh(new THREE.CylinderGeometry(0.011,0.011,0.3,8),steelL);
-  underlug.rotation.x=Math.PI/2;underlug.position.set(0,-0.016,-0.17);rv.add(underlug);
-  const sight=new THREE.Mesh(new THREE.BoxGeometry(0.008,0.022,0.02),steelL);
-  sight.position.set(0,0.036,-0.36);rv.add(sight);
-  const frame=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.065,0.13),steelD);
-  frame.position.set(0,0,0.005);rv.add(frame);
-  const drum=new THREE.Mesh(new THREE.CylinderGeometry(0.041,0.041,0.085,8),steelL);
+  const barrel=new THREE.Mesh(new THREE.CylinderGeometry(0.023,0.024,0.38,14),steelD);
+  barrel.rotation.x=Math.PI/2;barrel.position.set(0,0.012,-0.21);rv.add(barrel);
+  const rvB=new Batch(steelD),rvL=new Batch(steelL),rvG=new Batch(gold);
+  rvB.add(new THREE.CylinderGeometry(0.0125,0.0125,0.32,8),0,-0.017,-0.18,Math.PI/2); // underlug
+  rvL.box(0.009,0.024,0.022,0,0.038,-0.375);                    // kornsikte
+  rvL.box(0.03,0.012,0.05,0,0.038,0.05);                        // siktespor bak
+  rvB.box(0.048,0.07,0.14,0,0,0.005);                           // ramme
+  rvG.box(0.05,0.005,0.3,0,0.034,-0.2);                          // gravert list langs løpet
+  rvG.box(0.05,0.012,0.02,0,0.03,-0.075);                        // og eit lite beslag bak
+  const drum=new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.042,0.09,12),steelL);
   drum.rotation.z=Math.PI/2;drum.rotation.y=Math.PI/2;drum.position.set(0,0,-0.03);rv.add(drum);
+  {  // seks synlege kammer i tromma (i tromma sitt eige rom peikar aksen langs Y)
+    const cb=new Batch(steelD);
+    for(let i=0;i<6;i++){
+      const a=i/6*Math.PI*2;
+      cb.add(new THREE.CylinderGeometry(0.009,0.009,0.096,6),Math.cos(a)*0.026,0,Math.sin(a)*0.026);
+    }
+    cb.into(drum,false,false);
+  }
   VM.revDrum=drum;
-  const band=new THREE.Mesh(new THREE.CylinderGeometry(0.0435,0.0435,0.016,8),gold);
-  band.rotation.z=Math.PI/2;band.rotation.y=Math.PI/2;band.position.set(0,0,-0.062);rv.add(band);
-  const hammer=new THREE.Mesh(new THREE.BoxGeometry(0.014,0.05,0.02),steelL);
-  hammer.position.set(0,0.048,0.068);hammer.rotation.x=-0.5;rv.add(hammer);
-  const guard=new THREE.Mesh(new THREE.TorusGeometry(0.028,0.005,6,12),steelD);
-  guard.position.set(0,-0.048,0.012);guard.rotation.y=Math.PI/2;rv.add(guard);
-  const grip=new THREE.Mesh(new THREE.BoxGeometry(0.042,0.13,0.058),walnut);
-  grip.position.set(0,-0.088,0.078);grip.rotation.x=0.38;rv.add(grip);
-  const medal=new THREE.Mesh(new THREE.CylinderGeometry(0.013,0.013,0.048,10),gold);
-  medal.rotation.z=Math.PI/2;medal.position.set(0,-0.082,0.078);rv.add(medal);
+  rvG.add(new THREE.CylinderGeometry(0.0445,0.0445,0.018,12),0,0,-0.064,Math.PI/2); // gullband rundt løpet
+  rvL.box(0.015,0.052,0.022,0,0.05,0.07,undefined,-0.5);         // hane
+  rvL.add(new THREE.TorusGeometry(0.012,0.006,6,10),0,0.066,0.082,0,Math.PI/2,0); // hanekam
+  rvB.add(new THREE.TorusGeometry(0.03,0.0055,8,14),0,-0.05,0.012,0,Math.PI/2,0); // avtrekkarbøyle
+  rvL.box(0.008,0.03,0.012,0,-0.036,0.02,undefined,0.3);         // avtrekkar
+  const grip=new THREE.Mesh(new THREE.BoxGeometry(0.044,0.135,0.06),
+    new THREE.MeshStandardMaterial({color:0xe8dcc4,roughness:0.28,metalness:0.05})); // perlemor
+  grip.position.set(0,-0.09,0.08);grip.rotation.x=0.38;rv.add(grip);
+  rvG.add(new THREE.CylinderGeometry(0.014,0.014,0.05,12),0,-0.084,0.08,0,0,Math.PI/2); // medaljong
+  rvG.box(0.05,0.016,0.066,0,-0.152,0.104,undefined,0.38);       // botnbeslag
+  rvB.into(rv,false,false);rvL.into(rv,false,false);rvG.into(rv,false,false);
   VM.models.revolver=rv;
-  // hagle — grov dobbeltløper med treverk og gravering
+  // hagle — grov dobbeltløper med gravert lås, ladegrep og patronar
   const hg=new THREE.Group();
-  const hb1=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.032,0.62,10),steelD);
-  hb1.rotation.x=Math.PI/2;hb1.position.set(-0.032,0.03,-0.28);hg.add(hb1);
-  const hb2=hb1.clone();hb2.position.x=0.032;hg.add(hb2);
-  for(const bz of [-0.55,-0.16]){
-    const hband=new THREE.Mesh(new THREE.BoxGeometry(0.135,0.055,0.05),steelL);
-    hband.position.set(0,0.03,bz);hg.add(hband);
+  for(const bx of [-0.033,0.033]){
+    const hb=new THREE.Mesh(new THREE.CylinderGeometry(0.031,0.033,0.64,12),steelD);
+    hb.rotation.x=Math.PI/2;hb.position.set(bx,0.03,-0.29);hg.add(hb);
+    const hm=new THREE.Mesh(new THREE.CylinderGeometry(0.023,0.023,0.05,12),
+      new THREE.MeshStandardMaterial({color:0x14100c,roughness:0.9,metalness:0.3}));
+    hm.rotation.x=Math.PI/2;hm.position.set(bx,0.03,-0.6);hg.add(hm); // mørk løpsmunning
   }
-  const hrec=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.1,0.17),steelD);
-  hrec.position.set(0,0.005,0.05);hg.add(hrec);
-  const hgold=new THREE.Mesh(new THREE.BoxGeometry(0.125,0.018,0.1),gold);
-  hgold.position.set(0,0.05,0.05);hg.add(hgold);
-  for(const hx of [-0.03,0.03]){
-    const hh=new THREE.Mesh(new THREE.BoxGeometry(0.016,0.05,0.02),steelL);
-    hh.position.set(hx,0.08,0.11);hh.rotation.x=-0.5;hg.add(hh);
+  const hgB=new Batch(steelD),hgL=new Batch(steelL),hgG=new Batch(gold),hgW=new Batch(walnut);
+  for(const bz of [-0.56,-0.17])hgL.box(0.14,0.058,0.05,0,0.03,bz);  // løpsband
+  hgL.box(0.01,0.016,0.02,0,0.062,-0.56);                            // korn
+  hgB.box(0.125,0.105,0.18,0,0.005,0.05);                            // låskasse
+  hgG.box(0.13,0.02,0.11,0,0.052,0.05);                              // gravert topplate
+  hgG.box(0.008,0.052,0.09,0.066,0.005,0.05);                        // sidegravering
+  hgG.box(0.008,0.052,0.09,-0.066,0.005,0.05);
+  for(const hx of [-0.032,0.032]){
+    hgL.box(0.017,0.052,0.022,hx,0.082,0.115,undefined,-0.5);         // hanar
+    hgL.box(0.009,0.028,0.012,hx*0.5,-0.03,0.075,undefined,0.25);     // avtrekkarar
   }
-  const hfore=new THREE.Mesh(new THREE.BoxGeometry(0.095,0.06,0.3),walnut);
-  hfore.position.set(0,-0.026,-0.26);hg.add(hfore);
-  const hstock=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.11,0.34),walnut);
-  hstock.position.set(0,-0.055,0.26);hstock.rotation.x=0.22;hg.add(hstock);
-  const hguard=new THREE.Mesh(new THREE.TorusGeometry(0.03,0.006,6,12),steelD);
-  hguard.position.set(0,-0.062,0.1);hguard.rotation.y=Math.PI/2;hg.add(hguard);
+  hgL.box(0.03,0.014,0.055,0,0.058,0.135);                            // toppspak (brekk-låsen)
+  hgW.box(0.1,0.065,0.32,0,-0.028,-0.27,1.4);                         // forskjefte
+  for(let i=0;i<5;i++)hgW.box(0.104,0.008,0.012,0,-0.058,-0.36+i*0.05,1.4); // riflemønster i grepet
+  hgW.box(0.085,0.115,0.36,0,-0.058,0.27,1.2,0.22);                   // kolbe
+  hgB.box(0.09,0.12,0.03,0,-0.095,0.44,undefined,0.22);               // bakkappe
+  hgB.add(new THREE.TorusGeometry(0.032,0.0065,8,14),0,-0.064,0.09,0,Math.PI/2,0);
+  hgB.into(hg,false,false);hgL.into(hg,false,false);hgG.into(hg,false,false);hgW.into(hg,false,false);
   VM.models.hagle=hg;
-  // MOTORSAG — oransje kropp, sverd med kjede, eksos
+  // MOTORSAG — slitt oransje kropp, sverd med ekte kjedetenner, eksos og blod
   const pk=new THREE.Group();
-  const sawOrange=new THREE.MeshLambertMaterial({color:0xd45a1a});
-  const sawDark=new THREE.MeshLambertMaterial({color:0x2a2622});
-  const body=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.13,0.22),sawOrange);
-  body.position.set(0,0,0.06);pk.add(body);
-  const topCover=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.05,0.16),sawDark);
-  topCover.position.set(0,0.08,0.06);pk.add(topCover);
-  // håndtak-bøyle over
-  const bail=new THREE.Mesh(new THREE.TorusGeometry(0.075,0.012,6,12,Math.PI),sawDark);
-  bail.position.set(0,0.1,0.02);bail.rotation.y=Math.PI/2;pk.add(bail);
-  // bakre grep
-  const rgrip=new THREE.Mesh(new THREE.BoxGeometry(0.045,0.06,0.14),sawDark);
-  rgrip.position.set(0,-0.045,0.2);pk.add(rgrip);
-  // startsnor
-  const cord=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.02,10),steelL);
-  cord.rotation.z=Math.PI/2;cord.position.set(0.085,0.02,0.1);pk.add(cord);
-  // eksos
-  const exh=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.022,0.07,8),steelD);
-  exh.position.set(-0.07,-0.03,0.02);exh.rotation.z=0.5;pk.add(exh);
-  // sverd (guide bar) med kjede rundt
-  const chain=new THREE.Mesh(new THREE.BoxGeometry(0.03,0.1,0.5),sawDark);
-  chain.position.set(0,0.005,-0.28);pk.add(chain);
-  const bar=new THREE.Mesh(new THREE.BoxGeometry(0.034,0.075,0.46),steelL);
-  bar.position.set(0,0.005,-0.27);pk.add(bar);
-  const tip=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.028,12),sawDark);
-  tip.rotation.z=Math.PI/2;tip.position.set(0,0.005,-0.53);pk.add(tip);
-  // kjedetenner oppå (synlege takker)
-  for(let i=0;i<6;i++){
-    const tooth=new THREE.Mesh(new THREE.BoxGeometry(0.026,0.022,0.03),steelD);
-    tooth.position.set(0,0.062,-0.08-i*0.085);pk.add(tooth);
+  const sawOrange=new THREE.MeshStandardMaterial({color:0xe86a1e,roughness:0.5,metalness:0.15});
+  const sawDark=new THREE.MeshStandardMaterial({color:0x35302a,roughness:0.7,metalness:0.2});
+  const pkO=new Batch(sawOrange),pkD=new Batch(sawDark),pkS=new Batch(steelL),pkB=new Batch(steelD);
+  pkO.box(0.16,0.14,0.24,0,0,0.06,3);                     // motorhus
+  pkO.box(0.145,0.05,0.1,0,0.085,0.02,3);                 // luftfilterlokk
+  pkD.box(0.13,0.055,0.17,0,0.09,0.08,3);                 // topplokk
+  for(let i=0;i<5;i++)pkD.box(0.155,0.008,0.012,0,0.03+i*0.022,-0.05,3); // sylinderribber
+  pkD.add(new THREE.TorusGeometry(0.078,0.013,8,14,Math.PI),0,0.1,0.02,0,Math.PI/2,0); // bøylehandtak
+  pkD.box(0.05,0.065,0.15,0,-0.048,0.21,3);               // bakre grep
+  pkD.box(0.012,0.03,0.05,0.0,-0.012,0.16,3);             // gasshandtak
+  pkS.add(new THREE.CylinderGeometry(0.036,0.036,0.022,12),0.09,0.02,0.1,0,0,Math.PI/2); // startsnor-trinse
+  pkB.add(new THREE.CylinderGeometry(0.019,0.024,0.075,10),-0.075,-0.03,0.02,0,0,0.5);   // eksos
+  pkB.add(new THREE.CylinderGeometry(0.021,0.021,0.02,10),-0.095,-0.05,0.02,0,0,0.5);
+  pkS.box(0.036,0.08,0.48,0,0.005,-0.28,3);               // sverd
+  pkD.box(0.026,0.052,0.46,0,0.005,-0.28,3);              // kjedespor midt i sverdet
+  pkS.add(new THREE.CylinderGeometry(0.045,0.045,0.036,14),0,0.005,-0.52,0,0,Math.PI/2); // nesehjul
+  for(let i=0;i<11;i++){                                   // kjedetenner rundt heile sverdet
+    pkB.box(0.03,0.024,0.032,0,0.05,-0.09-i*0.04,3);      // oppå
+    pkB.box(0.03,0.024,0.032,0,-0.04,-0.09-i*0.04,3);     // under
   }
-  // blodflekk på sverdet
-  const sblood=new THREE.Mesh(new THREE.BoxGeometry(0.037,0.05,0.12),new THREE.MeshLambertMaterial({color:0x6a1512}));
+  pkO.box(0.17,0.09,0.06,0,0.03,-0.09,3);                 // handvern
+  pkO.into(pk,false,false);pkD.into(pk,false,false);pkS.into(pk,false,false);pkB.into(pk,false,false);
+  const sblood=new THREE.Mesh(new THREE.BoxGeometry(0.039,0.055,0.16),
+    new THREE.MeshStandardMaterial({color:0x8e1f18,roughness:0.35,metalness:0}));
   sblood.position.set(0,0.01,-0.4);pk.add(sblood);
   pk.rotation.set(0.05,-0.18,0.05);
   pk.scale.setScalar(1.15);
   VM.models.pisk=pk;
-  // gatling
+  // GATLING — messingkappe, seks løp, sveiv og patronbelte
   const gt=new THREE.Group();
   const gbar=new THREE.Group();
-  for(let i=0;i<6;i++){
-    const a=i/6*Math.PI*2;
-    const bb=new THREE.Mesh(new THREE.CylinderGeometry(0.016,0.016,0.5,6),steelD);
-    bb.rotation.x=Math.PI/2;
-    bb.position.set(Math.cos(a)*0.045,Math.sin(a)*0.045,-0.3);
-    gbar.add(bb);
+  {
+    const bb=new Batch(steelD);
+    for(let i=0;i<6;i++){
+      const a=i/6*Math.PI*2;
+      bb.add(new THREE.CylinderGeometry(0.017,0.017,0.52,8),Math.cos(a)*0.046,Math.sin(a)*0.046,-0.3,Math.PI/2);
+    }
+    bb.into(gbar,false,false);
+    const rb=new Batch(steelL);                            // ringar som held løpa saman
+    for(const z of [-0.5,-0.3,-0.1])rb.add(new THREE.TorusGeometry(0.048,0.007,6,14),0,0,z);
+    rb.into(gbar,false,false);
   }
   gt.add(gbar);VM.gatBarrels=gbar;
-  const hub=new THREE.Mesh(new THREE.CylinderGeometry(0.072,0.072,0.1,12),steelL);
-  hub.rotation.x=Math.PI/2;hub.position.z=-0.08;gt.add(hub);
-  const gbody=new THREE.Mesh(new THREE.BoxGeometry(0.12,0.13,0.18),steelD);
-  gbody.position.set(0,-0.02,0.1);gt.add(gbody);
-  const crank=new THREE.Mesh(new THREE.BoxGeometry(0.02,0.07,0.02),gold);
-  crank.position.set(0.07,-0.05,0.14);gt.add(crank);
+  const gtG=new Batch(gold),gtB=new Batch(steelD),gtL=new Batch(steelL);
+  gtG.add(new THREE.CylinderGeometry(0.075,0.075,0.12,14),0,0,-0.08,Math.PI/2); // messingnav
+  gtB.box(0.13,0.14,0.2,0,-0.02,0.1,3);                    // låskasse
+  gtG.box(0.14,0.02,0.2,0,0.06,0.1,3);                     // topplate
+  gtL.add(new THREE.CylinderGeometry(0.052,0.052,0.024,14),0.085,-0.05,0.15,0,0,Math.PI/2); // sveivskive
+  gtG.box(0.022,0.075,0.022,0.085,-0.095,0.15,3);          // sveivarm
+  gtG.add(new THREE.SphereGeometry(0.018,8,6),0.085,-0.135,0.15);
+  gtB.box(0.1,0.06,0.1,-0.075,-0.05,0.11,3);               // patronkasse
+  for(let i=0;i<7;i++)gtG.box(0.012,0.03,0.012,-0.075+i*0.014,-0.005,0.11,3); // patronrekkje
+  gtG.into(gt,false,false);gtB.into(gt,false,false);gtL.into(gt,false,false);
   VM.models.gatling=gt;
-  // bazooka
+  // BAZOOKA — malt røyr med varmeskjold, sikte, avtrekkargrep og skulderstøtte
   const bz=new THREE.Group();
-  const tube=new THREE.Mesh(new THREE.CylinderGeometry(0.055,0.06,0.85,12),new THREE.MeshLambertMaterial({color:0x4a5a3a}));
+  const tubeM=new THREE.MeshStandardMaterial({map:TEX.metal,color:0x5a6a44,roughness:0.62,metalness:0.5});
+  const tube=new THREE.Mesh(new THREE.CylinderGeometry(0.057,0.062,0.88,16),tubeM);
   tube.rotation.x=Math.PI/2;tube.position.set(0.02,0.04,-0.15);bz.add(tube);
-  const mouth=new THREE.Mesh(new THREE.CylinderGeometry(0.078,0.06,0.1,12),steelD);
-  mouth.rotation.x=Math.PI/2;mouth.position.set(0.02,0.04,-0.62);bz.add(mouth);
-  const gripB=new THREE.Mesh(new THREE.BoxGeometry(0.04,0.1,0.05),walnut);
-  gripB.position.set(0.02,-0.07,0.02);bz.add(gripB);
+  const bzB=new Batch(steelD),bzT=new Batch(tubeM),bzW=new Batch(walnut);
+  bzB.add(new THREE.CylinderGeometry(0.082,0.062,0.12,16),0.02,0.04,-0.63,Math.PI/2); // trakt framme
+  bzB.add(new THREE.CylinderGeometry(0.075,0.062,0.09,16),0.02,0.04,0.32,Math.PI/2);  // bakstuss
+  for(const z of [-0.42,-0.2,0.02])                                                    // forsterkingsband
+    bzT.add(new THREE.TorusGeometry(0.063,0.008,8,16),0.02,0.04,z,0,0,0);
+  bzT.box(0.07,0.035,0.42,0.02,0.11,-0.24,2.2);           // varmeskjold oppå
+  bzB.box(0.012,0.05,0.012,0.02,0.15,-0.46);              // framsikte
+  bzB.box(0.03,0.035,0.012,0.02,0.15,-0.02);              // baksikte
+  bzW.box(0.045,0.11,0.055,0.02,-0.075,0.02,2);           // pistolgrep
+  bzB.box(0.01,0.03,0.012,0.02,-0.03,-0.01,undefined,0.25); // avtrekkar
+  bzB.add(new THREE.TorusGeometry(0.028,0.006,8,14),0.02,-0.035,0.005,0,Math.PI/2,0);
+  bzW.box(0.05,0.06,0.12,0.02,-0.03,0.24,2);              // skulderpute
+  bzB.box(0.03,0.08,0.03,0.02,-0.05,-0.32);               // framre handtak
+  bzB.into(bz,false,false);bzT.into(bz,false,false);bzW.into(bz,false,false);
   VM.models.bazooka=bz;
-  // dynamitt
+  // DYNAMITT — tre stubbar bunde saman med snor, lunte og fengetrykk
   const dn=new THREE.Group();
-  const stick=new THREE.Mesh(new THREE.CylinderGeometry(0.035,0.035,0.2,8),new THREE.MeshLambertMaterial({color:0xa32620}));
-  dn.add(stick);
-  const stick2=stick.clone();stick2.position.x=0.07;dn.add(stick2);
-  const fuse=new THREE.Mesh(new THREE.CylinderGeometry(0.008,0.008,0.08,4),new THREE.MeshLambertMaterial({color:0xd9c9a0}));
-  fuse.position.y=0.13;dn.add(fuse);
+  const dynM=new THREE.MeshStandardMaterial({color:0xc23830,roughness:0.85,metalness:0});
+  const dynB=new Batch(dynM),dynS=new Batch(new THREE.MeshStandardMaterial({color:0xb8a880,roughness:1,metalness:0}));
+  const dynP=new Batch(new THREE.MeshStandardMaterial({color:0x2a2622,roughness:0.9,metalness:0.1}));
+  for(let i=0;i<3;i++){
+    const dx=(i-1)*0.075;
+    dynB.add(new THREE.CylinderGeometry(0.036,0.036,0.21,12),dx,0,0);
+    dynP.add(new THREE.CylinderGeometry(0.037,0.037,0.02,12),dx,0.105,0);   // endelokk
+    dynP.add(new THREE.CylinderGeometry(0.037,0.037,0.02,12),dx,-0.105,0);
+  }
+  for(const y of [-0.05,0.05])dynS.box(0.24,0.014,0.078,0,y,0,3);            // snor rundt bunten
+  dynS.add(new THREE.CylinderGeometry(0.009,0.009,0.1,6),0,0.16,0,0,0,0.35); // lunte
+  dynS.add(new THREE.CylinderGeometry(0.009,0.009,0.06,6),0.03,0.22,0,0,0,0.9);
+  dynB.into(dn,false,false);dynS.into(dn,false,false);dynP.into(dn,false,false);
   VM.models.dynamitt=dn;
   for(const k in VM.models){VM.models[k].visible=false;VM.group.add(VM.models[k]);}
 }
@@ -2670,11 +2880,14 @@ let flashT=0;
 // ---------------- PARTICLES / TRACERS / GIBS ----------------
 const PARTS=[];
 const partGeo=new THREE.BoxGeometry(0.09,0.09,0.09);
-function spawnParts(pos,n,color,speed,life,grav){
+function spawnParts(pos,n,color,speed,life,grav,spread,scale){
   for(let i=0;i<n;i++){
     if(PARTS.length>420)break;
     const m=new THREE.Mesh(partGeo,new THREE.MeshBasicMaterial({color:color,transparent:true}));
     m.position.copy(pos);
+    // spreiing hindrar at partiklane stablar seg til ein hard firkant (viktig nær kameraet)
+    if(spread)m.position.add(V3(rnd(-spread,spread),rnd(-spread,spread),rnd(-spread,spread)));
+    if(scale){m.scale.setScalar(scale);m.rotation.set(rnd(0,3),rnd(0,3),rnd(0,3));}
     PARTS.push({m:m,v:V3(rnd(-1,1),rnd(0.2,1.4),rnd(-1,1)).multiplyScalar(speed*rnd(0.5,1.3)),
       life:life*rnd(0.7,1.3),max:life,grav:grav});
     scene.add(m);
@@ -2797,14 +3010,71 @@ function updateSlugs(dt){
   }
 }
 // munnigsglimt-sprite + skjermglimt («flashbang») per skot
-const muzzleFlash=skySprite('#fff2b0',0.7);
-muzzleFlash.visible=false;
-muzzleFlash.position.set(0.3,-0.28,-1.2);
-camera.add(muzzleFlash);
+// MUNNINGSGLIMT — stjerneforma smell med kvitglødande kjerne, kruttrøyk og gneistar
+const burstTex=makeCanvasTex(160,160,(g,w,h)=>{
+  g.clearRect(0,0,w,h);
+  const cx=80,cy=80;
+  g.globalCompositeOperation='lighter';
+  for(let i=0;i<11;i++){                       // uregelmessige flammetungar
+    const a=i/11*Math.PI*2+rnd(-0.16,0.16), len=rnd(30,78), wid=rnd(0.1,0.3);
+    const gr=g.createLinearGradient(cx,cy,cx+Math.cos(a)*len,cy+Math.sin(a)*len);
+    gr.addColorStop(0,'rgba(255,250,225,0.95)');
+    gr.addColorStop(0.35,'rgba(255,196,80,0.7)');
+    gr.addColorStop(1,'rgba(255,90,20,0)');
+    g.fillStyle=gr;g.beginPath();g.moveTo(cx,cy);
+    g.arc(cx,cy,len,a-wid,a+wid);g.closePath();g.fill();
+  }
+  const core=g.createRadialGradient(cx,cy,1,cx,cy,26); // kvitglødande kjerne
+  core.addColorStop(0,'rgba(255,255,255,1)');
+  core.addColorStop(0.45,'rgba(255,236,170,0.9)');
+  core.addColorStop(1,'rgba(255,150,40,0)');
+  g.fillStyle=core;g.beginPath();g.arc(cx,cy,26,0,6.29);g.fill();
+});
+const smokeTex=makeCanvasTex(128,128,(g,w,h)=>{
+  g.clearRect(0,0,w,h);
+  for(let i=0;i<16;i++){
+    const cx=rnd(38,90),cy=rnd(38,90),r=rnd(16,34);
+    const gr=g.createRadialGradient(cx,cy,1,cx,cy,r);
+    gr.addColorStop(0,'rgba(216,208,196,0.5)');gr.addColorStop(1,'rgba(200,192,180,0)');
+    g.fillStyle=gr;g.beginPath();g.arc(cx,cy,r,0,6.29);g.fill();
+  }
+});
+function fxSprite(tex,blend){
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false,depthWrite:false,
+    fog:false,blending:blend||THREE.AdditiveBlending,opacity:0}));
+  s.position.set(0.3,-0.28,-1.2);camera.add(s);return s;
+}
+const muzzleBurst=fxSprite(burstTex), muzzleCore=fxSprite(burstTex);
+const muzzleSmoke=fxSprite(smokeTex,THREE.NormalBlending);
+const muzzleFlash=muzzleBurst; // eldre kode slår av glimtet via denne
+const MFX={t:0,dur:0.06,sc:1,smoke:0};
 function muzzleFx(scale){
-  muzzleFlash.visible=true;
-  muzzleFlash.material.rotation=rnd(0,6.28);
-  muzzleFlash.scale.set(scale,scale,1);
+  MFX.t=1;MFX.sc=scale;MFX.smoke=1;
+  muzzleBurst.material.rotation=rnd(0,6.28);
+  muzzleCore.material.rotation=rnd(0,6.28);
+  muzzleBurst.visible=muzzleCore.visible=muzzleSmoke.visible=true;
+  // gneistar og brennande kruttkorn ut av løpet — små og godt spreidde,
+  // elles smeltar dei saman til éin klump så tett på kameraet
+  const mp=gunMuzzleWorld();
+  spawnParts(mp,ri(4,7),0xffcc55,7,0.2,2.5,0.16,0.3);
+  if(Math.random()<0.6)spawnParts(mp,2,0xff7a20,4,0.28,1,0.2,0.25);
+}
+function updateMuzzleFx(dt){
+  if(MFX.t>0){
+    MFX.t=Math.max(0,MFX.t-dt/MFX.dur);
+    const t=MFX.t, e=t*t;                       // rask, hard avtaking
+    const s=MFX.sc*(0.55+(1-t)*0.5);
+    muzzleBurst.scale.set(s*1.5,s*1.5,1);muzzleBurst.material.opacity=e*0.95;
+    muzzleCore.scale.set(s*0.7,s*0.7,1);muzzleCore.material.opacity=e;
+    muzzleBurst.material.rotation+=dt*3;
+  }else if(muzzleBurst.visible){muzzleBurst.visible=muzzleCore.visible=false;}
+  if(MFX.smoke>0){                              // kruttrøyken heng att og driv oppover
+    MFX.smoke=Math.max(0,MFX.smoke-dt*1.6);
+    const q=1-MFX.smoke, ss=MFX.sc*(0.5+q*1.9);
+    muzzleSmoke.scale.set(ss,ss,1);
+    muzzleSmoke.material.opacity=MFX.smoke*0.34;
+    muzzleSmoke.position.set(0.3+q*0.05,-0.28+q*0.16,-1.2-q*0.16);
+  }else if(muzzleSmoke.visible){muzzleSmoke.visible=false;muzzleSmoke.position.set(0.3,-0.28,-1.2);}
 }
 function shotFlashFx(o){
   const e=$('shotFlash');
@@ -3114,7 +3384,8 @@ function updatePlayer(dt){
       if(t.heat>=1){t.heat=1;t.overT=5;P.firing=false;sfxOverheat();showOverheat();}
     }
     P.heat=t.heat;P.overheatT=t.overT; // vises i HUD
-    if(flashT>0){flashT-=dt;if(flashT<=0){flash.intensity=0;muzzleFlash.visible=false;}}
+    if(flashT>0){flashT-=dt;if(flashT<=0)flash.intensity=0;}
+    updateMuzzleFx(dt);
     return;
   }
   // movement
@@ -3172,7 +3443,8 @@ function updatePlayer(dt){
     VM.models.pisk.rotation.z=0.05;
   }
   // muzzle flash decay
-  if(flashT>0){flashT-=dt;if(flashT<=0){flash.intensity=0;muzzleFlash.visible=false;}}
+  if(flashT>0){flashT-=dt;if(flashT<=0)flash.intensity=0;}
+  updateMuzzleFx(dt);
 }
 </script>
 <script>
@@ -3221,11 +3493,41 @@ function makeHumanoid(o){ // {skin,shirt,pants,hat,eyes,style}
   const hb=new Batch(M());
   hb.pbox(0.34,0.34,0.34,skin,0,0,0);
   hb.pbox(0.27,0.11,0.3,skin,0,-0.19,0.02);                // kjeve
-  hb.pbox(0.06,0.06,0.06,skin,0,-0.02,0.18);               // nase
+  hb.pbox(0.06,0.07,0.07,skin,0,-0.02,0.185);              // nase
+  hb.pbox(0.035,0.09,0.07,skin,-0.175,0,0.01);             // øyre
+  hb.pbox(0.035,0.09,0.07,skin,0.175,0,0.01);
+  // ---- ANSIKT ----
+  const eyeW=_hc(0xece7dd), pupil=_hc(0x2b2118), sock=_hc(0x241c14);
+  const hairC=_hc(o.hair||(zomb?0x6a5c48:0x53392a));
   if(zomb){
-    hb.pbox(0.2,0.05,0.05,_hc(0x2e241c),0,-0.11,0.17);     // open, hengande munn
-    hb.pbox(0.15,0.13,0.02,blood,0.02,-0.16,0.17);
-    hb.pbox(0.1,0.12,0.02,_hc(o.skin,0.5),-0.12,0.06,0.17); // rotnande flekk
+    for(const ex of [-0.09,0.09]){
+      hb.pbox(0.115,0.1,0.03,_hc(0x140f0a),ex,0.02,0.163); // djupe, innsokne augehòler
+      hb.pbox(0.125,0.028,0.03,_hc(o.skin,0.45),ex,0.095,0.168,0,0,ex>0?-0.22:0.22); // beinkant over auget
+    }
+    hb.pbox(0.22,0.07,0.05,_hc(0x2e241c),0,-0.115,0.17);   // open, hengande munn
+    for(let i=0;i<5;i++)                                    // tenner
+      hb.pbox(0.028,0.035,0.02,_hc(0xd8cfb8),-0.08+i*0.04,-0.095,0.182);
+    hb.pbox(0.15,0.13,0.02,blood,0.02,-0.165,0.175);        // blod ned kjeven
+    hb.pbox(0.1,0.12,0.02,_hc(o.skin,0.5),-0.12,0.06,0.172); // rotnande flekk
+    hb.pbox(0.07,0.05,0.02,_hc(o.skin,0.5),0.11,-0.06,0.172);
+  }else{
+    for(const ex of [-0.085,0.085]){
+      hb.pbox(0.105,0.075,0.022,sock,ex,0.035,0.163);       // augehòle i skugge
+      hb.pbox(0.082,0.052,0.016,eyeW,ex,0.032,0.174);       // det kvite i auget
+      hb.pbox(0.034,0.04,0.014,pupil,ex,0.03,0.181);        // pupill
+      hb.pbox(0.115,0.026,0.022,hairC,ex,0.093,0.172,0,0,ex>0?-0.16:0.16); // augebryn
+    }
+    const beard=Math.random();
+    if(beard<0.38){                                          // fullskjegg
+      hb.pbox(0.3,0.15,0.26,hairC,0,-0.145,0.035);
+      hb.pbox(0.17,0.05,0.05,hairC,0,-0.055,0.175);          // bart
+    }else if(beard<0.72){                                    // berre bart
+      hb.pbox(0.175,0.048,0.05,hairC,0,-0.055,0.175);
+      hb.pbox(0.13,0.025,0.02,_hc(0x3a2c22),0,-0.108,0.174); // munn
+    }else{                                                   // glattbarbert
+      hb.pbox(0.13,0.024,0.02,_hc(0x3a2c22),0,-0.095,0.174);
+      hb.pbox(0.24,0.07,0.2,_hc(o.skin,0.82),0,-0.15,0.06);  // skyggeskjegg
+    }
   }
   if(o.hat!==undefined&&o.hat!==null){
     const hat=_hc(o.hat);
@@ -3238,13 +3540,22 @@ function makeHumanoid(o){ // {skin,shirt,pants,hat,eyes,style}
     hb.pbox(0.3,0.07,0.3,_hc(0x7c6e58),0,0.16,0);          // tynne hårtjafsar
   }
   hb.into(head,true,false);
+  const eyeGlow=[];
   if(o.eyes){
-    const eb=new Batch(new THREE.MeshBasicMaterial({color:o.eyes}));
-    eb.pbox(0.062,0.05,0.02,null,-0.09,0.02,0.175);
-    eb.pbox(0.062,0.05,0.02,null,0.09,0.02,0.175);
-    eb.into(head,false,false);
-    const eg=skySprite('#ff2010',0.3);                      // dempa glød over begge augo
-    eg.position.set(0,0.02,0.2);head.add(eg);
+    // Kvart auge er ei lita, skarp glo med sin EIGEN glød — to brennande punkt djupt
+    // inne i hòlene, ikkje éin raud klatt som dekkjer heile andletet.
+    const irisM=new THREE.MeshBasicMaterial({color:o.eyes});
+    const coreM=new THREE.MeshBasicMaterial({color:0xffd8a0});
+    const ib=new Batch(irisM), cb2=new Batch(coreM);
+    for(const ex of [-0.09,0.09]){
+      ib.pbox(0.046,0.036,0.022,null,ex,0.02,0.172);        // sjølve glo-flata
+      cb2.pbox(0.018,0.016,0.024,null,ex,0.022,0.176);      // kvitglødande kjerne
+      const eg=new THREE.Sprite(new THREE.SpriteMaterial({map:skyDot,color:new THREE.Color(o.eyes),
+        transparent:true,depthWrite:false,fog:false,blending:THREE.AdditiveBlending,opacity:0.85}));
+      eg.scale.set(0.2,0.2,1);eg.position.set(ex,0.02,0.185);
+      head.add(eg);eyeGlow.push(eg);
+    }
+    ib.into(head,false,false);cb2.into(head,false,false);
   }
 
   // --- armar (pivot i skuldra, nøyaktig som før: y=1.4 i figurens rom)
@@ -3275,7 +3586,8 @@ function makeHumanoid(o){ // {skin,shirt,pants,hat,eyes,style}
   }
   const legL=leg(-1), legR=leg(1);
 
-  return {grp:grp,head:head,armL:armL,armR:armR,legL:legL,legR:legR,torso:torso,body:bodyMesh};
+  return {grp:grp,head:head,armL:armL,armR:armR,legL:legL,legR:legR,torso:torso,body:bodyMesh,
+    eyeGlow:eyeGlow,hunch:zomb?0.19:0};
 }
 
 // ---------------- ZOMBIES ----------------
@@ -3364,14 +3676,16 @@ function damageAnimal(a,dmg){
 }
 function updateZombie(z,dt){
   z.animT+=dt*z.speed*1.8;
-  // rykkjer til når han blir treft
-  if(z.hitT>0){
-    z.hitT-=dt;
-    z.grp.rotation.z=Math.sin(z.hitT*45)*0.15;
-    z.parts.head.rotation.x=-z.hitT*1.4;
-  }else if(z.grp.rotation.z!==0){
-    z.grp.rotation.z*=0.7;z.parts.head.rotation.x*=0.7;
-    if(Math.abs(z.grp.rotation.z)<0.01){z.grp.rotation.z=0;z.parts.head.rotation.x=0;}
+  if(z.hitT>0)z.hitT-=dt;
+  // augo pulserer og flammar opp i det han blir treft
+  if(z.parts.eyeGlow&&z.parts.eyeGlow.length){
+    const puls=0.72+Math.sin(G.time*3.1+z.animT*0.7)*0.16+Math.sin(G.time*11+z.animT)*0.06;
+    const flare=z.hitT>0?1+(z.hitT/(z.hitMax||0.3))*1.5:1;
+    for(const eg of z.parts.eyeGlow){
+      eg.material.opacity=Math.min(1,puls*flare);
+      const s=0.2*(0.92+(puls-0.72)*0.7)*(z.hitT>0?1+(z.hitT/(z.hitMax||0.3))*0.5:1);
+      eg.scale.set(s,s,1);
+    }
   }
   const res=pickTarget(z);
   const tgt=res.t,dist=res.dist;
@@ -3477,6 +3791,38 @@ function updateZombie(z,dt){
     z.groanT=rnd(5,13); // stønner av og til
     sfxGroan(z.grp.position.distanceTo(P.pos));
   }
+  // ---- TREFF-REAKSJON ----
+  // Lagt HELT til slutt så han overstyrer gangsyklusen: heile kroppen rykkjer bakover,
+  // hovudet slengjer, armane flyg opp og huda blinkar raudt.
+  {
+    const hm=z.hitMax||0.3;
+    if(z.hitT>0){
+      const k=z.hitT/hm;                       // 1 rett etter treffet -> 0
+      const wob=Math.sin(z.hitT*46)*k;         // dempa dirring
+      const side=z.hitSide||1;
+      const kick=z.hitHead?1.5:1;
+      z.parts.torso.rotation.x=(z.parts.hunch||0)-0.5*k*kick;   // brystet kastar seg bakover
+      z.parts.torso.rotation.z=wob*0.22*side;
+      z.parts.head.rotation.x=-1.15*k*kick;                     // hovudet slengjer bakover
+      z.parts.head.rotation.z=wob*0.5*side*kick;
+      z.parts.armL.rotation.x-=1.0*k;z.parts.armR.rotation.x-=1.0*k; // armane sprikar
+      z.parts.armL.rotation.z=-0.5*k;z.parts.armR.rotation.z=0.5*k;
+      z.parts.legL.rotation.x-=0.28*k;z.parts.legR.rotation.x+=0.28*k;
+      z.grp.rotation.z=wob*0.16;
+      // raudt blaff — berre eit KORT glimt i starten, ikkje ei lampe gjennom heile rykket
+      if(z.hitMats){
+        const fl=clamp((k-0.6)/0.4,0,1);
+        for(const m of z.hitMats)m.emissive.setRGB(0.26*fl,0.02*fl,0.01*fl);
+      }
+    }else if(z.hitOn){                          // rydd opp éin gong når reaksjonen er over
+      z.hitOn=false;
+      z.parts.torso.rotation.set(z.parts.hunch||0,0,0);
+      z.parts.head.rotation.set(0,0,0);
+      z.parts.armL.rotation.z=0;z.parts.armR.rotation.z=0;
+      z.grp.rotation.z=0;
+      if(z.hitMats)for(const m of z.hitMats)m.emissive.setRGB(0,0,0);
+    }
+  }
   // tett på Mio → skumle, lågmælte lydar (global nedkjøling så mange zombiar ikkje stablar støy)
   const pd=z.grp.position.distanceTo(P.pos);
   z.nearT=(z.nearT===undefined?rnd(0,3):z.nearT)-dt;
@@ -3490,7 +3836,17 @@ function damageZombie(z,dmg,head,dir,expl){
   z.hp-=dmg;
   blood(z.grp.position.clone().add(V3(0,head?1.6*z.scale:1,0)),head?22:14);
   if(dir&&!z.boss)z.grp.position.addScaledVector(dir,Math.min(0.45,dmg*0.012)); // knockback etter kaliber
-  if(!z.boss){z.staggerT=0.22;z.hitT=0.2;}                 // vakler og rykkjer til ved treff
+  if(!z.boss){
+    // sterkare rykk ved hardt treff og ved hovudtreff; sida varierer så det aldri ser likt ut
+    z.hitMax=head?0.42:clamp(0.24+dmg*0.0035,0.24,0.4);
+    z.hitT=z.hitMax;z.hitHead=!!head;z.hitSide=Math.random()<0.5?-1:1;z.hitOn=true;
+    z.staggerT=head?0.34:0.24;
+    if(!z.hitMats){ // materiala som skal blinke raudt — samla éin gong per zombie
+      z.hitMats=[];
+      for(const p of [z.parts.body,z.parts.head,z.parts.armL,z.parts.armR])
+        if(p)p.traverse(m=>{if(m.isMesh&&m.material&&m.material.emissive)z.hitMats.push(m.material);});
+    }
+  }
   if(z.hp<=0)killZombie(z,head,expl);
 }
 function killZombie(z,head,expl){
@@ -4080,13 +4436,65 @@ function makePickupMesh(kind){
   }
   return g;
 }
+// ETIKETT OVER PLUKKBARE TING — eit lite skilt av mørkt tre med farga kant,
+// nagler i hjørna og ei pil som peikar ned mot gjenstanden. Langt meir lesbart
+// enn gløidande lausflytande tekst, og det passar inn i western-stilen.
+function pickupLabel(text,col,star){
+  const W=512,H=180;
+  const tex=makeCanvasTex(W,H,(g)=>{
+    g.clearRect(0,0,W,H);
+    // finn breidda på skiltet ut frå teksten
+    let size=54;
+    g.font='bold '+size+'px "Rye","Special Elite",serif';
+    while(g.measureText(text).width>W-108&&size>18){size-=2;g.font='bold '+size+'px "Rye","Special Elite",serif';}
+    const tw=g.measureText(text).width;
+    const bw=Math.min(W-16,tw+70), bh=96, bx=(W-bw)/2, by=14;
+    const r=14;
+    const round=(x,y,w2,h2,rr)=>{
+      g.beginPath();
+      g.moveTo(x+rr,y);g.lineTo(x+w2-rr,y);g.quadraticCurveTo(x+w2,y,x+w2,y+rr);
+      g.lineTo(x+w2,y+h2-rr);g.quadraticCurveTo(x+w2,y+h2,x+w2-rr,y+h2);
+      g.lineTo(x+rr,y+h2);g.quadraticCurveTo(x,y+h2,x,y+h2-rr);
+      g.lineTo(x,y+rr);g.quadraticCurveTo(x,y,x+rr,y);g.closePath();
+    };
+    g.shadowColor='rgba(0,0,0,0.75)';g.shadowBlur=18;g.shadowOffsetY=5;
+    const pg=g.createLinearGradient(0,by,0,by+bh);      // mørk treplate
+    pg.addColorStop(0,'rgba(46,35,25,0.96)');
+    pg.addColorStop(0.5,'rgba(28,21,15,0.96)');
+    pg.addColorStop(1,'rgba(18,13,9,0.96)');
+    g.fillStyle=pg;round(bx,by,bw,bh,r);g.fill();
+    g.shadowColor='transparent';g.shadowBlur=0;g.shadowOffsetY=0;
+    g.strokeStyle=col;g.lineWidth=star?5:3.5;          // farga kant i gjenstandens kulør
+    round(bx+2,by+2,bw-4,bh-4,r-2);g.stroke();
+    g.strokeStyle='rgba(255,255,255,0.16)';g.lineWidth=1.5;
+    round(bx+8,by+8,bw-16,bh-16,r-5);g.stroke();       // tynn innerkant
+    for(const nx of [bx+16,bx+bw-16])for(const ny of [by+16,by+bh-16]){ // nagler
+      g.fillStyle='rgba(212,192,150,0.85)';g.beginPath();g.arc(nx,ny,3.4,0,6.29);g.fill();
+    }
+    g.textAlign='center';g.textBaseline='middle';
+    g.font='bold '+size+'px "Rye","Special Elite",serif';
+    g.shadowColor='rgba(0,0,0,0.9)';g.shadowBlur=6;g.shadowOffsetY=2;
+    g.fillStyle=star?'#fff2cc':'#f2e6cc';
+    g.fillText(text,W/2,by+bh/2+2);
+    g.shadowColor='transparent';g.shadowBlur=0;g.shadowOffsetY=0;
+    g.fillStyle=col;g.fillRect(W/2-tw/2-4,by+bh-24,tw+8,3); // farga strek under teksten
+    g.beginPath();                                          // peikepil ned mot tingen
+    g.moveTo(W/2-16,by+bh);g.lineTo(W/2+16,by+bh);g.lineTo(W/2,by+bh+30);g.closePath();
+    g.fillStyle='rgba(28,21,15,0.96)';g.fill();
+    g.strokeStyle=col;g.lineWidth=3;
+    g.beginPath();g.moveTo(W/2-16,by+bh+1);g.lineTo(W/2,by+bh+30);g.lineTo(W/2+16,by+bh+1);g.stroke();
+  });
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthWrite:false,fog:false}));
+  sp.scale.set(1.7,1.7*H/W,1);
+  return sp;
+}
 function spawnPickup(x,z,kind,amt){
   const def=PICKUP_DEFS[kind];
   const grp=new THREE.Group();
   grp.add(makePickupMesh(kind));
   const colStr='#'+def.color.toString(16).padStart(6,'0');
-  const lbl=textSprite(def.label,colStr,38,1.6,true); // glødande etikett
-  lbl.position.y=0.95;grp.add(lbl);
+  const lbl=pickupLabel(def.label,colStr,def.label.indexOf('★')>=0);
+  lbl.position.y=1.02;grp.add(lbl);
   const halo=skySprite(colStr,1.7); // glød på bakken
   halo.position.y=-0.42;halo.material.opacity=0.4;grp.add(halo);
   grp.position.set(x,0.6,z);
@@ -4315,7 +4723,7 @@ function victoryCine(){
 function cleanupSpecials(){
   if(KAIJU.grp){scene.remove(KAIJU.grp);KAIJU.grp=null;}
   KAIJU.alive=false;KAIJU.dormant=false;KAIJU.fallT=0;
-  for(const s of SKULLS)scene.remove(s.m);SKULLS.length=0;
+  for(const s of SKULLS){scene.remove(s.m);if(s.tail)scene.remove(s.tail);}SKULLS.length=0;
   unburnAll();
   $('nukeCount').classList.remove('on');G.nukeCountSec=null;
   for(const s of SLUGS)scene.remove(s.m);SLUGS.length=0;
