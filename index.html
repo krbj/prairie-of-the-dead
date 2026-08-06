@@ -404,6 +404,10 @@ const ri=(a,b)=>Math.floor(rnd(a,b+1));
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const lerp=(a,b,t)=>a+(b-a)*t;
 const V3=(x=0,y=0,z=0)=>new THREE.Vector3(x,y,z);
+// BYVEKST — heile landsbyen er blåst opp 40 % i utstrekning. Bygga held storleiken sin,
+// så byen får lengre gater, meir plass mellom husa og rom til fleire hus.
+// Må stå fyrst i fila: gatene og propane blir laga før bygningsrutenettet.
+var TG=1.4;
 const $=id=>document.getElementById(id);
 
 function raySphere(o,d,c,r){ // origin,dir(norm),center,radius -> t or -1
@@ -1224,6 +1228,7 @@ const MOUNTMATS=[]; // fjellmaterial som blir tinta etter tid på døgnet
 const roadMat=new THREE.MeshStandardMaterial({map:TEX.road,color:0xc6ab86,roughness:1,metalness:0});
 // (alle gater skalert 20 % opp saman med bygga — TS=1.2)
 function addRoad(w,d,x,z){
+  w*=TG;d*=TG;x*=TG;z*=TG; // gatene veks med byen
   const m=new THREE.Mesh(uvPlane(new THREE.PlaneGeometry(w,d),w,d,0.62),roadMat);
   m.rotation.x=-Math.PI/2;m.position.set(x,0.02,z);m.receiveShadow=true;scene.add(m);return m;
 }
@@ -1263,19 +1268,58 @@ function groundHeightAt(x,z,curY){
   }
   return g;
 }
+// Utvendig tretrapp opp til taket — vanger, trinn, stussbrett, bukkar under
+// og handlaup med spiler. Sjølve gangflata (RAMPS) er UENDRA, så både spelaren
+// og brørne går opp nøyaktig som før.
+const stairWoodM=new THREE.MeshStandardMaterial({map:TEX.wood,color:0x9a7448,roughness:0.94,metalness:0});
+const stairTreadM=new THREE.MeshStandardMaterial({map:TEX.plank,color:0x8a6a44,roughness:0.92,metalness:0});
+const stairIronM=new THREE.MeshStandardMaterial({map:TEX.metal,color:0x4e4a48,roughness:0.55,metalness:0.75});
 function addStairs(bx,bz,fw,fd,top,side){
   const sx=bx+side*(fw/2+0.75);
   const z0=bz+fd/2+1.6,z1=bz-fd/2+0.6;
   const len=z0-z1;
   RAMPS.push({x:sx,z:z0,dx:0,dz:-1,len:len,w:1.5,h0:0,h1:top});
-  const stepM=new THREE.MeshLambertMaterial({color:0x5a4328});
-  const n=Math.ceil(top/0.34);
+  const g=new THREE.Group();
+  const wb=new Batch(stairWoodM), tb=new Batch(stairTreadM), ib=new Batch(stairIronM);
+  const ang=Math.atan2(top,len);            // stigninga
+  const diag=Math.hypot(top,len);
+  const zc=(z0+z1)/2;
+  // to vanger som ber heile trappa
+  for(const ox of [-0.78,0.78])
+    wb.box(0.16,0.34,diag,ox,top/2-0.16,zc,0.8,ang);
+  const n=Math.max(3,Math.ceil(top/0.32));
   for(let i=0;i<n;i++){
-    const t=(i+0.5)/n;
-    const st=new THREE.Mesh(new THREE.BoxGeometry(1.5,0.13,len/n+0.08),stepM);
-    st.position.set(sx,t*top,z0-t*len);
-    st.castShadow=true;scene.add(st);
+    const t=(i+0.5)/n, y=t*top, z=z0-t*len;
+    tb.box(1.62,0.12,len/n+0.1,0,y,z,1.2);                       // trinn
+    wb.box(1.5,top/n-0.1,0.07,0,y-(top/n)/2,z-(len/n)/2+0.04,1.2); // stussbrett
+    ib.box(1.5,0.03,0.05,0,y-0.07,z+(len/n)/2-0.06,1.5);          // slitejern på framkanten
   }
+  // bukkar ned til bakken, så trappa ikkje ser ut til å sveve
+  const legs=Math.max(2,Math.round(len/2.4));
+  for(let i=1;i<=legs;i++){
+    const t=i/(legs+1), y=t*top, z=z0-t*len;
+    if(y<0.5)continue;
+    for(const ox of [-0.78,0.78]){
+      wb.box(0.15,y,0.15,ox,y/2,z,0.8);
+      wb.box(0.1,0.5,0.1,ox,y*0.55,z+0.28,1,0.6);                 // skråstiver
+    }
+    wb.box(1.7,0.12,0.12,0,y*0.42,z,1);                           // tverrband
+  }
+  // handlaup med spiler på YTTERSIDA (mot gata), så veggen står fri
+  const rx=side>=0?0.86:-0.86;
+  wb.box(0.11,0.11,diag,rx,top/2+0.98,zc,1.1,ang);                // handlaupet
+  const bal=Math.max(3,Math.round(diag/0.9));
+  for(let i=0;i<=bal;i++){
+    const t=i/bal, y=t*top, z=z0-t*len;
+    wb.box(0.07,0.98,0.07,rx,y+0.49,z,1.2);
+  }
+  // avsats øvst, i flukt med taket
+  tb.box(1.62,0.14,1.15,0,top,z1-0.5,1.2);
+  for(const ox of [-0.78,0.78])wb.box(0.15,top,0.15,ox,top/2,z1-0.95,0.8);
+  wb.box(0.11,0.11,1.2,rx,top+0.98,z1-0.5,1.1);
+  for(let i=0;i<3;i++)wb.box(0.07,0.98,0.07,rx,top+0.49,z1-0.02-i*0.48,1.2);
+  wb.into(g);tb.into(g);ib.into(g);
+  g.position.set(sx,0,0);scene.add(g);
 }
 function collideCircle(pos,r,feetY){
   feetY=feetY||0;
@@ -1326,7 +1370,7 @@ function signTex(text){
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{
   for(const s of SIGNS){drawSign(s.cv.getContext('2d'),s.cv.width,s.cv.height,s.text);s.tex.needsUpdate=true;}
 });
-const TS=1.2; // BYSKALA — heile rutenettet er 20 % større (bygga har same storleik, gatene rommelegare)
+const TS=1.2*TG; // BYSKALA — bygningsrutenettet (TG er definert heilt øvst i fila)
 function addBuilding(x,z,w,d,h,opts){
   opts=opts||{};
   x*=TS;z*=TS;
@@ -1487,10 +1531,45 @@ addBuilding(-38,-14.5,6,5,3.9,{rotY:Math.PI,windows:1,color:0x96714c});
 addBuilding(38,-14.5,6,5,3.9,{rotY:Math.PI,windows:1,color:0x6e5236});
 addBuilding(-38,53.5,6,5,3.9,{rotY:Math.PI,windows:1,color:0x8a6844});
 addBuilding(38,42.5,6,5,3.9,{windows:1,color:0x7a5a3a});
+// ---- NYE KVARTAL i den utvida byen ----
+// hovudgata: fleire forretningar mellom dei gamle
+addBuilding(-10,-20,8,6,5.1,{sign:'UNDERTAKER',porch:true,rotY:Math.PI/2,color:0x6a5442});
+addBuilding(10,-19,7,6,4.7,{sign:'DOCTOR',porch:true,rotY:-Math.PI/2,color:0xd8cdb8});
+addBuilding(-10,66,8,6,4.9,{sign:'LIVERY',porch:true,rotY:Math.PI/2,color:0x8a6844});
+addBuilding(10,66,7,6,4.6,{sign:'GUNSMITH',porch:true,rotY:-Math.PI/2,color:0x7a5a3a});
+addBuilding(-10,77,7,6,4.4,{sign:'BARBER',rotY:Math.PI/2,color:0x96714c});
+addBuilding(10,77,8,6,5.2,{sign:'ASSAY OFFICE',porch:true,rotY:-Math.PI/2,color:0xd8cdb8});
+addBuilding(-10,-31,7,6,4.5,{sign:'TELEGRAPH',rotY:Math.PI/2,color:0x8f8f88});
+addBuilding(10,-31,7,6,4.5,{sign:'SCHOOLHOUSE',porch:true,rotY:-Math.PI/2,color:0x96714c});
+// sidegatene: fleire bustadhus
+addBuilding(-17,-24,6,5,3.9,{rotY:-Math.PI/2,windows:1,color:0x6e5236});
+addBuilding(-17,24,6,5,4.1,{rotY:-Math.PI/2,windows:1,color:0x8a6844});
+addBuilding(-17,48,6,5,3.9,{rotY:-Math.PI/2,windows:1,color:0x7a5a3a});
+addBuilding(-17,62,6,5,4.1,{rotY:-Math.PI/2,windows:1,color:0x96714c});
+addBuilding(17,-26,6,5,3.9,{rotY:Math.PI/2,windows:1,color:0x96714c});
+addBuilding(17,9,6,5,4.1,{rotY:Math.PI/2,windows:1,color:0x8a6844});
+addBuilding(17,21,6,5,3.9,{rotY:Math.PI/2,windows:1,color:0x7a5a3a});
+addBuilding(17,58,6,5,4.1,{rotY:Math.PI/2,windows:1,color:0x6e5236});
+addBuilding(-27.5,-18,6,5,4,{rotY:Math.PI/2,windows:1,color:0x8a6844});
+addBuilding(-27.5,20,6,5,3.9,{rotY:Math.PI/2,windows:1,color:0x7a5a3a});
+addBuilding(-27.5,56,6,5,4.1,{rotY:Math.PI/2,windows:1,color:0x6e5236});
+addBuilding(27.5,-20,6,5,4,{rotY:-Math.PI/2,windows:1,color:0x96714c});
+addBuilding(27.5,16,6,5,3.9,{rotY:-Math.PI/2,windows:1,color:0x8a6844});
+addBuilding(27.5,46,6,5,4.1,{rotY:-Math.PI/2,windows:1,color:0x7a5a3a});
+addBuilding(27.5,58,6,5,3.9,{rotY:-Math.PI/2,windows:1,color:0x6e5236});
+// utkanten: lagerskur, kornmagasin og eit par småbruk
+addBuilding(-38,4,7,6,4.6,{sign:'WAREHOUSE',rotY:Math.PI/2,color:0x8a3a2a});
+addBuilding(38,10,7,6,4.6,{sign:'GRAIN STORE',rotY:-Math.PI/2,color:0x6a5442});
+addBuilding(-38,34,6,5,3.9,{windows:1,color:0x96714c});
+addBuilding(38,-2,6,5,3.9,{rotY:Math.PI,windows:1,color:0x8a6844});
+addBuilding(-38,66,6,5,3.9,{rotY:Math.PI,windows:1,color:0x7a5a3a});
+addBuilding(38,62,6,5,3.9,{windows:1,color:0x96714c});
+addBuilding(-48,26,6,5,4,{rotY:Math.PI/2,windows:1,color:0x6e5236});
+addBuilding(48,34,6,5,4,{rotY:-Math.PI/2,windows:1,color:0x8a6844});
 
 // church at north end — bygd av veggsegment slik at døropninga er eit EKTE hol i fasaden
 {
-  const CZ=-36; // TS-skalert plassering (enden av hovudgata)
+  const CZ=-36*TG; // TS-skalert plassering (enden av hovudgata)
   const ch=new THREE.Group();
   const wallM=new THREE.MeshStandardMaterial({map:TEX.adobe,color:0xf0e8d8,roughness:0.99,metalness:0});
   const chTrimM=new THREE.MeshStandardMaterial({map:TEX.wood,color:0x6e5238,roughness:0.92,metalness:0});
@@ -1573,16 +1652,16 @@ addBuilding(38,42.5,6,5,3.9,{windows:1,color:0x7a5a3a});
   // atombombe-rommet inne i kyrkja (skjult til siste nivå) — kyrkja står no på z=-36
   const nk=new THREE.Group();
   const ped=new THREE.Mesh(new THREE.BoxGeometry(1.2,1,1.2),new THREE.MeshLambertMaterial({color:0x3a3f45}));
-  ped.position.set(0,0.5,-38);nk.add(ped);
+  ped.position.set(0,0.5,CZ-2);nk.add(ped);
   const btn=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.34,0.18,12),
     new THREE.MeshLambertMaterial({color:0xd42f2f,emissive:0x661010}));
-  btn.position.set(0,1.1,-38);nk.add(btn);
+  btn.position.set(0,1.1,CZ-2);nk.add(btn);
   const cage=new THREE.Mesh(new THREE.BoxGeometry(0.9,0.1,0.9),new THREE.MeshLambertMaterial({color:0xb08830}));
-  cage.position.set(0,1.02,-38);nk.add(cage);
+  cage.position.set(0,1.02,CZ-2);nk.add(cage);
   const nlbl=textSprite('☢ ATOM BOMB ☢','#ff5040',40,2.2);
-  nlbl.position.set(0,2.3,-38);nk.add(nlbl);
+  nlbl.position.set(0,2.3,CZ-2);nk.add(nlbl);
   const nlight=new THREE.PointLight(0xff3020,0,12,2);
-  nlight.position.set(0,2,-37);nk.add(nlight);
+  nlight.position.set(0,2,CZ-1);nk.add(nlight);
   nk.visible=false;
   scene.add(nk);
   G.nukeRoom=nk;G.nukeLight=nlight;
@@ -1624,9 +1703,10 @@ function openChurch(){
   const i=COLLIDERS.indexOf(G.churchColl);
   if(i>=0)COLLIDERS.splice(i,1);
   // vegger med opning i front (kyrkja på z=-36)
-  addCollider(-4.2,-36,0.7,10.6,0.1);addCollider(4.2,-36,0.7,10.6,0.1);
-  addCollider(0,-41.2,8.6,0.7,0.1);
-  addCollider(-3.2,-30.8,3,0.7,0.1);addCollider(3.2,-30.8,3,0.7,0.1);
+  const CZ=-36*TG;
+  addCollider(-4.2,CZ,0.7,10.6,0.1);addCollider(4.2,CZ,0.7,10.6,0.1);
+  addCollider(0,CZ-5.2,8.6,0.7,0.1);
+  addCollider(-3.2,CZ+5.2,3,0.7,0.1);addCollider(3.2,CZ+5.2,3,0.7,0.1);
   G.nukeRoom.visible=true;
   banner('','☢ THE CHURCH DOOR HAS OPENED ☢');
   toast('Something waits inside the church...','bad');
@@ -1694,7 +1774,7 @@ function updateNuke(dt){
   const soilM=new THREE.MeshStandardMaterial({map:TEX.road,color:0x8a6c4c,roughness:1,metalness:0});
   const sb=new Batch(soilM);
   for(let i=0;i<11;i++){
-    const gx=rnd(-8,8)-6, gz=rnd(-48,-43), ry=rnd(-0.35,0.35), rz=rnd(-0.14,0.14), gh=rnd(0.8,1.25);
+    const gx=(rnd(-8,8)-6)*TG, gz=rnd(-48,-43)*TG, ry=rnd(-0.35,0.35), rz=rnd(-0.14,0.14), gh=rnd(0.8,1.25);
     if(Math.random()<0.72){                       // vanleg gravstein med rund topp
       gb.box(0.66,gh,0.17,gx,gh/2,gz,1.1,0,ry,rz);
       gb.add(new THREE.CylinderGeometry(0.33,0.33,0.17,10,1,false,0,Math.PI),gx,gh,gz,Math.PI/2,0,rz+Math.PI/2);
@@ -1731,8 +1811,8 @@ function updateNuke(dt){
   const ropeM=new THREE.MeshStandardMaterial({color:0x9a8a68,roughness:1,metalness:0});
   const rope=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.5,6),ropeM);
   rope.position.set(0,2.15,0);well.add(rope);
-  well.position.set(0,0,-1);scene.add(well);
-  addCollider(0,-1,2.6,2.6,0.15);
+  well.position.set(0,0,-1*TG);scene.add(well);
+  addCollider(0,-1*TG,2.6,2.6,0.15);
 }
 
 // mine (east)
@@ -1828,9 +1908,9 @@ function updateNuke(dt){
     const e=skySprite('#ff2211',0.55);
     e.position.set(-0.4+i*0.8,1.6,3.2);e.material.opacity=0;mine.add(e);G.mineEyes.push(e);
   }
-  mine.position.set(34,0,20);mine.rotation.y=-0.9;scene.add(mine);
-  addCollider(34,20,9,7,0.4);
-  G.minePos=V3(34,0,20);
+  mine.position.set(34*TG,0,20*TG);mine.rotation.y=-0.9;scene.add(mine);
+  addCollider(34*TG,20*TG,9,7,0.4);
+  G.minePos=V3(34*TG,0,20*TG);
 }
 
 // props
@@ -1841,6 +1921,7 @@ const propM={barrel:new THREE.MeshStandardMaterial({map:TEX.plank,color:0xa87b4c
   rock:new THREE.MeshStandardMaterial({color:0x9c9288,roughness:1,metalness:0,flatShading:true})};
 // tønne med stavar og jernband — ikkje berre ein sylinder
 function addBarrel(x,z){
+  x*=TG;z*=TG;
   const g=new THREE.Group();
   const bg=new THREE.CylinderGeometry(0.45,0.5,1,12,1);
   uvPlane(bg,3,1,1); // bordbreidda følgjer rundinga
@@ -1854,7 +1935,7 @@ function addBarrel(x,z){
 }
 // kasse med bordkledning og spikra rammeverk
 function addCrate(x,z,s){
-  s=s||1;
+  s=s||1;x*=TG;z*=TG;
   const g=new THREE.Group();
   const c=new THREE.Mesh(uvBox(new THREE.BoxGeometry(s,s,s),s,s,s,1.3),propM.crate);
   c.position.y=s/2;c.castShadow=true;c.receiveShadow=true;g.add(c);
@@ -1875,6 +1956,7 @@ addCrate(16.5,-1,1.1);addCrate(4.2,-3.6,0.8);addCrate(29,22.5,1);addCrate(-12,11
 addCrate(-20,-14,1);addCrate(20,20,0.9);addCrate(-27,18,0.8);addCrate(5,42,1);
 const fenceM=new THREE.MeshStandardMaterial({map:TEX.wood,color:0xa2825a,roughness:0.96,metalness:0});
 function addFence(x,z,len,rotY){
+  x*=TG;z*=TG;len*=TG;
   const f=new THREE.Group();
   const b=new Batch(fenceM);
   for(let i=0;i<=len;i+=2){
@@ -1914,7 +1996,7 @@ const grassM=new THREE.MeshStandardMaterial({color:0xa8a068,roughness:1,metalnes
   const bushB=new Batch(bushM), dryB=new Batch(dryM), grassB=new Batch(grassM);
   const flowerB=new Batch(new THREE.MeshStandardMaterial({color:0xe8b0c0,roughness:0.9,metalness:0}));
   for(let i=0;i<250;i++){
-    const a=rnd(0,Math.PI*2),r=rnd(72,320);
+    const a=rnd(0,Math.PI*2),r=rnd(72*TG,320);
     const x=Math.cos(a)*r,z=Math.sin(a)*r;
     const kind=Math.random();
     if(kind<0.26){ // saguaro med ribber og blomar på toppen
@@ -2520,10 +2602,10 @@ function makeTurretAt(x,z,top){
 function buildTurrets(){
   if(G.turretsBuilt)return;
   G.turretsBuilt=true;
-  makeTurretAt(-12,-9.6,5.3);  // saloon (John) — TS-skalert
-  makeTurretAt(-12,4.8,4.9);   // sheriff (Sigbjørn)
-  makeTurretAt(12,-7.2,4.9);   // landhandel (Kristoffer)
-  makeTurretAt(12,8.4,4.6);    // stall — MIO sin!
+  makeTurretAt(-12*TG,-9.6*TG,5.3);  // saloon (John) — TS-skalert
+  makeTurretAt(-12*TG,4.8*TG,4.9);   // sheriff (Sigbjørn)
+  makeTurretAt(12*TG,-7.2*TG,4.9);   // landhandel (Kristoffer)
+  makeTurretAt(12*TG,8.4*TG,4.6);    // stall — MIO sin!
   toast('GATLING TURRETS mounted on the roofs! (press E to use)');
 }
 function fireTurretShot(t){
@@ -2599,7 +2681,7 @@ envApply(0);
 <script>
 // ---------------- PLAYER ----------------
 const P={
-  pos:V3(0,1.7,44), vel:V3(), yaw:0, pitch:0,
+  pos:V3(0,1.7,44*TG), vel:V3(), yaw:0, pitch:0,
   hp:100, onGround:true, locked:false,
   cur:'revolver',
   owned:{revolver:true,pisk:true,hagle:false,dynamitt:false,gatling:false,bazooka:false},
@@ -2724,8 +2806,12 @@ vmLight.position.set(0.28,0.06,-0.3);camera.add(vmLight);
   rvB.box(0.048,0.07,0.14,0,0,0.005);                           // ramme
   rvG.box(0.05,0.005,0.3,0,0.034,-0.2);                          // gravert list langs løpet
   rvG.box(0.05,0.012,0.02,0,0.03,-0.075);                        // og eit lite beslag bak
+  // Tromma sit i ein haldar som peikar aksen langs løpet. Sjølve tromma står
+  // urotert inni, så ho kan spinne om SIN EIGEN akse utan å vagle.
+  const drumHolder=new THREE.Group();
+  drumHolder.rotation.x=Math.PI/2;drumHolder.position.set(0,0,-0.03);rv.add(drumHolder);
   const drum=new THREE.Mesh(new THREE.CylinderGeometry(0.042,0.042,0.09,12),steelL);
-  drum.rotation.z=Math.PI/2;drum.rotation.y=Math.PI/2;drum.position.set(0,0,-0.03);rv.add(drum);
+  drumHolder.add(drum);
   {  // seks synlege kammer i tromma (i tromma sitt eige rom peikar aksen langs Y)
     const cb=new Batch(steelD);
     for(let i=0;i<6;i++){
@@ -2863,8 +2949,13 @@ vmLight.position.set(0.28,0.06,-0.3);camera.add(vmLight);
     dynP.add(new THREE.CylinderGeometry(0.037,0.037,0.02,12),dx,-0.105,0);
   }
   for(const y of [-0.05,0.05])dynS.box(0.24,0.014,0.078,0,y,0,3);            // snor rundt bunten
-  dynS.add(new THREE.CylinderGeometry(0.009,0.009,0.1,6),0,0.16,0,0,0,0.35); // lunte
-  dynS.add(new THREE.CylinderGeometry(0.009,0.009,0.06,6),0.03,0.22,0,0,0,0.9);
+  // lunta er EIN samanhengande, krøllete snor — ikkje to avkutta pinnar
+  const fuseCurve=new THREE.CatmullRomCurve3([
+    V3(0,0.1,0),V3(0.005,0.155,0.012),V3(0.042,0.196,0.016),
+    V3(0.088,0.208,0.004),V3(0.116,0.185,-0.012),V3(0.126,0.152,-0.022)
+  ]);
+  dynS.add(new THREE.TubeGeometry(fuseCurve,20,0.0085,6,false),0,0,0);
+  dynS.add(new THREE.SphereGeometry(0.013,7,6),0.126,0.148,-0.023);           // opprispa tupp
   dynB.into(dn,false,false);dynS.into(dn,false,false);dynP.into(dn,false,false);
   VM.models.dynamitt=dn;
   for(const k in VM.models){VM.models[k].visible=false;VM.group.add(VM.models[k]);}
@@ -3278,7 +3369,7 @@ function tryFire(){
         shootRay(d.normalize(),w.dmg,true);
       }
     }
-    if(P.cur==='revolver'&&VM.revDrum)VM.revDrum.rotation.y+=Math.PI/4;
+    if(P.cur==='revolver'&&VM.revDrum)VM.revDrum.rotation.y+=Math.PI/3; // seks kammer = 60° per skot
     if(P.mag[P.cur]===0&&P.ammo[w.ammo]>0)setTimeout(()=>{if(P.mag[P.cur]===0)startReload();},220);
   }else if(P.cur==='gatling'){
     if(P.overheatT>0){P.fireT=0.2;return;}
@@ -3615,7 +3706,7 @@ function makeZombie(type,night){
     h.grp.position.copy(G.minePos).add(V3(rnd(-2,2),0,rnd(4,7)));
   }else{
     const a=rnd(0,Math.PI*2);
-    const rr=rnd(70,88); // ringen skalert med byen
+    const rr=rnd(70,88)*TG; // ringen skalert med byen
     h.grp.position.set(Math.cos(a)*rr,0,Math.sin(a)*rr);
   }
   const z={grp:h.grp,parts:h,hp:hp,maxHp:hp,speed:speed,dmg:dmg,scale:scale,type:type,
@@ -3891,7 +3982,7 @@ function spawnBoss(night){
   const bossDmg=Math.round(def.dmg*(1+(mult-1)*0.5));
   const h=makeHumanoid({skin:def.color,shirt:0x4e463c,pants:0x413a32,eyes:0xff2010,style:'zombie'});
   h.grp.scale.setScalar(def.scale);
-  h.grp.position.set(-8,0,-38); // graveyard
+  h.grp.position.set(-8*TG,0,-38*TG); // graveyard
   // cosmetics
   if(tier===3){ // crown
     const crown=new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.24,0.14,8),
@@ -3984,12 +4075,12 @@ function roofPathTo(bx,bz){
   ];
 }
 const BRO_DEFS=[
-  {name:'John',shirt:0xc0524a,hat:0x7a5c3c,anchor:V3(-3,0,-3),color:'#e07a6a',
-    wpn:'hagle',roofPath:roofPathTo(-12,-9.6)},      // saloon-taket — John har HAGLE
-  {name:'Sigbjørn',shirt:0x4a76c0,hat:0x4a4a50,anchor:V3(3,0,-3),color:'#7a9ae0',
-    wpn:'rifle',roofPath:roofPathTo(-12,4.8)},       // sheriff-taket — Sigbjørn har RIFLE
-  {name:'Kristoffer',shirt:0x46a068,hat:0xd8c9a4,anchor:V3(0,0,2.5),color:'#7ad08a',
-    wpn:'revolver',roofPath:roofPathTo(12,-7.2)}     // landhandel-taket — Kristoffer har REVOLVER
+  {name:'John',shirt:0xc0524a,hat:0x7a5c3c,anchor:V3(-3*TG,0,-3*TG),color:'#e07a6a',
+    wpn:'hagle',roofPath:roofPathTo(-12*TG,-9.6*TG)},      // saloon-taket — John har HAGLE
+  {name:'Sigbjørn',shirt:0x4a76c0,hat:0x4a4a50,anchor:V3(3*TG,0,-3*TG),color:'#7a9ae0',
+    wpn:'rifle',roofPath:roofPathTo(-12*TG,4.8*TG)},       // sheriff-taket — Sigbjørn har RIFLE
+  {name:'Kristoffer',shirt:0x46a068,hat:0xd8c9a4,anchor:V3(0,0,2.5*TG),color:'#7ad08a',
+    wpn:'revolver',roofPath:roofPathTo(12*TG,-7.2*TG)}     // landhandel-taket — Kristoffer har REVOLVER
 ];
 // synlege våpenmodellar — ein ser kva kvar bror skyt med
 function buildBroWeapon(kind){
@@ -4046,7 +4137,7 @@ for(const def of BRO_DEFS){
     new THREE.MeshBasicMaterial({color:0x5a0f0a,transparent:true,opacity:0.85}));
   pool.rotation.x=-Math.PI/2;pool.position.y=0.03;pool.visible=false;
   scene.add(pool);
-  BROS.push({name:def.name,color:def.color,grp:h.grp,parts:h,hp:450,maxHp:450,hurtT:0,
+  BROS.push({name:def.name,color:def.color,grp:h.grp,parts:h,hp:585,maxHp:585,hurtT:0,
     downed:false,fireT:rnd(0.5,1.5),wanderT:0,wander:V3(),anchor:def.anchor.clone(),
     animT:rnd(0,9),barkCd:0,mode:'well',wpts:null,wpi:0,roofUntil:0,roofPath:def.roofPath,
     pool:pool,cryT:0,helper:null,helpT:0,tHeat:0,tPause:0,
@@ -4247,6 +4338,16 @@ function updateBro(b,dt){
         const from=b.grp.position.clone().add(V3(0,1.5,0));
         spawnSlug(from,V3(kp.x+rnd(-35,35),rnd(110,260),kp.z+rnd(-35,35))); // glødande kuler sprutar over heile kjempa
         damageKaiju(16);
+      }
+      // ER HAN PÅ VEG? Då må han gå ferdig samtidig som han skyt — elles blir ein bror
+      // som står midt i trappa når kjempa dukkar opp ståande fast der heile natta.
+      if(b.mode==='toRoof'){
+        if(broMoveAlong(b,dt,3.4)){
+          b.mode='turret';
+          b.parts.legL.rotation.x=0;b.parts.legR.rotation.x=0;
+        }
+      }else if(b.mode==='toWell'){
+        if(broMoveAlong(b,dt,3.2)){b.mode='well';b.parts.legL.rotation.x=0;b.parts.legR.rotation.x=0;}
       }
       return;
     }
@@ -4512,7 +4613,7 @@ const AMMO_SPOTS=[
   [-12,25],[12,25],[-24,25],[24,25],
   [-12,-20],[12,-20],[-26,-20],[26,-20],
   [-4.6,-6],[4.6,-6],[17,-8],[-17,-10],[5,33],[-3,30],[28,24.5],[-28,22],[0,46],[-2,-38]
-].map(s=>[s[0]*1.2,s[1]*1.2]); // TS-skalert saman med byen
+].map(s=>[s[0]*1.2*TG,s[1]*1.2*TG]); // TS-skalert saman med byen
 function spotFree(x,z){
   for(const b of COLLIDERS){
     if(b.h>2&&x>b.minX-0.5&&x<b.maxX+0.5&&z>b.minZ-0.5&&z<b.maxZ+0.5)return false;
@@ -4654,14 +4755,14 @@ function ensureMio(){
 // intro cutscene
 function introCine(){
   ensureMio();
-  mioModel.position.set(0,0,8);
+  mioModel.position.set(0,0,8*TG);
   mioModel.rotation.y=Math.PI; // vender mot brødrene
   mioModel.visible=true;
   // stage: brothers by the well, Mio at road
-  BROS[0].grp.position.set(-1.6,0,1.6);BROS[0].grp.rotation.y=Math.PI*0.85;
-  BROS[1].grp.position.set(1.6,0,1.8);BROS[1].grp.rotation.y=-Math.PI*0.85;
-  BROS[2].grp.position.set(0,0,3);BROS[2].grp.rotation.y=Math.PI;
-  P.pos.set(0,1.7,8);P.yaw=0;P.pitch=0;
+  BROS[0].grp.position.set(-1.6*TG,0,1.6*TG);BROS[0].grp.rotation.y=Math.PI*0.85;
+  BROS[1].grp.position.set(1.6*TG,0,1.8*TG);BROS[1].grp.rotation.y=-Math.PI*0.85;
+  BROS[2].grp.position.set(0,0,3*TG);BROS[2].grp.rotation.y=Math.PI;
+  P.pos.set(0,1.7,8*TG);P.yaw=0;P.pitch=0;
   envApply(0);
   const broShot={camA:[3.6,2,7],camB:[3.1,1.9,6.4],lookA:[0,1.5,1.5]};
   const mioShot={camA:[-1.5,1.8,2.5],camB:[-1.2,1.75,3],lookA:[0.3,1.7,8]};
@@ -4753,7 +4854,7 @@ function resetAll(){
   clearPickups();
   G.day=1;G.night=0;G.kills=0;G.headshots=0;G.score=0;
   G.pending=0;G.bossPending=false;G.endless=false;G.bossCount=0;
-  P.hp=100;P.pos.set(0,1.7,44);P.yaw=0;P.pitch=0;P.vel.set(0,0,0);
+  P.hp=100;P.pos.set(0,1.7,44*TG);P.yaw=0;P.pitch=0;P.vel.set(0,0,0);
   P.owned={revolver:true,pisk:true,hagle:false,dynamitt:false,gatling:false,bazooka:false};
   P.mag={revolver:6,hagle:2};P.ammo={bullets:36,shells:0,dyn:0,rockets:0};
   P.cur='revolver';P.reloading=false;P.firing=false;
@@ -5011,7 +5112,7 @@ function retryDay(){
   $('bossBar').classList.remove('on');
   G.pending=0;G.bossPending=false;
   for(const d of DYNS)scene.remove(d.m);DYNS.length=0;
-  P.hp=100;P.pos.set(0,1.7,20);P.vel.set(0,0,0);
+  P.hp=100;P.pos.set(0,1.7,20*TG);P.vel.set(0,0,0);
   P.ammo.bullets=Math.max(P.ammo.bullets,24);
   if(P.owned.hagle)P.ammo.shells=Math.max(P.ammo.shells,6);
   if(P.owned.dynamitt)P.ammo.dyn=Math.max(P.ammo.dyn,2);
@@ -5206,7 +5307,7 @@ function updateInteract(dt){
       $('reviveFill').style.width=clamp(P.douseT/3*100,0,100)+'%';
       if(P.douseT>=3){extinguishFire(bucket.b);P.douseT=0;}
     }else{P.douseT=Math.max(0,(P.douseT||0)-dt*2);$('reviveFill').style.width=clamp(P.douseT/3*100,0,100)+'%';}
-  }else if(G.churchOpen&&!G.nuked&&Math.hypot(P.pos.x,P.pos.z+38)<2.6){
+  }else if(G.churchOpen&&!G.nuked&&Math.hypot(P.pos.x,P.pos.z+36*TG+2)<2.6){
     // atombombe-knappen i kyrkja
     shown=true;
     ptext.innerHTML='Hold <b>E</b> — ☢ ARM THE ATOM BOMB ☢';
