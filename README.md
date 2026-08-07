@@ -3,7 +3,7 @@
 
 **🎮 Spill nå: https://krbj.github.io/prairie-of-the-dead/** *(krever passord — spør eieren!)*
 
-Mio ankommer den forlatte cowboylandsbyen Dust Valley, der brødrene Cole, Silas
+Clay ankommer den forlatte cowboylandsbyen Dust Valley, der brødrene Cole, Silas
 og Wade har sverget en pakt: utslett zombie-viruset — eller dø i forsøket.
 Samle våpen om dagen, overlev hordene om natten. Hver tredje natt kommer en boss.
 På siste nivå venter gatling-kanoner på takene, flygende dødninghoder, en 270 meter

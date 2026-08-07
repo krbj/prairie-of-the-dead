@@ -345,7 +345,7 @@ document.getElementById('btnCoverStart').addEventListener('click',()=>{
   <div class="story">A virus has turned the little cowboy town of Dust Valley into a town of the dead.
     Only three brothers remain — Cole, Silas and Wade — bound by a sacred pact:
     <i>wipe out the virus, or die trying.</i><br><br>
-    You are <b style="color:var(--gold)">Mio</b>, a stranger riding in. By day you gather weapons and gear.
+    You are <b style="color:var(--gold)">Clay</b>, a stranger riding in. By day you gather weapons and gear.
     By night the hordes come. Every third night, something worse awakens…</div>
   <button class="btn" id="btnStart">PLAY</button>
   <div style="margin-top:6px;font-size:14px;color:#cbb98f">Start on day:
@@ -407,7 +407,7 @@ document.getElementById('btnCoverStart').addEventListener('click',()=>{
 "use strict";
 /* ============================================================
    DØDENS PRÆRIE — zombie-western FPS
-   Mio + brødrene Cole, Silas & Wade mot viruset.
+   Clay + brødrene Cole, Silas & Wade mot viruset.
    ============================================================ */
 
 // ---------------- utils ----------------
@@ -689,7 +689,7 @@ function sfxGroan(dist){
   const g=AU.ctx.createGain();_env(g,t,0.1,vol,dur);
   o.connect(fl);fl.connect(g);g.connect(AU.sfx);o.start(t);o.stop(t+dur+0.05);
 }
-function sfxZombieNear(dist){ // skummel, LÅGMÆLT rasping/knurring når zombien er tett på Mio
+function sfxZombieNear(dist){ // skummel, LÅGMÆLT rasping/knurring når zombien er tett på Clay
   if(!AU.ctx)return;
   const vol=clamp(1-dist/9,0,1)*0.13+0.04;
   if(sfxFile('znear'+ri(1,3),vol*2))return;
@@ -2030,9 +2030,23 @@ function updateNuke(dt){
   const well=new THREE.Group();
   const wStone=new THREE.MeshStandardMaterial({map:TEX.stone,color:0xa89e90,roughness:1,metalness:0});
   const wWood=new THREE.MeshStandardMaterial({map:TEX.wood,color:0x8a6a44,roughness:0.93,metalness:0});
-  const base=new THREE.Mesh(uvPlane(new THREE.CylinderGeometry(1.2,1.3,1,14,1),5,1,0.9),wStone);
+  // Brønnen er eit ROYR, ikkje ein sylinder: opa i toppen, med synleg sjakt
+  // som forsvinn ned i mørkret og ei glinsande vassflate langt der nede.
+  const base=new THREE.Mesh(uvPlane(new THREE.CylinderGeometry(1.2,1.3,1,16,1,true),5,1,0.9),wStone);
+  base.material.side=THREE.DoubleSide;
   base.position.y=0.5;base.castShadow=true;base.receiveShadow=true;well.add(base);
-  const rim=new THREE.Mesh(uvPlane(new THREE.CylinderGeometry(1.32,1.32,0.16,14,1),5,1,0.9),wWood);
+  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(1.06,0.9,7,16,1,true),
+    new THREE.MeshStandardMaterial({map:TEX.stone,color:0x2a2620,roughness:1,metalness:0,side:THREE.BackSide}));
+  shaft.position.y=-3.2;well.add(shaft);                    // sjakta nedover
+  const water=new THREE.Mesh(new THREE.CircleGeometry(0.86,16),
+    new THREE.MeshStandardMaterial({color:0x14202a,roughness:0.06,metalness:0.5}));
+  water.rotation.x=-Math.PI/2;water.position.y=-6.4;well.add(water); // vatnet langt nede
+  const lip=new THREE.Mesh(new THREE.RingGeometry(1.06,1.22,16),
+    new THREE.MeshStandardMaterial({map:TEX.stone,color:0x8e857a,roughness:1,side:THREE.DoubleSide}));
+  lip.rotation.x=-Math.PI/2;lip.position.y=0.995;well.add(lip); // steinkant rundt opninga
+  // open i begge endar — elles ville denne kransen kapsle att heile brønnen
+  const rim=new THREE.Mesh(uvPlane(new THREE.CylinderGeometry(1.32,1.32,0.16,16,1,true),5,1,0.9),wWood);
+  rim.material.side=THREE.DoubleSide;
   rim.position.y=1.04;rim.castShadow=true;well.add(rim);
   const rf=new THREE.Mesh(new THREE.ConeGeometry(1.55,1,6),
     new THREE.MeshStandardMaterial({map:TEX.shingle,color:0x8a6a4a,roughness:0.95,metalness:0}));
@@ -2471,10 +2485,20 @@ function makeDog(color,x,z){
   hb.pbox(0.16,0.05,0.12,dark,0.19,-0.12,0);           // kjeve
   hb.into(head,true,false);
   // halen i eiga gruppe (vinkar)
-  const tail=new THREE.Group();tail.position.set(-0.46,0.56,0);g.add(tail);
+  // Halen: fem ledd som bøyer seg oppover i ein boge, tjukk ved rota og
+  // spiss ytst, med lysare tupp. Han lograr frå sida til sida i updateDogs.
+  const tail=new THREE.Group();tail.position.set(-0.44,0.54,0);g.add(tail);
   const tb=new Batch(M());
-  tb.pbox(0.3,0.08,0.08,fur,-0.14,0.08,0,0,0,0.7);
-  tb.pbox(0.1,0.09,0.09,belly,-0.28,0.19,0);
+  {
+    let x=0,y=0,ang=0.45;
+    for(let i=0;i<5;i++){
+      const len=0.11-i*0.008, th=0.085-i*0.011;
+      x-=Math.cos(ang)*len;y+=Math.sin(ang)*len;
+      tb.pbox(len*1.35,th,th,i>=3?belly:fur,x,y,0,0,0,ang);
+      ang+=0.30;                       // bøyen aukar utover halen
+    }
+    tb.pbox(0.075,0.062,0.062,belly,x-0.05,y+0.05,0);   // lys tupp
+  }
   tb.into(tail,true,false);
   const legs=[];
   for(const p of [[-0.26,-0.1],[-0.26,0.1],[0.28,-0.1],[0.28,0.1]]){
@@ -2569,9 +2593,21 @@ function makeRoamHorse(color,x,z){
   }
   for(let i=0;i<7;i++)hb.pbox(0.12,0.2,0.5,mane,0.06+i*0.09,0.5-i*0.05,0,0,0,-0.5); // man
   hb.into(head,true,false);
-  const tail=new THREE.Group();tail.position.set(-0.96,1.3,0);g.add(tail);
+  // Hestehalen: ein tjukk, full hale som fell bakover og nedover, smalnar mot
+  // tuppen og har litt uryddige tjafsar — ikkje ein stabel like klossar.
+  const tail=new THREE.Group();tail.position.set(-0.9,1.34,0);g.add(tail);
   const tb=new Batch(M());
-  for(let i=0;i<4;i++)tb.pbox(0.16,0.28,0.16,mane,-0.06*i,-0.16-i*0.22,0,0,0,0.18);
+  {
+    let x=0,y=0,ang=-0.55;             // startar bakover, fell så nedover
+    for(let i=0;i<6;i++){
+      const len=0.19-i*0.012, w=0.26-i*0.03;
+      x-=Math.cos(ang)*len;y+=Math.sin(ang)*len;
+      tb.pbox(len*1.5,w,w*0.8,mane,x,y,0,0,0,ang);
+      ang-=0.24;
+    }
+    for(let i=0;i<3;i++)               // tjafsar som heng laust ytst
+      tb.pbox(0.09,0.2,0.07,mane,x+rnd(-0.05,0.05),y-0.12,rnd(-0.08,0.08),0,0,rnd(-0.3,0.3));
+  }
   tb.into(tail,true,false);
   const legs=[];
   for(const pp of [[-0.62,-0.24],[-0.62,0.24],[0.62,-0.24],[0.62,0.24]]){
@@ -2723,7 +2759,7 @@ function damageKaiju(d){
     G.kills++;G.score+=2500;G.kaijuDefeated=true;
     sfxKaijuRoar(1);
     toast('☠ THE COLOSSUS IS SLAIN! +2500');
-    bark('Wade','He is down! Stay on your feet, Mio!');
+    bark('Wade','He is down! Stay on your feet, Clay!');
     $('bossBar').classList.remove('on');
   }
 }
@@ -3010,8 +3046,8 @@ function burnDownBuilding(f){
   G.shake=Math.max(G.shake,0.35);
   G.burnedHouses=(G.burnedHouses||0)+1;
   toast('🔥 '+b.name+' BURNED DOWN! ('+G.burnedHouses+'/7)','bad');
-  if(G.burnedHouses===1&&!G.fireBark2){G.fireBark2=true;bark('Wade','One house is cinders. Seven and there is nothing left worth saving, Mio!');}
-  if(G.burnedHouses===3)bark('Cole','The town is burning, Mio! Shoot them out of the sky!');
+  if(G.burnedHouses===1&&!G.fireBark2){G.fireBark2=true;bark('Wade','One house is cinders. Seven and there is nothing left worth saving, Clay!');}
+  if(G.burnedHouses===3)bark('Cole','The town is burning, Clay! Shoot them out of the sky!');
   if(G.burnedHouses===6&&!G.fireBark4){G.fireBark4=true;bark('Silas','SIX gone! One more and Dust Valley dies tonight! SHOOT THEM DOWN!');}
   if(G.burnedHouses>=7&&G.state==='playing'&&P.hp>0){
     G.deathReason='Seven buildings burned to the ground — Dust Valley was lost to the flames.';
@@ -4070,7 +4106,7 @@ function updatePlayer(dt){
     camera.position.copy(P.pos).addScaledVector(cd,-7.2);
     camera.position.y=Math.max(t.top+1.2,camera.position.y+2.4);
     t.g.rotation.y=P.yaw; // løpa peikar FRAMOVER — langs siktet
-    if(G.mioBody){ // synleg Mio BAK kanona
+    if(G.mioBody){ // synleg Clay BAK kanona
       G.mioBody.grp.position.set(t.x,t.top,t.z).addScaledVector(V3(-Math.sin(P.yaw),0,-Math.cos(P.yaw)),-0.95);
       G.mioBody.grp.rotation.y=P.yaw+Math.PI;
       G.mioBody.armL.rotation.x=-1.25;G.mioBody.armR.rotation.x=-1.25;
@@ -4367,7 +4403,7 @@ function pickTarget(z){
   if(cur){
     const dead=cur.kind==='player'?P.hp<=0:(cur.kind==='animal'?cur.ref.hp<=0:(cur.ref.hp<=0||cur.ref.downed));
     if(dead)z.tgt=null;
-    // eit dyr som spring unna er ikkje verdt jakta — attende til brørne/Mio
+    // eit dyr som spring unna er ikkje verdt jakta — attende til brørne/Clay
     else if(cur.kind==='animal'&&z.grp.position.distanceTo(cur.ref.g.position)>18)z.tgt=null;
   }
   let res=nearestTarget(z.grp.position);
@@ -4549,7 +4585,7 @@ function updateZombie(z,dt){
       if(z.hitMats)for(const m of z.hitMats)m.emissive.setRGB(0,0,0);
     }
   }
-  // tett på Mio → skumle, lågmælte lydar (global nedkjøling så mange zombiar ikkje stablar støy)
+  // tett på Clay → skumle, lågmælte lydar (global nedkjøling så mange zombiar ikkje stablar støy)
   const pd=z.grp.position.distanceTo(P.pos);
   z.nearT=(z.nearT===undefined?rnd(0,3):z.nearT)-dt;
   if(pd<9&&z.nearT<=0&&!(G.nearCd>0)){
@@ -5023,7 +5059,7 @@ function bossDied(z){
   if(z.tier===3&&!G.endless&&G.night>=9){
     setTimeout(()=>{if(G.state==='playing')startVictory();},1800);
   }else{
-    bark('Wade','He is down! Stay on your feet, Mio!');
+    bark('Wade','He is down! Stay on your feet, Clay!');
     musicSet(G.phase==='night'?'night':'day');
   }
 }
@@ -5046,7 +5082,9 @@ function roofPathTo(bx,bz){
     [bx,bz]                            // bort til kanonplassen
   ];
 }
-const BRO_ARSENAL=['revolver','hagle','rifle','gatling','pisk']; // alt Mio har, utan dynamitt og bazooka
+// Fram til natt 10 har brørne berre revolver og hagle — det er alt som finst
+// att i Dust Valley. Gatlingane blir fyrst rigga opp den siste natta.
+const BRO_ARSENAL=['revolver','hagle'];
 const BRO_DEFS=[
   {name:'Cole',shirt:0xc0524a,hat:0x7a5c3c,anchor:V3(-3*TG,0,-3*TG),color:'#e07a6a',
     wpn:'hagle',roofPath:roofPathTo(-12*TG,-9.6*TG)},      // saloon-taket — Cole har HAGLE
@@ -5140,7 +5178,9 @@ for(const def of BRO_DEFS){
   // Brørne ber HEILE arsenalet ditt bortsett frå dynamitt og bazooka.
   // Alle modellane heng i handa; berre den aktive er synleg.
   const wpnModels={};
-  for(const k of BRO_ARSENAL){
+  // byggjer modellar for ALT dei kan kome til å halde: kvardagsvåpna,
+  // Silas si rifle, og gatlingane som blir rigga opp natt 10
+  for(const k of BRO_ARSENAL.concat(['rifle','gatling'])){
     const w=buildBroWeapon(k);
     // armen roterer -1.45 rad når han siktar; vi motroterer våpenet like mykje
     // slik at løpet peikar RETT FRAM i staden for opp i lufta
@@ -5243,7 +5283,8 @@ function updateBro(b,dt){
   if(wantGat){ if(b.wpn!=='gatling')b.wpn='gatling'; }
   else if(b.swapT<=0){
     b.swapT=rnd(14,30);
-    b.wpn=Math.random()<0.45?b.fav:BRO_ARSENAL[ri(0,BRO_ARSENAL.length-1)];
+    // dei byter mellom revolver og hagle (Silas held rifla si — den er hans eiga)
+    b.wpn=Math.random()<0.5?b.fav:BRO_ARSENAL[ri(0,BRO_ARSENAL.length-1)];
   }
   if(b.downed){
     // roper om hjelp og blør
@@ -5298,7 +5339,7 @@ function updateBro(b,dt){
         let t=null,td=16;
         for(const tt of TURRETS){
           const d=Math.hypot(tt.x-b.grp.position.x,tt.z-b.grp.position.z);
-          if(d<td&&tt.user!=='mio'){td=d;t=tt;}
+          if(d<td&&tt.user!=='clay'){td=d;t=tt;}
         }
         if(t){
           const kp=KAIJU.grp.position;
@@ -5463,15 +5504,15 @@ function updateBro(b,dt){
 }
 // battle barks
 const NIGHT_BARKS=[
-  ['Cole','For Dust Valley! Not one step back!'],
-  ['Cole','Hold the well — they are swarming!'],
-  ['Silas','Aim for the head, that stops them fastest!'],
-  ['Silas','The virus dies tonight, I swear it!'],
-  ['Wade','They are coming from the mine! Lots of them!'],
-  ['Wade','Save your ammo, Mio — the night is long!'],
-  ['Cole','For the pact, brothers! For the pact!'],
-  ['Silas','Behind you, Mio!'],
-  ['Wade','Is that all you have, you rotten wretches?!']
+  ['Cole','Hold the well! Not one step back!'],
+  ['Cole','They keep coming. So do we. Stand fast, Clay!'],
+  ['Cole','For the oath, brothers! For the oath!'],
+  ['Silas','Head shots. It is the only thing that ends them.'],
+  ['Silas','Behind you, Clay!'],
+  ['Silas','I know that face. I buried that man in June.'],
+  ['Wade','They are pouring out of the mine!'],
+  ['Wade','Count your shells, Clay. This night is long.'],
+  ['Wade','Come on then! We are still standing!']
 ];
 </script>
 <script>
@@ -5498,7 +5539,7 @@ function bark(who,text){
   s.classList.add('on');subT=3.6;
   if(!playVoice(who,text))sfxBark(who==='Cole'?300:who==='Silas'?240:280);
 }
-const SPEAKER_COLORS={Cole:'#e07a6a','Silas':'#7a9ae0',Wade:'#7ad08a',Mio:'#d9a441'};
+const SPEAKER_COLORS={Cole:'#e07a6a','Silas':'#7a9ae0',Wade:'#7ad08a',Clay:'#d9a441'};
 
 // ---------------- PICKUPS ----------------
 const PICKUPS=[];
@@ -5758,7 +5799,7 @@ function cineUpdate(dt){
 function cineEnd(){
   CINE.active=false;DLG.active=false;
   stopVoice();
-  if(mioModel)mioModel.visible=false;
+  if(clayModel)clayModel.visible=false;
   VM.group.visible=true;
   document.body.classList.remove('cine');
   $('caption').classList.remove('on');
@@ -5774,10 +5815,10 @@ function cineSkip(){
   cineEnd();
 }
 
-// Mio — synlig karakter i cutscener (FPS ellers)
-let mioModel=null;
+// Clay — synlig karakter i cutscener (FPS ellers)
+let clayModel=null;
 function ensureMio(){
-  if(mioModel)return mioModel;
+  if(clayModel)return clayModel;
   const h=makeHumanoid({skin:0xe8bd8e,shirt:0xa8834a,pants:0x6a5c4e,hat:0x5a4230});
   const serape=new THREE.Mesh(new THREE.BoxGeometry(0.62,0.36,0.42),new THREE.MeshLambertMaterial({color:0x8a2f2b}));
   serape.position.y=1.26;h.grp.add(serape);
@@ -5786,18 +5827,18 @@ function ensureMio(){
   const gun=new THREE.Mesh(new THREE.BoxGeometry(0.07,0.07,0.3),new THREE.MeshLambertMaterial({color:0x444a50}));
   gun.position.set(0,-0.6,0.12);h.armR.add(gun);
   h.grp.visible=false;scene.add(h.grp);
-  mioModel=h.grp;
-  return mioModel;
+  clayModel=h.grp;
+  return clayModel;
 }
 
 // intro cutscene
 function introCine(){
   ensureMio();
-  mioModel.position.set(0,0,8*TG);
-  mioModel.rotation.y=Math.PI; // vender mot brødrene
-  mioModel.visible=true;
-  // stage: brothers by the well, Mio at road
-  // alle tre snur seg mot Mio, som står lenger nede i gata
+  clayModel.position.set(0,0,8*TG);
+  clayModel.rotation.y=Math.PI; // vender mot brødrene
+  clayModel.visible=true;
+  // stage: brothers by the well, Clay at road
+  // alle tre snur seg mot Clay, som står lenger nede i gata
   const mioAt=V3(0,0,8*TG);
   BROS[0].grp.position.set(-1.6*TG,0,1.6*TG);
   BROS[1].grp.position.set(1.6*TG,0,1.8*TG);
@@ -5807,25 +5848,34 @@ function introCine(){
   P.pos.set(0,1.7,8*TG);P.yaw=0;P.pitch=0;
   envApply(0);
   const broShot={camA:[3.6,2,7],camB:[3.1,1.9,6.4],lookA:[0,1.5,1.5]};
-  const mioShot={camA:[-1.5,1.8,2.5],camB:[-1.2,1.75,3],lookA:[0.3,1.7,8]};
+  const clayShot={camA:[-1.5,1.8,2.5],camB:[-1.2,1.75,3],lookA:[0.3,1.7,8]};
   cineStart([
-    {dur:5.2,black:true,caption:'The Western Frontier, 1887.',
+    // Forteljaren snakkar medan kameraet glir gjennom ein daud by: over prærien,
+    // ned hovudgata, inn i gruva som bar sjukdommen, over gravlunden, og til slutt
+    // opp mot kyrkja. Ingen svart skjerm — du SER kva han fortel om.
+    {dur:5.2,camA:[220*TG,90,210*TG],camB:[120*TG,46,120*TG],lookA:[0,6,0],
+      caption:'The Western Frontier, 1887.',
       narr:'The western frontier. Eighteen eighty seven. Out past the last railhead, where the maps go blank and no law has ever ridden.'},
-    {dur:6.4,black:true,caption:'A sickness came, and Dust Valley died.',
+    {dur:6.4,camA:[42*TG,7,34*TG],camB:[10*TG,4.5,30*TG],lookA:[34*TG,4,20*TG],lookB:[34*TG,3,20*TG],
+      caption:'A sickness came out of the mine.',
       narr:'A sickness came down out of the mine. It took the town of Dust Valley in a single week. It did not let the dead lie still.'},
-    {dur:6.6,black:true,caption:'Three brothers stayed behind.',
+    {dur:6.6,camA:[0,3.2,54*TG],camB:[0,3.6,4*TG],lookA:[0,3,-30*TG],
+      caption:'Everyone who could run, ran.',
       narr:'Everyone who could run, ran. Three brothers stayed. They buried what was left of their kin, and they swore an oath over the graves.'},
-    {dur:5.4,black:true,caption:'They do not expect to live.',
+    {dur:5.4,camA:[-16*TG,5,-30*TG],camB:[-6*TG,2.6,-44*TG],lookA:[-6*TG,1,-46*TG],
+      caption:'They do not expect to live.',
       narr:'They do not expect to see the other side of this. They expect to win anyway.'},
+    {dur:4.4,camA:[0,3,-14*TG],camB:[0,6.5,-26*TG],lookA:[0,7,-50*TG],
+      caption:'Dust Valley'},
     {dur:6,camA:[42,24,42],camB:[26,13,28],lookA:[0,2,0],caption:'DUST VALLEY',small:'Population: 3',
       sfx:()=>{musicSet('day');}},
     {dur:5,camA:[1.5,2.1,34],camB:[1.5,1.95,13],lookA:[0,1.6,0],caption:'A stranger rides in through the dust...'},
     {dur:5,dlg:{who:'Cole',text:'Far enough, stranger. Hands where I can see them. Have they had their teeth in you?'},...broShot},
-    {dur:5,dlg:{who:'Mio',text:'Name is Mio. Nothing has bitten me yet. Only the sun and the road.'},...mioShot},
+    {dur:5,dlg:{who:'Clay',text:'Name is Clay. Nothing has bitten me yet. Only the sun and the road.'},...clayShot},
     {dur:5,dlg:{who:'Wade',text:'First living face in twenty-two days. We have counted every one of them.'},...broShot},
     {dur:5.5,dlg:{who:'Silas',text:'The sickness took Dust Valley whole. Our mother. Our neighbours. Everyone we ever knew is out there walking.'},...broShot},
     {dur:5.5,dlg:{who:'Cole',text:'We buried what we could and swore an oath over the graves. We end this plague, or we join it.'},...broShot},
-    {dur:5,dlg:{who:'Mio',text:'Then my road ends here. I will stand with you.'},...mioShot},
+    {dur:5,dlg:{who:'Clay',text:'Then my road ends here. I will stand with you.'},...clayShot},
     {dur:5,dlg:{who:'Wade',text:'Then arm yourself before dark. There is a shotgun under the saloon floor. Take it.'},...broShot},
     {dur:5,dlg:{who:'Silas',text:'The dead do not rest here. When the light goes, they come. They always come.'},camA:[2,1.9,4],camB:[2.4,2,4.4],lookA:[1.6,1.6,1.8],
       sfx:()=>sfxGroan(15)},
@@ -5843,17 +5893,17 @@ function introCine(){
 function victoryCine(){
   G.state='cutscene';
   ensureMio();
-  mioModel.position.set(0,0,7);
-  mioModel.rotation.y=Math.PI;
-  mioModel.visible=true;
+  clayModel.position.set(0,0,7);
+  clayModel.rotation.y=Math.PI;
+  clayModel.visible=true;
   const wellShot={camA:[4,2.2,5],camB:[3,2,4],lookA:[0,1.5,0]};
   cineStart([
     {dur:4,camA:[0,3,14],camB:[0,5,18],lookA:[0,2,0],caption:'Sunrise over Dust Valley',
       sfx:()=>{musicSet('day');sfxBell(3);}},
     {dur:5,dlg:{who:'Cole',text:'The Plague King is down. God help us... it is over.'},...wellShot},
     {dur:5,dlg:{who:'Silas',text:'The sickness dies with him. Dust Valley can sleep at last.'},...wellShot},
-    {dur:5,dlg:{who:'Wade',text:'We would have died out here without you, Mio. All three of us.'},...wellShot},
-    {dur:5.5,dlg:{who:'Mio',text:'The oath is kept, brothers. Let the sun come up on a clean prairie.'},
+    {dur:5,dlg:{who:'Wade',text:'We would have died out here without you, Clay. All three of us.'},...wellShot},
+    {dur:5.5,dlg:{who:'Clay',text:'The oath is kept, brothers. Let the sun come up on a clean prairie.'},
       camA:[-2,1.9,3],camB:[-2.5,2.1,3.6],lookA:[0.3,1.7,7]},
   ],()=>{
     G.state='victory';
@@ -5958,7 +6008,7 @@ function startDay(first){
   if(lines){
     lines.forEach((l,i)=>setTimeout(()=>{if(G.state==='playing')bark(l[0],l[1]);},1500+i*4200));
   }else if(!first&&G.day>9){
-    setTimeout(()=>{if(G.state==='playing')bark('Cole','This night will not end... Hold the line, Mio. We do not break.');},1500);
+    setTimeout(()=>{if(G.state==='playing')bark('Cole','This night will not end... Hold the line, Clay. We do not break.');},1500);
   }
 }
 function startNight(){
@@ -6020,11 +6070,37 @@ function startDawn(){
     startDay(false);
     P.frozen=false;
     $('whiteFade').style.opacity=0;
+    // Morgonen etter niande natt: Cole tek Clay til side ved brønnen.
+    // Dei KAN halde fram med å slåst — men han ber han om å vere klar til å
+    // sprengje alt saman når ordren kjem.
+    if(G.day===10&&!G.coleTalkDone){G.coleTalkDone=true;setTimeout(coleFinalTalk,1200);}
   },1600);
+}
+function coleFinalTalk(){
+  if(G.state!=='playing')return;
+  const wellCam={camA:[3.2,1.9,4.6],camB:[2.4,1.85,3.6],lookA:[0,1.6,-1*TG]};
+  const closeCam={camA:[-2.6,1.85,2.6],camB:[-2.0,1.8,2.2],lookA:[0.4,1.65,-0.6*TG]};
+  for(let i=0;i<BROS.length;i++){
+    const b=BROS[i];
+    b.grp.position.set([-1.8,1.8,0][i]*TG,0,[1.4,1.6,2.8][i]*TG);
+    b.grp.rotation.y=Math.atan2(-b.grp.position.x,-1*TG-b.grp.position.z);
+    b.mode='well';
+  }
+  P.pos.set(0,1.7,4.6*TG);P.yaw=Math.PI;
+  cineStart([
+    {dur:5.4,...wellCam,dlg:{who:'Cole',text:'Sit down a minute, Clay. Nine nights. I have watched men break in three.'}},
+    {dur:6.2,...closeCam,dlg:{who:'Cole',text:'I buried my mother with these hands. I have not slept a full night since. Neither have my brothers.'}},
+    {dur:6.4,...wellCam,dlg:{who:'Cole',text:'We can keep killing them. We are good at it now. But they do not run out, son. We do.'}},
+    {dur:6.6,...closeCam,dlg:{who:'Cole',text:'There is a bomb under the church. Old army thing. It will take the valley and everything crawling in it.'}},
+    {dur:6.2,...wellCam,dlg:{who:'Cole',text:'So fight on if you have it in you. I will stand beside you either way. But when I give the word, you run for that church and you blow the whole damn thing.'}},
+    {dur:5.2,...closeCam,dlg:{who:'Clay',text:'And you three? You will be standing in it.'}},
+    {dur:6.0,...wellCam,dlg:{who:'Cole',text:'We swore an oath over those graves. We never swore to walk away from it.'}},
+    {dur:5.6,...closeCam,dlg:{who:'Cole',text:'We are going to win this, Clay. One way or the other. Now go get ready.'}}
+  ],()=>{P.frozen=false;});
 }
 const SKULL_BARKS=[
   ['Cole','Skulls in the sky! Shoot them down before they hit the houses!'],
-  ['Silas','More of those flying skulls! Blast them out of the sky, Mio!'],
+  ['Silas','More of those flying skulls! Blast them out of the sky, Clay!'],
   ['Wade','Skulls incoming from all sides! Watch the sky!'],
   ['Cole','Do not let those skulls through!'],
   ['Silas','They are diving for the roofs! Take them down!'],
@@ -6091,15 +6167,15 @@ function updateNight(dt){
     G.lightningT=rnd(9,22);
     lightningStrike();
   }
-  // brørne ber Mio trykke på knappen (fast rekkefølge: Cole, Wade, Silas)
+  // brørne ber Clay trykke på knappen (fast rekkefølge: Cole, Wade, Silas)
   if(G.night>=10&&!G.nuked){
     G.nukeClock=(G.nukeClock||0)+dt;
     if(!G.nukeBark1&&G.nukeClock>12){
       G.nukeBark1=true;
-      bark('Cole','We cannot hold it, Mio... Arm the bomb in the church!');
+      bark('Cole','We cannot hold it, Clay... Arm the bomb in the church!');
       setTimeout(()=>{if(G.state==='playing')openChurch();},2500); // døra svingar opp etter Coles ord
     }
-    if(!G.nukeBark2&&G.nukeClock>55){G.nukeBark2=true;bark('Wade','There is nothing left to save, Mio! Burn it all!');}
+    if(!G.nukeBark2&&G.nukeClock>55){G.nukeBark2=true;bark('Wade','There is nothing left to save, Clay! Burn it all!');}
     if(!G.nukeBark3&&G.nukeClock>100){G.nukeBark3=true;bark('Silas','MIO! LIGHT IT UP! END IT!');}
   }
   // bazooka-slipp på siste nivå
@@ -6172,7 +6248,7 @@ function retryDay(){
   G.state='playing';
   startDay(false);
   $('lockHint').classList.add('on');
-  bark('Cole','On your feet, Mio. This town is not done with you yet.');
+  bark('Cole','On your feet, Clay. This town is not done with you yet.');
 }
 function saveBest(){
   if(G.score>G.best){G.best=G.score;try{localStorage.setItem('dp_best',''+G.best);}catch(e){}}
@@ -6280,8 +6356,8 @@ function closePause(){
 
 // ---------------- INTERACTION (E) ----------------
 const BRO_TIPS={
-  Cole:['Stay near the well after dark. We cover each other.','The revolver is faithful. The shotgun clears a room.','You took our oath the day you stayed, Mio.'],
-  'Silas':['Dynamite settles most arguments out here.','Aim for the head, Mio. Always the head.','Something with red eyes moved in the mine last night.'],
+  Cole:['Stay near the well after dark. We cover each other.','The revolver is faithful. The shotgun clears a room.','You took our oath the day you stayed, Clay.'],
+  'Silas':['Dynamite settles most arguments out here.','Aim for the head, Clay. Always the head.','Something with red eyes moved in the mine last night.'],
   Wade:['Beans and whiskey put a man back together.','Every third night brings something worse. Keep count.','My brothers say we will win. I have decided to believe them.']
 };
 function nearestTurret(){
@@ -6314,7 +6390,7 @@ function updateInteract(dt){
     prompt.classList.add('on');
     if(P.keys.KeyE&&!P.talkCd){
       P.talkCd=true;setTimeout(()=>P.talkCd=false,600);
-      nt.user='mio';P.mounted=nt;
+      nt.user='clay';P.mounted=nt;
       VM.group.visible=false;
       P.vel.set(0,0,0);P.firing=false;
       if(!G.mioBody){ // synleg kropp for tredjeperson
@@ -6484,7 +6560,7 @@ function updateRadar(){
   for(const b of BROS)plot(b.grp.position.x,b.grp.position.z,b.downed?'#7a1a14':b.color,3.2);
   for(const p of PICKUPS)plot(p.grp.position.x,p.grp.position.z,'#d9a441',2);
   if(G.churchOpen&&!G.nuked)plot(0,-38,'#ff5040',4); // atombomba
-  // Mio (pil som peikar framover)
+  // Clay (pil som peikar framover)
   c.fillStyle='#e8d9b0';
   c.beginPath();c.moveTo(cx,cy-6);c.lineTo(cx-4.5,cy+4.5);c.lineTo(cx+4.5,cy+4.5);c.closePath();c.fill();
 }

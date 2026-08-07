@@ -19,30 +19,60 @@ _Forteljaren i opninga. Varm, langsam western-royst. Som ein gammal mann som hug
 - `forteljar_9ffe6708.mp3`  
   <<They do not expect to see the other side of this. They expect to win anyway.>>
 
-## Cole (17 replikkar)
+## Cole (32 replikkar)
 
 _Eldstebroren. Barsk, myndig, forvitra av sol og sorg. Snakkar seint og tydeleg._
 
-- `cole_f45bb22c.mp3`  
-  <<The town is burning, Mio! Shoot them out of the sky!>>
+- `cole_35e29090.mp3`  
+  <<The town is burning, Clay! Shoot them out of the sky!>>
 - `cole_d6cecb11.mp3`  
   <<Far enough, stranger. Hands where I can see them. Have they had their teeth in you?>>
 - `cole_dafb1d77.mp3`  
   <<We buried what we could and swore an oath over the graves. We end this plague, or we join it.>>
 - `cole_32c57b89.mp3`  
   <<The Plague King is down. God help us... it is over.>>
-- `cole_66dd6439.mp3`  
-  <<This night will not end... Hold the line, Mio. We do not break.>>
+- `cole_1218ba45.mp3`  
+  <<This night will not end... Hold the line, Clay. We do not break.>>
 - `cole_dbacdeac.mp3`  
   <<Guns are hot! Give them everything, brothers!>>
 - `cole_7e0a1563.mp3`  
   <<Feel that in the ground? Something worse than dead is walking tonight.>>
-- `cole_c55d2848.mp3`  
-  <<We cannot hold it, Mio... Arm the bomb in the church!>>
-- `cole_9928bb62.mp3`  
-  <<On your feet, Mio. This town is not done with you yet.>>
+- `cole_b96f6a4b.mp3`  
+  <<Sit down a minute, Clay. Nine nights. I have watched men break in three.>>
+- `cole_274b1e2b.mp3`  
+  <<I buried my mother with these hands. I have not slept a full night since. Neither have my brothers.>>
+- `cole_2416eeb2.mp3`  
+  <<We can keep killing them. We are good at it now. But they do not run out, son. We do.>>
+- `cole_af84cd47.mp3`  
+  <<There is a bomb under the church. Old army thing. It will take the valley and everything crawling in it.>>
+- `cole_a9834c22.mp3`  
+  <<So fight on if you have it in you. I will stand beside you either way. But when I give the word, you run for that church and you blow the whole damn thing.>>
+- `cole_cb215fa2.mp3`  
+  <<We swore an oath over those graves. We never swore to walk away from it.>>
+- `cole_1ff8e0f9.mp3`  
+  <<We are going to win this, Clay. One way or the other. Now go get ready.>>
+- `cole_ff70cdd4.mp3`  
+  <<We cannot hold it, Clay... Arm the bomb in the church!>>
+- `cole_8ed1ac1e.mp3`  
+  <<On your feet, Clay. This town is not done with you yet.>>
 - `cole_93728128.mp3`  
   <<There he is! Put it in his skull!>>
+- `cole_275356c9.mp3`  
+  <<Hold the well! Not one step back!>>
+- `cole_eaaf954c.mp3`  
+  <<They keep coming. So do we. Stand fast, Clay!>>
+- `cole_e072888e.mp3`  
+  <<For the oath, brothers! For the oath!>>
+- `cole_959473d2.mp3`  
+  <<Something big is stirring underground. Tonight something worse is coming. Be ready.>>
+- `cole_f8d1d86c.mp3`  
+  <<I hear knives being sharpened in the mine... The Butcher comes tonight.>>
+- `cole_9e110f97.mp3`  
+  <<Tonight it ends, brothers. The Plague King himself. For the pact — for Dust Valley!>>
+- `cole_200a39cf.mp3`  
+  <<Skulls in the sky! Shoot them down before they hit the houses!>>
+- `cole_a608dc67.mp3`  
+  <<Do not let those skulls through!>>
 - `cole_d439af60.mp3`  
   <<I am down! Do not leave me out here! I do not want to go like they did!>>
 - `cole_c47a1f8.mp3`  
@@ -55,10 +85,10 @@ _Eldstebroren. Barsk, myndig, forvitra av sol og sorg. Snakkar seint og tydeleg.
   <<Stay near the well after dark. We cover each other.>>
 - `cole_2fb6dd39.mp3`  
   <<The revolver is faithful. The shotgun clears a room.>>
-- `cole_87d39f92.mp3`  
-  <<You took our oath the day you stayed, Mio.>>
+- `cole_819bbaae.mp3`  
+  <<You took our oath the day you stayed, Clay.>>
 
-## Silas (15 replikkar)
+## Silas (23 replikkar)
 
 _Skarpskyttaren. Djup og roleg. Seier lite, og meiner alt._
 
@@ -78,6 +108,22 @@ _Skarpskyttaren. Djup og roleg. Seier lite, og meiner alt._
   <<MIO! LIGHT IT UP! END IT!>>
 - `silas_e15de275.mp3`  
   <<Lord above... look at the size of it.>>
+- `silas_1213f869.mp3`  
+  <<Head shots. It is the only thing that ends them.>>
+- `silas_d2692e70.mp3`  
+  <<Behind you, Clay!>>
+- `silas_2882de5.mp3`  
+  <<I know that face. I buried that man in June.>>
+- `silas_22873b5d.mp3`  
+  <<The miners hid dynamite in the crates out east. Go get it!>>
+- `silas_224b9998.mp3`  
+  <<The Grave Robber was only the beginning. The virus digs deeper.>>
+- `silas_3c69d946.mp3`  
+  <<We are closing in on the source. I can feel it in the air.>>
+- `silas_6ee2ed69.mp3`  
+  <<More of those flying skulls! Blast them out of the sky, Clay!>>
+- `silas_b213f7b0.mp3`  
+  <<They are diving for the roofs! Take them down!>>
 - `silas_d439af60.mp3`  
   <<I am down! Do not leave me out here! I do not want to go like they did!>>
 - `silas_37784e42.mp3`  
@@ -88,29 +134,45 @@ _Skarpskyttaren. Djup og roleg. Seier lite, og meiner alt._
   <<Up you get, brother. I have got you.>>
 - `silas_c17dc9d1.mp3`  
   <<Dynamite settles most arguments out here.>>
-- `silas_789359ed.mp3`  
-  <<Aim for the head, Mio. Always the head.>>
+- `silas_ff439171.mp3`  
+  <<Aim for the head, Clay. Always the head.>>
 - `silas_72dafbca.mp3`  
   <<Something with red eyes moved in the mine last night.>>
 
-## Wade (14 replikkar)
+## Wade (22 replikkar)
 
 _Yngstemann. Ra, sint, trassig. Klamrar seg til trua pa siger._
 
-- `wade_9ff0cd5a.mp3`  
-  <<He is down! Stay on your feet, Mio!>>
-- `wade_505d25d3.mp3`  
-  <<One house is cinders. Seven and there is nothing left worth saving, Mio!>>
+- `wade_9d1deb06.mp3`  
+  <<He is down! Stay on your feet, Clay!>>
+- `wade_5caecd2f.mp3`  
+  <<One house is cinders. Seven and there is nothing left worth saving, Clay!>>
 - `wade_baa7d62f.mp3`  
   <<First living face in twenty-two days. We have counted every one of them.>>
 - `wade_3478387c.mp3`  
   <<Then arm yourself before dark. There is a shotgun under the saloon floor. Take it.>>
-- `wade_64190e98.mp3`  
-  <<We would have died out here without you, Mio. All three of us.>>
-- `wade_e9c9833d.mp3`  
-  <<There is nothing left to save, Mio! Burn it all!>>
+- `wade_8e11d3a4.mp3`  
+  <<We would have died out here without you, Clay. All three of us.>>
+- `wade_81564e41.mp3`  
+  <<There is nothing left to save, Clay! Burn it all!>>
 - `wade_6f404a1e.mp3`  
   <<Hold the line, brothers! Not one step back!>>
+- `wade_aa3584fb.mp3`  
+  <<They are pouring out of the mine!>>
+- `wade_f09613cb.mp3`  
+  <<Count your shells, Clay. This night is long.>>
+- `wade_c066b9f1.mp3`  
+  <<Come on then! We are still standing!>>
+- `wade_bb2be515.mp3`  
+  <<Did you find the shotgun in the saloon? Silas saw dynamite over by the mine.>>
+- `wade_6ebe27d1.mp3`  
+  <<The hordes grow every night. But so do we.>>
+- `wade_7b705443.mp3`  
+  <<One more night, and I reckon the Plague King himself will show.>>
+- `wade_3450e8b3.mp3`  
+  <<Skulls incoming from all sides! Watch the sky!>>
+- `wade_763889a8.mp3`  
+  <<Another wave of skulls! Keep shooting!>>
 - `wade_d439af60.mp3`  
   <<I am down! Do not leave me out here! I do not want to go like they did!>>
 - `wade_3e12ee42.mp3`  
@@ -125,15 +187,4 @@ _Yngstemann. Ra, sint, trassig. Klamrar seg til trua pa siger._
   <<Every third night brings something worse. Keep count.>>
 - `wade_78b59c07.mp3`  
   <<My brothers say we will win. I have decided to believe them.>>
-
-## Mio (3 replikkar)
-
-_Framandkaren som blir verande. Roleg og fast._
-
-- `mio_a1430395.mp3`  
-  <<Name is Mio. Nothing has bitten me yet. Only the sun and the road.>>
-- `mio_1ac176e2.mp3`  
-  <<Then my road ends here. I will stand with you.>>
-- `mio_d72d4e69.mp3`  
-  <<The oath is kept, brothers. Let the sun come up on a clean prairie.>>
 

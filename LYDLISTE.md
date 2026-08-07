@@ -10,17 +10,17 @@ Format: **MP3**. Filnavnene må stemme NØYAKTIG (små bokstaver). Replikkene er
 | Fil | Rolle | Replikk | Lengde |
 |---|---|---|---|
 | `john_a9c76925.mp3` | Cole | «Hold it right there, stranger! Hands where I can see them. Are you bitten?» | ~6 sek |
-| `mio_654f498b.mp3` | Mio | «The name is Mio. I am not bitten — just dusty and thirsty.» | ~4 sek |
+| `mio_654f498b.mp3` | Clay | «The name is Clay. I am not bitten — just dusty and thirsty.» | ~4 sek |
 | `kristoffer_a0566ccf.mp3` | Wade | «Then you are the first living soul we have seen in three weeks.» | ~5 sek |
 | `sigbjrn_31d5b44e.mp3` | Silas | «The virus took the whole town. Neighbors. Friends. Family... All of them.» | ~6 sek |
 | `john_d60c0340.mp3` | Cole | «We three swore a pact: we wipe out this virus — or we die trying.» | ~5 sek |
-| `mio_3e954d84.mp3` | Mio | «Then I ride no further. I am staying — and fighting beside you.» | ~5 sek |
+| `mio_3e954d84.mp3` | Clay | «Then I ride no further. I am staying — and fighting beside you.» | ~5 sek |
 | `kristoffer_829d7190.mp3` | Wade | «Good. Find weapons and ammo before sundown. An old shotgun is hidden in the saloon.» | ~6 sek |
 | `sigbjrn_caeecff0.mp3` | Silas | «Because when darkness falls... they come.» | ~3 sek |
 | `john_f370d716.mp3` | Cole | «The Plague King is dead... It is over. It is actually over.» | ~5 sek |
 | `sigbjrn_85f8a22f.mp3` | Silas | «The virus dies with him. Dust Valley can finally rest in peace.» | ~5 sek |
-| `kristoffer_72834249.mp3` | Wade | «We could never have done it without you, Mio. Never.» | ~4 sek |
-| `mio_d80253da.mp3` | Mio | «The pact is fulfilled, brothers. The sun rises over a free prairie.» | ~5 sek |
+| `kristoffer_72834249.mp3` | Wade | «We could never have done it without you, Clay. Never.» | ~4 sek |
+| `mio_d80253da.mp3` | Clay | «The pact is fulfilled, brothers. The sun rises over a free prairie.» | ~5 sek |
 | `kristoffer_a25e3640.mp3` | Wade | «Did you find the shotgun in the saloon? Silas saw dynamite over by the mine.» | ~6 sek |
 | `sigbjrn_22873b5d.mp3` | Silas | «The miners hid dynamite in the crates out east. Go get it!» | ~4 sek |
 | `john_959473d2.mp3` | Cole | «Something big is stirring underground. Tonight something worse is coming. Be ready.» | ~6 sek |
@@ -30,22 +30,22 @@ Format: **MP3**. Filnavnene må stemme NØYAKTIG (små bokstaver). Replikkene er
 | `sigbjrn_3c69d946.mp3` | Silas | «We are closing in on the source. I can feel it in the air.» | ~4 sek |
 | `kristoffer_7b705443.mp3` | Wade | «One more night, and I reckon the Plague King himself will show.» | ~5 sek |
 | `john_9e110f97.mp3` | Cole | «Tonight it ends, brothers. The Plague King himself. For the pact — for Dust Valley!» | ~6 sek |
-| `john_96b8ae29.mp3` | Cole | «The endless night goes on... Stand your ground, Mio!» | ~4 sek |
+| `john_96b8ae29.mp3` | Cole | «The endless night goes on... Stand your ground, Clay!» | ~4 sek |
 | `john_e21d100b.mp3` | Cole | «For Dust Valley! Not one step back!» | ~3 sek |
 | `john_59e71e38.mp3` | Cole | «Hold the well — they are swarming!» | ~3 sek |
 | `john_c15c6e0e.mp3` | Cole | «For the pact, brothers! For the pact!» | ~3 sek |
 | `sigbjrn_34147233.mp3` | Silas | «Aim for the head, that stops them fastest!» | ~3 sek |
 | `sigbjrn_fd302e0.mp3` | Silas | «The virus dies tonight, I swear it!» | ~3 sek |
-| `sigbjrn_15e965ac.mp3` | Silas | «Behind you, Mio!» | ~1 sek |
+| `sigbjrn_15e965ac.mp3` | Silas | «Behind you, Clay!» | ~1 sek |
 | `kristoffer_eda93e2b.mp3` | Wade | «They are coming from the mine! Lots of them!» | ~3 sek |
-| `kristoffer_58f681dc.mp3` | Wade | «Save your ammo, Mio — the night is long!» | ~3 sek |
+| `kristoffer_58f681dc.mp3` | Wade | «Save your ammo, Clay — the night is long!» | ~3 sek |
 | `kristoffer_db4eb9e0.mp3` | Wade | «Is that all you have, you rotten wretches?!» | ~3 sek |
 | `sigbjrn_27f6c10b.mp3` | Silas | «To the well! Here they come!» | ~2 sek |
 | `john_bc6f3bc4.mp3` | Cole | «Feel the ground shaking? Something big is coming tonight!» | ~4 sek |
 | `john_a5306f53.mp3` | Cole | «There he is! Aim for the head!» | ~2 sek |
 | `sigbjrn_331c688f.mp3` | Silas | «Holy smoke... he is HUGE!» | ~2 sek |
 | `kristoffer_39850cb7.mp3` | Wade | «Hold the line, brothers!» | ~2 sek |
-| `kristoffer_1542e067.mp3` | Wade | «He is down! Nice work, Mio!» | ~2 sek |
+| `kristoffer_1542e067.mp3` | Wade | «He is down! Nice work, Clay!» | ~2 sek |
 | `john_c47a1f8.mp3` | Cole | «Argh!» | ~1 sek |
 | `sigbjrn_8828f286.mp3` | Silas | «They bite hard tonight!» | ~2 sek |
 | `kristoffer_3e12ee42.mp3` | Wade | «I need help over here!» | ~2 sek |
@@ -62,25 +62,25 @@ Format: **MP3**. Filnavnene må stemme NØYAKTIG (små bokstaver). Replikkene er
 | `sigbjrn_9835648.mp3` | Silas | «Get up on the roofs!» | ~2 sek |
 | `kristoffer_9835648.mp3` | Wade | «Get up on the roofs!» | ~2 sek |
 | `john_a628c837.mp3` | Cole | «The gatling guns are ready! Open fire, brothers!» | ~4 sek |
-| `john_7bef2203.mp3` | Cole | «The town is burning, Mio! Shoot those skulls out of the sky!» | ~4 sek |
+| `john_7bef2203.mp3` | Cole | «The town is burning, Clay! Shoot those skulls out of the sky!» | ~4 sek |
 | `john_200a39cf.mp3` | Cole | «Skulls in the sky! Shoot them down before they hit the houses!» | ~4 sek |
-| `sigbjrn_ec0f38d5.mp3` | Silas | «More of those flying skulls! Blast them out of the sky, Mio!» | ~4 sek |
+| `sigbjrn_ec0f38d5.mp3` | Silas | «More of those flying skulls! Blast them out of the sky, Clay!» | ~4 sek |
 | `kristoffer_3450e8b3.mp3` | Wade | «Skulls incoming from all sides! Watch the sky!» | ~3 sek |
 | `john_a608dc67.mp3` | Cole | «Do not let those skulls through!» | ~2 sek |
 | `sigbjrn_b213f7b0.mp3` | Silas | «They are diving for the roofs! Take them down!» | ~3 sek |
 | `kristoffer_763889a8.mp3` | Wade | «Another wave of skulls! Keep shooting!» | ~3 sek |
 | `sigbjrn_735c5bbf.mp3` | Silas | «A house is on fire! The flames spread fast between the buildings — shoot those skulls down!» | ~6 sek |
-| `kristoffer_6d28ae2d.mp3` | Wade | «One house is ash already! If seven burn down, the whole town is lost, Mio — all hope gone!» | ~6 sek |
+| `kristoffer_6d28ae2d.mp3` | Wade | «One house is ash already! If seven burn down, the whole town is lost, Clay — all hope gone!» | ~6 sek |
 | `sigbjrn_47fc35.mp3` | Silas | «SIX houses gone! One more and Dust Valley is finished! SHOOT THE SKULLS!» | ~5 sek |
-| `john_1d79d023.mp3` | Cole | «It is no use, Mio... Arm the atom bomb in the church!» | ~4 sek |
-| `kristoffer_dc097adc.mp3` | Wade | «Yeah Mio, this is hopeless! Blow the whole damn thing!» | ~4 sek |
+| `john_1d79d023.mp3` | Cole | «It is no use, Clay... Arm the atom bomb in the church!» | ~4 sek |
+| `kristoffer_dc097adc.mp3` | Wade | «Yeah Clay, this is hopeless! Blow the whole damn thing!» | ~4 sek |
 | `sigbjrn_f18df5b.mp3` | Silas | «MIO!!! NUKE THIS SHIT!!!» | ~2 sek |
-| `john_5b1e6d37.mp3` | Cole | «Get up, Mio. Dust Valley still needs you!» | ~3 sek |
+| `john_5b1e6d37.mp3` | Cole | «Get up, Clay. Dust Valley still needs you!» | ~3 sek |
 | `john_88ae3a1b.mp3` | Cole | «Stay close to the well at night — we cover each other.» | ~4 sek |
 | `john_a6ba80cb.mp3` | Cole | «The revolver is faithful, but the shotgun stops a whole horde.» | ~5 sek |
-| `john_2a7becdd.mp3` | Cole | «The pact includes you too now, Mio.» | ~3 sek |
+| `john_2a7becdd.mp3` | Cole | «The pact includes you too now, Clay.» | ~3 sek |
 | `sigbjrn_faf0b01a.mp3` | Silas | «Dynamite solves most problems out west.» | ~3 sek |
-| `sigbjrn_225fbb53.mp3` | Silas | «Headshots, Mio. Always headshots.» | ~3 sek |
+| `sigbjrn_225fbb53.mp3` | Silas | «Headshots, Clay. Always headshots.» | ~3 sek |
 | `sigbjrn_878b0fc2.mp3` | Silas | «I saw red eyes inside the mine last night...» | ~3 sek |
 | `kristoffer_3fcb9a01.mp3` | Wade | «Beans and whiskey patch you right up.» | ~3 sek |
 | `kristoffer_190cedb1.mp3` | Wade | «Every third night something bigger comes. Count the nights.» | ~5 sek |
@@ -90,7 +90,7 @@ Format: **MP3**. Filnavnene må stemme NØYAKTIG (små bokstaver). Replikkene er
 
 | Fil | Beskrivelse | Lengde |
 |---|---|---|
-| `revolver.mp3` | Revolverskudd (Mio) | 0,3–0,6 sek |
+| `revolver.mp3` | Revolverskudd (Clay) | 0,3–0,6 sek |
 | `hagle.mp3` | Hagleskudd | 0,5–0,9 sek |
 | `gatling.mp3` | Ett gatling-skudd (spilles ~13x/sek — hold den KORT) | 0,1–0,2 sek |
 | `npc.mp3` | Dempet revolverskudd (brødrene) | 0,2–0,4 sek |
@@ -107,7 +107,7 @@ Format: **MP3**. Filnavnene må stemme NØYAKTIG (små bokstaver). Replikkene er
 | `heal.mp3` | Spiser/drikker | 0,5–1 sek |
 | `hit.mp3` | Treff-markør | 0,05–0,15 sek |
 | `headshot.mp3` | Hodeskudd-markør | 0,1–0,2 sek |
-| `hurt.mp3` | Mio tar skade | 0,3–0,6 sek |
+| `hurt.mp3` | Clay tar skade | 0,3–0,6 sek |
 | `groan1.mp3` | Zombiestønn 1 | 1–2 sek |
 | `groan2.mp3` | Zombiestønn 2 | 1–2 sek |
 | `groan3.mp3` | Zombiestønn 3 | 1–2 sek |
