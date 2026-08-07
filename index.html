@@ -2530,18 +2530,23 @@ function addCart(x,z,rotY,style){
     ib.add(new THREE.CylinderGeometry(0.1,0.1,0.18,10),sx,r,sz*0.78,0,0,Math.PI/2);
   }
   wb.into(g);ib.into(g);
-  if(style==='canvas'){                                       // presenning over buer
-    const cb=new Batch(cartCanvas), rb=new Batch(cartIron);
-    for(let i=0;i<4;i++){
-      const cx=-0.9+i*0.6;
-      rb.add(new THREE.TorusGeometry(0.72,0.035,6,14,Math.PI),cx,1.5,0,0,Math.PI/2,0);
+  if(style==='canvas'){
+    // Kalesja er eit HALVT ROYR over lasteplanet -- runda duk over jernbuer,
+    // ikkje lause flak som stikk ut i lufta.
+    const rb=new Batch(cartIron);
+    for(let i=0;i<5;i++)
+      rb.add(new THREE.TorusGeometry(0.7,0.032,6,16,Math.PI),-0.95+i*0.48,1.44,0,0,Math.PI/2,0);
+    rb.into(g);
+    const tilt=new THREE.Mesh(
+      new THREE.CylinderGeometry(0.72,0.72,2.35,18,1,true,0,Math.PI),cartCanvas);
+    tilt.rotation.z=Math.PI/2;          // aksen langs vogna
+    tilt.position.set(0,1.44,0);
+    tilt.castShadow=true;g.add(tilt);
+    const endM=new THREE.MeshStandardMaterial({color:0xc8bda2,roughness:1,metalness:0,side:THREE.DoubleSide});
+    for(const ex of [-1.18,1.18]){      // duk i begge endar, med opning
+      const cap=new THREE.Mesh(new THREE.RingGeometry(0.34,0.72,16,1,0,Math.PI),endM);
+      cap.rotation.y=Math.PI/2;cap.position.set(ex,1.44,0);g.add(cap);
     }
-    for(let i=0;i<9;i++){                                     // duken, med rifter
-      const a=Math.PI*(i/8);
-      if(i===3||i===6)continue;                               // hol i presenninga
-      cb.add(new THREE.PlaneGeometry(2.5,0.3),0,1.5+Math.sin(a)*0.72,Math.cos(a)*0.72,a-Math.PI/2,Math.PI/2,0);
-    }
-    cb.into(g,false,false);rb.into(g);
   }
   if(style==='loaded'){                                       // lasta med kister og tonner
     const lb=new Batch(new THREE.MeshStandardMaterial({map:TEX.plank,color:0xa8834e,roughness:0.94,metalness:0}));
@@ -4383,11 +4388,6 @@ function updatePlayer(dt){
   updateRagdolls(dt);
   updateBloodSplats(dt);
   updateHurtVision(dt);
-  updateBloodMoon(dt);
-  updateVision(dt);
-  // himmelkuppelen fylgjer kameraet — elles hamnar ein utanfor han i visjonen
-  skyDome.position.copy(camera.position);
-  stars.position.set(camera.position.x,0,camera.position.z);
 }
 </script>
 <script>
@@ -5480,6 +5480,7 @@ function triggerRoofEvent(){
   }
 }
 function updateBro(b,dt){
+  if(CINE.active)return;   // staa stille medan ei scene spelar
   b.barkCd-=dt;
   // bytt til gatling-modellen på siste nivå — ein SER kva dei skyt med
   const wantGat=G.night>=10&&G.phase==='night';
@@ -6357,35 +6358,68 @@ function visionExit(){
 }
 function coleNightSpeech(){
   const VIS_Y=VIS.Y;
-  const wide={camA:[4.6,2.4,6.2],camB:[3.4,2.1,4.8],lookA:[0,1.6,-1*TG]};
-  const onCole={camA:[-2.2,1.8,2.2],camB:[-1.7,1.75,1.8],lookA:[0.5,1.68,-0.8*TG]};
-  const onClay={camA:[1.8,1.8,-1.2],camB:[1.4,1.76,-0.8],lookA:[0,1.68,3.2]};
-  const up={camA:[0,2.2,3.0],camB:[0,3.6,3.6],lookA:[-40,40,-70]};
+  // Natta FALL med det same. Blodmanen star alt oppe medan Cole snakkar,
+  // sa scena spelar seg ut i raudt lys og ikkje i ettermiddagssol.
+  G.night=10;G.phase='night';G.phaseT=0;
+  envApply(1);
+  musicSet('boss');
+  // brorne staar i ein halvsirkel ved bronnen, vende mot Clay
+  const W=-1*TG;                       // bronnen sin z
   for(let i=0;i<BROS.length;i++){
     const b=BROS[i];
-    b.grp.position.set([-1.7,1.7,0][i]*TG,0,[1.5,1.7,3.0][i]*TG);
-    b.grp.rotation.y=Math.atan2(-b.grp.position.x,-1*TG-b.grp.position.z);
-    b.mode='well';
+    b.grp.position.set([-2.0,2.0,0.2][i]*TG,0,[1.2,1.4,2.6][i]*TG);
+    b.mode='well';b.downed=false;
+    b.parts.armL.rotation.set(0,0,0);b.parts.armR.rotation.set(0,0,0);
+    b.parts.legL.rotation.x=0;b.parts.legR.rotation.x=0;
   }
-  P.pos.set(0,1.7,4.4*TG);P.yaw=Math.PI;
+  const cole=BROS[0].grp.position, clayAt=V3(0,0,4.2*TG);
+  for(const b of BROS)
+    b.grp.rotation.y=Math.atan2(clayAt.x-b.grp.position.x,clayAt.z-b.grp.position.z);
+  P.pos.set(clayAt.x,1.7,clayAt.z);P.yaw=Math.PI;
+  ensureMio();
+  if(clayModel){clayModel.position.set(clayAt.x,0,clayAt.z);clayModel.rotation.y=Math.PI;clayModel.visible=true;}
+
+  // ---- kinematiske innstillingar ----
+  // Ansiktshogda er 1,62 m. Naerbileta staar under ein meter fra andletet, slik
+  // at vi ser augo og munnen -- ikkje heile mannen midt i gata.
+  const HEAD=1.63;
+  const est ={dur:6.2,camA:[8.5,1.3,9.6],camB:[5.6,1.7,6.8],lookA:[0,2.0,-1*TG],lookB:[-1,2.4,-1*TG]};
+  // COLE, naert: litt fra sida, sakte inn mot andletet
+  const onCole={camA:[cole.x-0.78,HEAD+0.1,cole.z+1.55],camB:[cole.x-0.5,HEAD+0.02,cole.z+1.12],
+                lookA:[cole.x,HEAD,cole.z],lookB:[cole.x,HEAD,cole.z]};
+  // CLAY, naert framanfra
+  const onClay={camA:[clayAt.x+0.62,HEAD+0.08,clayAt.z-1.55],camB:[clayAt.x+0.4,HEAD+0.02,clayAt.z-1.12],
+                lookA:[clayAt.x,HEAD,clayAt.z],lookB:[clayAt.x,HEAD,clayAt.z]};
+  // COLE nedanfra, med den raude himmelen bak hovudet
+  const heroic={camA:[cole.x+0.7,HEAD-0.5,cole.z+1.4],camB:[cole.x+0.45,HEAD-0.4,cole.z+1.05],
+                lookA:[cole.x,HEAD+0.04,cole.z],lookB:[cole.x,HEAD+0.06,cole.z]};
+  const crane={dur:7.0,camA:[2.5,1.8,6.5],camB:[5.5,11.5,16],lookA:[0,1.8,-1*TG],lookB:[0,2,-6*TG]};
+
   cineStart([
-    {dur:4.6,...wide,caption:'The tenth night',small:'Dust Valley'},
+    {...est,caption:'The tenth night',small:'Dust Valley',
+      sfx:()=>{G.shake=Math.max(G.shake,0.25);sfxKaijuRoar(0.35);}},
     {dur:5.4,...onClay,dlg:{who:'Clay',text:'I did not think it would end like this, Cole.'}},
     {dur:7.2,...onCole,dlg:{who:'Cole',text:'End? No, son. It does not end here. Dying is just another stretch of road. Every man rides it sooner or later.'}},
     {dur:4.8,...onClay,dlg:{who:'Clay',text:'And what is waiting at the end of it?'}},
-    {dur:6.6,...onCole,dlg:{who:'Cole',text:'The dust lifts. All that grey burns off you like morning haze off the flats. And then you see it.'}},
+    {dur:6.6,...heroic,dlg:{who:'Cole',text:'The dust lifts. All that grey burns off you like morning haze off the flats. And then you see it.'}},
     {dur:4.2,...onClay,dlg:{who:'Clay',text:'See what?'}},
     // ---- VISJONEN ----
     {dur:6.0,camA:[0,VIS_Y+2.2,-150],camB:[0,VIS_Y+3.0,-40],lookA:[0,VIS_Y+8,600],
-      sfx:()=>visionEnter(),
+      sfx:()=>{visionEnter();musicSet('day');},
       dlg:{who:'Cole',text:'White shores, Clay. And past them, green country with no end to it, under a sun that never quite sets.'}},
     {dur:7.4,camA:[0,VIS_Y+3.0,-30],camB:[0,VIS_Y+6.0,340],lookA:[0,VIS_Y+10,900],lookB:[0,VIS_Y+40,1800],
       dlg:{who:'Cole',text:'Rivers running clean. And every soul this valley took, standing out in that sun, waiting on you.'}},
-    {dur:5.0,camA:[0,VIS_Y+6,340],camB:[0,VIS_Y+7,420],lookA:[0,VIS_Y+30,1900],
-      sfx:()=>{setTimeout(visionExit,4200);}},
+    {dur:5.0,camA:[0,VIS_Y+6,340],camB:[0,VIS_Y+7,460],lookA:[0,VIS_Y+30,1900],
+      sfx:()=>{setTimeout(()=>{visionExit();musicSet('boss');},4200);}},
     {dur:4.8,...onClay,dlg:{who:'Clay',text:'Well. That does not sound so bad.'}},
-    {dur:6.4,...onCole,dlg:{who:'Cole',text:'No. No, it does not. Now load your gun, son. We have got one more night to get through first.'}}
-  ],()=>{P.frozen=false;startNight();});
+    {dur:6.4,...heroic,dlg:{who:'Cole',text:'No. No, it does not. Now load your gun, son. We have got one more night to get through first.'}},
+    {...crane,caption:'',sfx:()=>{G.shake=Math.max(G.shake,0.4);sfxKaijuRoar(0.6);}}
+  ],()=>{
+    if(clayModel)clayModel.visible=false;
+    P.frozen=false;
+    G.night=9;G.phase='day';     // startNight tel opp sjolv
+    startNight();
+  });
 }
 function startNight(){
   // Kvelden for den siste natta tek Cole Clay til side ein gong til.
@@ -6579,7 +6613,9 @@ function updateNight(dt){
     }
   }
   // night over?
-  if(G.pending<=0&&ZOMBIES.length===0&&!G.boss&&!G.bossPending&&!KAIJU.alive&&KAIJU.fallT<=0&&SKULLS.length===0){
+  // ikkje avslutt natta medan ein cutscene spelar — elles blir natt 10 'overlevd'
+  // i det same talen startar, og blodmanen slokner midt i scena
+  if(!CINE.active&&G.pending<=0&&ZOMBIES.length===0&&!G.boss&&!G.bossPending&&!KAIJU.alive&&KAIJU.fallT<=0&&SKULLS.length===0){
     banner('','YOU SURVIVED THE NIGHT');
     G.phase='dawnwait';
     setTimeout(()=>{if(G.state==='playing')startDawn();},1300);
@@ -6972,6 +7008,13 @@ function lightningStrike(){
 
 // ---------------- AMBIENT ANIMS ----------------
 function updateAmbient(dt){
+  // desse maa gaa OGSAA under cutscener — elles slokner blodmanen midt i talen
+  updateBloodMoon(dt);
+  updateVision(dt);
+  // himmelkuppelen fylgjer kameraet — elles hamnar ein utanfor han i visjonen
+  skyDome.position.copy(camera.position);
+  stars.position.set(camera.position.x,0,camera.position.z);
+
   updateDogs(dt);
   updateHorses(dt);
   // tumbleweed — rullar med vinden, sprett litt og dukkar opp att på andre sida
