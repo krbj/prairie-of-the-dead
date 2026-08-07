@@ -2635,63 +2635,60 @@ function spawnKaiju(dormant){
   }
   if(KAIJU.grp)scene.remove(KAIJU.grp);
   const s=150; // ≈60x hushøgd — ein levande skyskrapar
-  const g=new THREE.Group();
-  // Rotnande kjempe: mørk hud med glødande sprekker, utstikkande ribbein, ryggpiggar
-  // og eit lyskastar-skinn opp mot overkroppen så han ikkje berre er ein svart silhuett.
-  const m=new THREE.MeshStandardMaterial({color:0x2e3a26,roughness:0.95,metalness:0,
-    emissive:0x160c06,fog:false});
-  const boneK=new THREE.MeshStandardMaterial({color:0xb8ad90,roughness:0.8,metalness:0,
-    emissive:0x241608,fog:false});
-  const glowK=new THREE.MeshBasicMaterial({color:0xff5a18,fog:false}); // glødande sprekker
-  const kb=new Batch(m), bk=new Batch(boneK), gk=new Batch(glowK);
-  const body=new THREE.Mesh(new THREE.BoxGeometry(0.52*s,0.75*s,0.3*s),m);body.position.y=1.05*s;g.add(body);
-  const head=new THREE.Mesh(new THREE.BoxGeometry(0.36*s,0.36*s,0.36*s),m);head.position.y=1.62*s;g.add(head);
-  // brystkasse med ribbein som stikk ut gjennom huda
-  for(let i=0;i<6;i++){
-    const y=(1.24+i*0.085)*s, w=(0.44-i*0.028)*s*rnd(0.88,1.06);
-    const off=rnd(-0.02,0.02)*s, tilt=rnd(-0.05,0.05);
-    bk.box(w,0.032*s,0.05*s,off,y,0.16*s,0.3,0,0,tilt);              // ribbein, aldri heilt like
-    gk.box(w*0.9,0.011*s,0.02*s,off,y-0.043*s,0.166*s,0.3,0,0,tilt); // glo mellom ribbeina
+  // KOLOSSEN er den same figuren som zombiane på bakken — bygd med makeHumanoid,
+  // med hunch, andlet, ribbein, filler og klør — berre blåsen opp 150 gonger og
+  // gjeven eit lag ekstra grufullheit oppå. Difor rører han seg og ser ut som ein
+  // zombie, ikkje som ein stabel kasser.
+  const kh=makeHumanoid({skin:0x4a6338,shirt:0x3e3a32,pants:0x342f28,
+    eyes:0xff2010,style:'zombie',gore:true,hair:0x2e2820});
+  const g=kh.grp;
+  g.scale.setScalar(s);
+  const boneK=new THREE.MeshStandardMaterial({color:0xc4b89a,roughness:0.78,metalness:0,emissive:0x2a1a0a});
+  const glowK=new THREE.MeshBasicMaterial({color:0xff5a18});
+  const bk=new Batch(boneK), gk=new Batch(glowK);
+  // ---- EKSTRA GRUFULLHEIT i kolossformat (lokale einingar — gruppa er skalert) ----
+  for(let i=0;i<7;i++){                                   // ryggpiggar langs ryggrada
+    bk.add(new THREE.ConeGeometry(0.05-i*0.004,0.2,5),0,0.86+i*0.12,-0.19,-0.55);
   }
-  for(let i=0;i<5;i++){                                               // oppsprukken hud nedover magen
-    const y=(0.86+i*0.055)*s;
-    gk.box(rnd(0.02,0.035)*s,rnd(0.05,0.11)*s,0.02*s,rnd(-0.2,0.2)*s,y,0.16*s,0.3,0,0,rnd(-0.4,0.4));
+  for(const sx of [-1,1]){
+    bk.add(new THREE.ConeGeometry(0.075,0.3,6),sx*0.3,1.44,0,0,0,sx*1.25);   // skulderpiggar
+    bk.add(new THREE.ConeGeometry(0.05,0.2,5),sx*0.24,1.3,-0.14,-0.7,0,sx*0.5);
   }
-  bk.box(0.5*s,0.06*s,0.06*s,0,0.7*s,0.15*s,0.3);                     // hoftebein
-  for(let i=0;i<7;i++)                                                 // ryggpiggar
-    bk.add(new THREE.ConeGeometry(0.035*s-i*0.002*s,0.16*s,5),0,(0.82+i*0.13)*s,-0.17*s,-0.5);
-  for(const sx of [-1,1]){                                            // skulderpiggar
-    bk.add(new THREE.ConeGeometry(0.06*s,0.24*s,6),sx*0.28*s,1.42*s,0,0,0,sx*1.2);
-    bk.box(0.05*s,0.3*s,0.05*s,sx*0.24*s,1.2*s,0.14*s,0.3);           // kragebein
+  for(let i=0;i<6;i++){                                   // rivne sprekker som glør gjennom huda
+    gk.box(rnd(0.02,0.045),rnd(0.08,0.2),0.02,rnd(-0.2,0.2),0.82+i*0.07,0.16,undefined,0,0,rnd(-0.5,0.5));
   }
-  // kjeve og tenner
-  bk.box(0.3*s,0.05*s,0.28*s,0,1.5*s,0.03*s,0.3);
-  for(let i=0;i<6;i++){
-    bk.add(new THREE.ConeGeometry(0.018*s,0.07*s,4),(-0.12+i*0.048)*s,1.53*s,0.16*s,Math.PI);
-    bk.add(new THREE.ConeGeometry(0.016*s,0.06*s,4),(-0.11+i*0.045)*s,1.47*s,0.16*s);
+  gk.box(0.34,0.02,0.02,0,1.18,0.165);
+  gk.box(0.24,0.02,0.02,0.04,1.02,0.165);
+  bk.box(0.52,0.07,0.07,0,0.72,0.15);                     // hoftebeinet stikk ut
+  bk.box(0.06,0.34,0.06,0.22,1.26,0.13,undefined,0,0,0.25); // brote kragebein
+  bk.into(g,false,false);gk.into(g,false,false);
+  // horn og lange hoggtenner i kjeften
+  {
+    const hbk=new Batch(boneK), hgk=new Batch(glowK);
+    for(const sx of [-1,1])
+      hbk.add(new THREE.ConeGeometry(0.05,0.34,6),sx*0.14,0.16,-0.02,-0.35,0,sx*0.75); // horn
+    for(let i=0;i<6;i++){
+      hbk.add(new THREE.ConeGeometry(0.019,0.09,4),-0.12+i*0.048,-0.1,0.17,Math.PI);
+      hbk.add(new THREE.ConeGeometry(0.017,0.075,4),-0.11+i*0.045,-0.19,0.17);
+    }
+    hgk.box(0.26,0.025,0.02,0,-0.145,0.178);              // glo djupt i gapet
+    hbk.into(kh.head,false,false);hgk.into(kh.head,false,false);
   }
-  gk.box(0.26*s,0.03*s,0.02*s,0,1.5*s,0.175*s,0.3);                   // glo i gapet
-  kb.into(g,false,false);bk.into(g,false,false);gk.into(g,false,false);
-  KAIJU.eyes=[];
-  for(const ex of [-0.09,0.09]){
-    const eye=skySprite('#ff2010',14);
-    eye.position.set(ex*s,1.66*s,0.19*s);g.add(eye);KAIJU.eyes.push(eye);
-  }
-  const armG=new THREE.BoxGeometry(0.14*s,0.68*s,0.14*s);armG.translate(0,-0.3*s,0);
-  const armL=new THREE.Mesh(armG,m);armL.position.set(-0.34*s,1.4*s,0);g.add(armL);
-  const armR=new THREE.Mesh(armG.clone(),m);armR.position.set(0.34*s,1.4*s,0);g.add(armR);
-  for(const [arm,sx] of [[armL,-1],[armR,1]]){                        // klør på kvar hand
+  for(const arm of [kh.armL,kh.armR]){                    // lange klør på kvar hand
     const cb3=new Batch(boneK);
     for(let i=0;i<4;i++)
-      cb3.add(new THREE.ConeGeometry(0.022*s,0.16*s,5),(-0.05+i*0.033)*s,-0.68*s,0.02*s,Math.PI*0.92);
+      cb3.add(new THREE.ConeGeometry(0.028,0.2,5),-0.05+i*0.033,-0.74,0.03,Math.PI*0.92);
     cb3.into(arm,false,false);
   }
-  const legG=new THREE.BoxGeometry(0.17*s,0.7*s,0.17*s);legG.translate(0,-0.35*s,0);
-  const legL=new THREE.Mesh(legG,m);legL.position.set(-0.14*s,0.7*s,0);g.add(legL);
-  const legR=new THREE.Mesh(legG.clone(),m);legR.position.set(0.14*s,0.7*s,0);g.add(legR);
-  // (lyskastaren og bryst-lyset er laga ÉIN gong ved oppstart — sjå KAIJULIGHTS.
-  //  Å leggje til lys midt i spelet ville tvinge alle shaderar til å kompilere på nytt
-  //  og gjeve ei kraftig frysing akkurat når kjempa dukkar opp.)
+  // Han står langt ute i disen — utan dette ville tåka slukt heile kjempa
+  g.traverse(o=>{
+    if(o.isMesh&&o.material){o.material.fog=false;o.castShadow=false;o.receiveShadow=false;}
+    if(o.isSprite&&o.material)o.material.fog=false;
+  });
+  // dei glødande augo hans er dei same som zombiane sine, berre enorme
+  KAIJU.eyes=kh.eyeGlow||[];
+  for(const e of KAIJU.eyes)e.scale.set(0.34,0.34,1); // to brennande punkt, ikkje ein raud disk
+  const armL=kh.armL,armR=kh.armR,legL=kh.legL,legR=kh.legR;
   KAIJU.scale=s;
   const a=rnd(0,Math.PI*2);
   const dd=dormant?kaijuWantDist()+rnd(100,300):900;
