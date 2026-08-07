@@ -4086,6 +4086,7 @@ function updatePlayer(dt){
   updateFlyParts(dt);
   updateTurretFlash(dt);
   updateRagdolls(dt);
+  updateBloodSplats(dt);
 }
 </script>
 <script>
@@ -4605,16 +4606,86 @@ function updateRagdolls(dt){
       // delen sprekk i ei blodsky
       bloodMist(r.m.position.clone());
       spawnParts(r.m.position,6,0x6a1210,4,0.7,9,0.3,0.8);
+      if(r.m.position.y<0.5)bloodSplat(r.m.position,0.7);
       scene.remove(r.m);RAGDOLLS.splice(i,1);
       G.shake=Math.max(G.shake,0.05);
     }
   }
 }
+
+// ---------------- BLODFLEKKER PÅ BAKKEN ----------------
+// Kvar zombie som fell etterlet seg ein flekk der han låg. Flekkene ligg i ein
+// fast pool: den eldste blir teken i bruk på nytt når han er brukt opp, så
+// bakken blir aldri fullstendig nedlessa uansett kor mange netter du overlever.
+const bloodTex=makeCanvasTex(128,128,(g,w,h)=>{
+  g.clearRect(0,0,w,h);
+  const cx=64,cy=64;
+  // ujamn hovudflekk
+  g.beginPath();
+  for(let i=0;i<=26;i++){
+    const a=i/26*Math.PI*2;
+    const r=30+Math.sin(a*3.1)*7+Math.sin(a*5.7+1.3)*5+rnd(-3,3);
+    const x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;
+    if(i===0)g.moveTo(x,y);else g.lineTo(x,y);
+  }
+  g.closePath();
+  const gr=g.createRadialGradient(cx,cy,4,cx,cy,42);
+  gr.addColorStop(0,'rgba(96,10,8,0.95)');
+  gr.addColorStop(0.6,'rgba(74,8,6,0.8)');
+  gr.addColorStop(1,'rgba(52,6,5,0.35)');
+  g.fillStyle=gr;g.fill();
+  for(let i=0;i<18;i++){          // sprut og dropar rundt
+    const a=rnd(0,6.28),d=rnd(32,58),r=rnd(2,7);
+    g.fillStyle='rgba('+ri(70,105)+',8,7,'+rnd(0.35,0.8).toFixed(2)+')';
+    g.beginPath();g.ellipse(cx+Math.cos(a)*d,cy+Math.sin(a)*d,r,r*rnd(0.5,1),a,0,6.29);g.fill();
+  }
+  g.globalCompositeOperation='destination-in';   // mjuk kant, ingen synleg firkant
+  const f=g.createRadialGradient(cx,cy,20,cx,cy,63);
+  f.addColorStop(0,'rgba(0,0,0,1)');f.addColorStop(0.85,'rgba(0,0,0,0.95)');f.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=f;g.fillRect(0,0,w,h);
+});
+const BLOODSPLATS=[];
+{
+  const geo=new THREE.PlaneGeometry(1,1);
+  for(let i=0;i<44;i++){
+    const m=new THREE.MeshBasicMaterial({map:bloodTex,transparent:true,depthWrite:false,
+      opacity:0,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
+    const sp=new THREE.Mesh(geo,m);
+    sp.rotation.x=-Math.PI/2;sp.position.set(0,-20,0);sp.visible=false;
+    scene.add(sp);BLOODSPLATS.push({m:sp,t:0});
+  }
+}
+let _bsi=0;
+function bloodSplat(pos,size){
+  const b=BLOODSPLATS[_bsi++%BLOODSPLATS.length];
+  const sc=(size||1)*rnd(1.5,2.6);
+  b.m.position.set(pos.x+rnd(-0.3,0.3),0.028+rnd(0,0.006),pos.z+rnd(-0.3,0.3));
+  b.m.scale.set(sc,sc*rnd(0.8,1.2),1);
+  b.m.rotation.z=rnd(0,6.28);
+  b.m.visible=true;b.t=1;
+  b.m.material.opacity=rnd(0.8,0.95);
+}
+function updateBloodSplats(dt){
+  for(const b of BLOODSPLATS){
+    if(b.t<=0)continue;
+    b.t-=dt/150;                   // tørkar inn over eit par minutt
+    if(b.t<=0){b.m.visible=false;b.m.position.y=-20;continue;}
+    if(b.t<0.35)b.m.material.opacity=b.t/0.35*0.9;
+  }
+}
 function killZombie(z,head,expl){
   sfxZombieDie();
   sfxSplat();
-  if(expl)ragdollBurst(z);                                  // sprengd — heile kroppen fyk til vêrs
-  else{gibs(z.grp.position);blood(z.grp.position.clone().add(V3(0,1,0)),18);}
+  const sc0=z.scale||1;
+  if(expl){
+    ragdollBurst(z);                                        // sprengd — heile kroppen fyk til vêrs
+    for(let i=0;i<3;i++)                                    // stor, spreidd flekk etter smellen
+      bloodSplat(V3(z.grp.position.x+rnd(-1.6,1.6),0,z.grp.position.z+rnd(-1.6,1.6)),sc0*1.15);
+  }else{
+    gibs(z.grp.position);blood(z.grp.position.clone().add(V3(0,1,0)),18);
+    bloodSplat(z.grp.position,sc0);
+    if(Math.random()<0.5)bloodSplat(V3(z.grp.position.x+rnd(-1,1),0,z.grp.position.z+rnd(-1,1)),sc0*0.6);
+  }
   scene.remove(z.grp);
   if(z.boss){
     bossDied(z);
