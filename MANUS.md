@@ -19,7 +19,7 @@ _Forteljaren i opninga. Varm, langsam western-royst. Som ein gammal mann som hug
 - `forteljar_9ffe6708.mp3`  
   <<They do not expect to see the other side of this. They expect to win anyway.>>
 
-## Cole (32 replikkar)
+## Cole (42 replikkar)
 
 _Eldstebroren. Barsk, myndig, forvitra av sol og sorg. Snakkar seint og tydeleg._
 
@@ -63,6 +63,14 @@ _Eldstebroren. Barsk, myndig, forvitra av sol og sorg. Snakkar seint og tydeleg.
   <<They keep coming. So do we. Stand fast, Clay!>>
 - `cole_e072888e.mp3`  
   <<For the oath, brothers! For the oath!>>
+- `cole_b54ad14d.mp3`  
+  <<Steady. Pick your shots. Panic kills faster than they do.>>
+- `cole_d9a72105.mp3`  
+  <<I have got the left. Clay, watch our backs!>>
+- `cole_8e9a5746.mp3`  
+  <<Another wave. Let them come.>>
+- `cole_e0cd62c0.mp3`  
+  <<Do not look at their faces, boys. You will know too many of them.>>
 - `cole_959473d2.mp3`  
   <<Something big is stirring underground. Tonight something worse is coming. Be ready.>>
 - `cole_f8d1d86c.mp3`  
@@ -75,20 +83,32 @@ _Eldstebroren. Barsk, myndig, forvitra av sol og sorg. Snakkar seint og tydeleg.
   <<Do not let those skulls through!>>
 - `cole_d439af60.mp3`  
   <<I am down! Do not leave me out here! I do not want to go like they did!>>
-- `cole_c47a1f8.mp3`  
-  <<Argh!>>
-- `cole_4277991c.mp3`  
-  <<Thanks, partner. I owe you a life.>>
 - `cole_1a72dbe1.mp3`  
   <<Up you get, brother. I have got you.>>
+- `cole_c47a1f8.mp3`  
+  <<Argh!>>
+- `cole_f670802.mp3`  
+  <<They got a piece of me!>>
+- `cole_8fbb5d6e.mp3`  
+  <<Still standing. Keep firing!>>
+- `cole_4277991c.mp3`  
+  <<Thanks, partner. I owe you a life.>>
+- `cole_75452417.mp3`  
+  <<I am not done yet. Not by a long way.>>
 - `cole_6514bfe5.mp3`  
   <<Stay near the well after dark. We cover each other.>>
 - `cole_2fb6dd39.mp3`  
   <<The revolver is faithful. The shotgun clears a room.>>
 - `cole_819bbaae.mp3`  
   <<You took our oath the day you stayed, Clay.>>
+- `cole_ee7bfea.mp3`  
+  <<Sleep when you can. You will not get the chance after sundown.>>
+- `cole_658071ca.mp3`  
+  <<My father built the saloon with his own hands. He is out there somewhere.>>
+- `cole_362278c4.mp3`  
+  <<Do not waste a shot on the ones that are already down.>>
 
-## Silas (24 replikkar)
+## Silas (34 replikkar)
 
 _Skarpskyttaren. Djup og roleg. Seier lite, og meiner alt._
 
@@ -116,6 +136,14 @@ _Skarpskyttaren. Djup og roleg. Seier lite, og meiner alt._
   <<Behind you, Clay!>>
 - `silas_2882de5.mp3`  
   <<I know that face. I buried that man in June.>>
+- `silas_c926db36.mp3`  
+  <<Reloading. Cover the gap.>>
+- `silas_64b3edce.mp3`  
+  <<That one was the schoolteacher. God forgive me.>>
+- `silas_aeeb74fb.mp3`  
+  <<They do not tire. Remember that and keep moving.>>
+- `silas_7988f15f.mp3`  
+  <<Clear on my side. For now.>>
 - `silas_22873b5d.mp3`  
   <<The miners hid dynamite in the crates out east. Go get it!>>
 - `silas_224b9998.mp3`  
@@ -128,20 +156,32 @@ _Skarpskyttaren. Djup og roleg. Seier lite, og meiner alt._
   <<They are diving for the roofs! Take them down!>>
 - `silas_d439af60.mp3`  
   <<I am down! Do not leave me out here! I do not want to go like they did!>>
-- `silas_37784e42.mp3`  
-  <<They bite deep tonight.>>
-- `silas_9fc87ebd.mp3`  
-  <<That was close. Too close.>>
 - `silas_1a72dbe1.mp3`  
   <<Up you get, brother. I have got you.>>
+- `silas_37784e42.mp3`  
+  <<They bite deep tonight.>>
+- `silas_f3691803.mp3`  
+  <<That one had teeth.>>
+- `silas_9397ec2d.mp3`  
+  <<I am hit. Hold the line.>>
+- `silas_9fc87ebd.mp3`  
+  <<That was close. Too close.>>
+- `silas_a6642326.mp3`  
+  <<I saw the other side just then. I did not care for it.>>
 - `silas_c17dc9d1.mp3`  
   <<Dynamite settles most arguments out here.>>
 - `silas_ff439171.mp3`  
   <<Aim for the head, Clay. Always the head.>>
 - `silas_72dafbca.mp3`  
   <<Something with red eyes moved in the mine last night.>>
+- `silas_16fc4a04.mp3`  
+  <<I keep my rifle clean. It is the only thing I still control.>>
+- `silas_11c64b52.mp3`  
+  <<The church door has held so far. So far.>>
+- `silas_f8f9f7ce.mp3`  
+  <<Every third night the ground shakes before they come. Listen for it.>>
 
-## Wade (22 replikkar)
+## Wade (31 replikkar)
 
 _Yngstemann. Ra, sint, trassig. Klamrar seg til trua pa siger._
 
@@ -165,6 +205,12 @@ _Yngstemann. Ra, sint, trassig. Klamrar seg til trua pa siger._
   <<Count your shells, Clay. This night is long.>>
 - `wade_c066b9f1.mp3`  
   <<Come on then! We are still standing!>>
+- `wade_6542b538.mp3`  
+  <<How many is that? I lost count hours ago.>>
+- `wade_f3f83349.mp3`  
+  <<My hands will not stop shaking. Do not tell Cole.>>
+- `wade_415cb8d.mp3`  
+  <<We are going to see the sun come up. Say it with me.>>
 - `wade_bb2be515.mp3`  
   <<Did you find the shotgun in the saloon? Silas saw dynamite over by the mine.>>
 - `wade_6ebe27d1.mp3`  
@@ -177,16 +223,28 @@ _Yngstemann. Ra, sint, trassig. Klamrar seg til trua pa siger._
   <<Another wave of skulls! Keep shooting!>>
 - `wade_d439af60.mp3`  
   <<I am down! Do not leave me out here! I do not want to go like they did!>>
-- `wade_3e12ee42.mp3`  
-  <<I need help over here!>>
-- `wade_85221c5c.mp3`  
-  <<Back on my feet. Let us finish it.>>
 - `wade_1a72dbe1.mp3`  
   <<Up you get, brother. I have got you.>>
+- `wade_3e12ee42.mp3`  
+  <<I need help over here!>>
+- `wade_c517676a.mp3`  
+  <<It hurts! It really hurts!>>
+- `wade_5d947241.mp3`  
+  <<Get them off me!>>
+- `wade_85221c5c.mp3`  
+  <<Back on my feet. Let us finish it.>>
+- `wade_9bc7272f.mp3`  
+  <<You came back for me. Nobody has done that in a while.>>
 - `wade_64ae9a62.mp3`  
   <<Beans and whiskey put a man back together.>>
 - `wade_5bfed728.mp3`  
   <<Every third night brings something worse. Keep count.>>
 - `wade_78b59c07.mp3`  
   <<My brothers say we will win. I have decided to believe them.>>
+- `wade_89901c05.mp3`  
+  <<There is a bucket at every house. Water beats fire, Clay.>>
+- `wade_72833a48.mp3`  
+  <<I was seventeen when this started. I do not feel it anymore.>>
+- `wade_51ee24d.mp3`  
+  <<Check the roofs. High ground is the only ground worth having.>>
 

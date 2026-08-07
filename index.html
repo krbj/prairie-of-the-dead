@@ -5235,7 +5235,12 @@ function damageBro(b,dmg){
     bark(b.name,DOWNED_CRY);
     toast(b.name+' is down! Hold E to revive','bad');
   }else if(Math.random()<0.3&&b.barkCd<=0){
-    bark(b.name,{Cole:'Argh!','Silas':'They bite deep tonight.',Wade:'I need help over here!'}[b.name]);
+    const hurtLines={
+      Cole:['Argh!','They got a piece of me!','Still standing. Keep firing!'],
+      'Silas':['They bite deep tonight.','That one had teeth.','I am hit. Hold the line.'],
+      Wade:['I need help over here!','It hurts! It really hurts!','Get them off me!']
+    }[b.name];
+    bark(b.name,hurtLines[ri(0,hurtLines.length-1)]);
     b.barkCd=6;
   }
 }
@@ -5245,7 +5250,12 @@ function reviveBro(b){
   b.pool.visible=false;
   b.helper=null;
   sfxHeal();
-  bark(b.name,{Cole:'Thanks, partner. I owe you a life.','Silas':'That was close. Too close.',Wade:'Back on my feet. Let us finish it.'}[b.name]);
+  const upLines={
+    Cole:['Thanks, partner. I owe you a life.','I am not done yet. Not by a long way.'],
+    'Silas':['That was close. Too close.','I saw the other side just then. I did not care for it.'],
+    Wade:['Back on my feet. Let us finish it.','You came back for me. Nobody has done that in a while.']
+  }[b.name];
+  bark(b.name,upLines[ri(0,upLines.length-1)]);
   toast(b.name+' is back on their feet!');
 }
 function broMoveAlong(b,dt,speed){
@@ -5520,12 +5530,23 @@ const NIGHT_BARKS=[
   ['Cole','Hold the well! Not one step back!'],
   ['Cole','They keep coming. So do we. Stand fast, Clay!'],
   ['Cole','For the oath, brothers! For the oath!'],
+  ['Cole','Steady. Pick your shots. Panic kills faster than they do.'],
+  ['Cole','I have got the left. Clay, watch our backs!'],
+  ['Cole','Another wave. Let them come.'],
+  ['Cole','Do not look at their faces, boys. You will know too many of them.'],
   ['Silas','Head shots. It is the only thing that ends them.'],
   ['Silas','Behind you, Clay!'],
   ['Silas','I know that face. I buried that man in June.'],
+  ['Silas','Reloading. Cover the gap.'],
+  ['Silas','That one was the schoolteacher. God forgive me.'],
+  ['Silas','They do not tire. Remember that and keep moving.'],
+  ['Silas','Clear on my side. For now.'],
   ['Wade','They are pouring out of the mine!'],
   ['Wade','Count your shells, Clay. This night is long.'],
-  ['Wade','Come on then! We are still standing!']
+  ['Wade','Come on then! We are still standing!'],
+  ['Wade','How many is that? I lost count hours ago.'],
+  ['Wade','My hands will not stop shaking. Do not tell Cole.'],
+  ['Wade','We are going to see the sun come up. Say it with me.']
 ];
 </script>
 <script>
@@ -6385,9 +6406,24 @@ function closePause(){
 
 // ---------------- INTERACTION (E) ----------------
 const BRO_TIPS={
-  Cole:['Stay near the well after dark. We cover each other.','The revolver is faithful. The shotgun clears a room.','You took our oath the day you stayed, Clay.'],
-  'Silas':['Dynamite settles most arguments out here.','Aim for the head, Clay. Always the head.','Something with red eyes moved in the mine last night.'],
-  Wade:['Beans and whiskey put a man back together.','Every third night brings something worse. Keep count.','My brothers say we will win. I have decided to believe them.']
+  Cole:['Stay near the well after dark. We cover each other.',
+    'The revolver is faithful. The shotgun clears a room.',
+    'You took our oath the day you stayed, Clay.',
+    'Sleep when you can. You will not get the chance after sundown.',
+    'My father built the saloon with his own hands. He is out there somewhere.',
+    'Do not waste a shot on the ones that are already down.'],
+  'Silas':['Dynamite settles most arguments out here.',
+    'Aim for the head, Clay. Always the head.',
+    'Something with red eyes moved in the mine last night.',
+    'I keep my rifle clean. It is the only thing I still control.',
+    'The church door has held so far. So far.',
+    'Every third night the ground shakes before they come. Listen for it.'],
+  Wade:['Beans and whiskey put a man back together.',
+    'Every third night brings something worse. Keep count.',
+    'My brothers say we will win. I have decided to believe them.',
+    'There is a bucket at every house. Water beats fire, Clay.',
+    'I was seventeen when this started. I do not feel it anymore.',
+    'Check the roofs. High ground is the only ground worth having.']
 };
 function nearestTurret(){
   for(const t of TURRETS){
