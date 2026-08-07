@@ -19,7 +19,7 @@ _Forteljaren i opninga. Varm, langsam western-royst. Som ein gammal mann som hug
 - `forteljar_9ffe6708.mp3`  
   <<They do not expect to see the other side of this. They expect to win anyway.>>
 
-## Cole (42 replikkar)
+## Cole (47 replikkar)
 
 _Eldstebroren. Barsk, myndig, forvitra av sol og sorg. Snakkar seint og tydeleg._
 
@@ -33,6 +33,16 @@ _Eldstebroren. Barsk, myndig, forvitra av sol og sorg. Snakkar seint og tydeleg.
   <<The Plague King is down. God help us... it is over.>>
 - `cole_1218ba45.mp3`  
   <<This night will not end... Hold the line, Clay. We do not break.>>
+- `cole_9a337f72.mp3`  
+  <<End? No, son. It does not end here. Dying is just another stretch of road. Every man rides it sooner or later.>>
+- `cole_bd78611d.mp3`  
+  <<The dust lifts. All that grey burns off you like morning haze off the flats. And then you see it.>>
+- `cole_53541156.mp3`  
+  <<White shores, Clay. And past them, green country with no end to it, under a sun that never quite sets.>>
+- `cole_4ab9bb02.mp3`  
+  <<Rivers running clean. And every soul this valley took, standing out in that sun, waiting on you.>>
+- `cole_6f181aca.mp3`  
+  <<No. No, it does not. Now load your gun, son. We have got one more night to get through first.>>
 - `cole_dbacdeac.mp3`  
   <<Guns are hot! Give them everything, brothers!>>
 - `cole_7e0a1563.mp3`  
