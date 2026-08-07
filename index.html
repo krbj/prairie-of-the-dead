@@ -919,6 +919,112 @@ function skySprite(color,size){
 const sunSprite=skySprite('#fff3c8',36);sunSprite.position.set(80,70,-120);scene.add(sunSprite);
 const moonSprite=skySprite('#cfd8ee',22);moonSprite.position.set(-90,80,-110);scene.add(moonSprite);
 
+// ---------------- BLODMANEN (fra natt 10) ----------------
+// Manen far eit ansikt: innsokne augeholer med glodande auge, tung panne,
+// nasrygg og eit breitt gliss av store tenner. Han heng naer og stor over byen.
+const moonFaceTex=makeCanvasTex(512,512,(g,w,h)=>{
+  const C=256;
+  g.clearRect(0,0,w,h);
+  const base=g.createRadialGradient(C-70,C-80,20,C,C,250);
+  base.addColorStop(0,'#c9c0b4');base.addColorStop(0.55,'#a09689');base.addColorStop(1,'#6b6259');
+  g.beginPath();g.arc(C,C,250,0,6.29);g.fillStyle=base;g.fill();
+  for(let i=0;i<150;i++){
+    const a=rnd(0,6.28),d=Math.sqrt(Math.random())*238;
+    const x=C+Math.cos(a)*d,y=C+Math.sin(a)*d,r=rnd(5,30);
+    g.fillStyle='rgba(78,70,62,'+rnd(0.18,0.5).toFixed(2)+')';
+    g.beginPath();g.arc(x,y,r,0,6.29);g.fill();
+    g.fillStyle='rgba(214,205,192,'+rnd(0.1,0.3).toFixed(2)+')';
+    g.beginPath();g.arc(x-r*0.22,y-r*0.24,r*0.62,0,6.29);g.fill();
+  }
+  g.fillStyle='rgba(52,44,38,0.72)';
+  g.beginPath();g.moveTo(96,190);g.quadraticCurveTo(256,132,416,190);
+  g.quadraticCurveTo(256,168,96,190);g.fill();
+  for(let i=0;i<3;i++){
+    g.strokeStyle='rgba(48,40,34,0.5)';g.lineWidth=7-i;
+    g.beginPath();g.moveTo(120+i*8,168-i*16);g.quadraticCurveTo(256,120-i*18,392-i*8,168-i*16);g.stroke();
+  }
+  const socket=(cx,cy)=>{
+    const gr=g.createRadialGradient(cx,cy,4,cx,cy,74);
+    gr.addColorStop(0,'rgba(14,9,7,0.98)');gr.addColorStop(0.62,'rgba(30,21,16,0.9)');
+    gr.addColorStop(1,'rgba(70,60,52,0)');
+    g.fillStyle=gr;g.beginPath();g.ellipse(cx,cy,74,60,0,0,6.29);g.fill();
+  };
+  socket(168,232);socket(344,232);
+  const eye=(cx,cy)=>{
+    const gr=g.createRadialGradient(cx,cy,1,cx,cy,34);
+    gr.addColorStop(0,'#fff0a0');gr.addColorStop(0.32,'#ffc020');
+    gr.addColorStop(0.66,'#e04a08');gr.addColorStop(1,'rgba(150,20,0,0)');
+    g.fillStyle=gr;g.beginPath();g.ellipse(cx,cy,34,27,0,0,6.29);g.fill();
+    g.fillStyle='#2a0a02';g.beginPath();g.ellipse(cx,cy,10,15,0,0,6.29);g.fill();
+    g.fillStyle='rgba(255,255,255,0.85)';g.beginPath();g.arc(cx-9,cy-9,5,0,6.29);g.fill();
+  };
+  eye(170,236);eye(342,236);
+  g.fillStyle='rgba(60,51,44,0.55)';
+  g.beginPath();g.moveTo(256,214);g.lineTo(232,320);g.lineTo(280,320);g.closePath();g.fill();
+  g.fillStyle='rgba(16,10,8,0.92)';
+  g.beginPath();g.ellipse(238,322,15,11,0.3,0,6.29);g.fill();
+  g.beginPath();g.ellipse(274,322,15,11,-0.3,0,6.29);g.fill();
+  g.fillStyle='rgba(10,6,5,0.96)';
+  g.beginPath();g.moveTo(126,374);g.quadraticCurveTo(256,342,386,374);
+  g.quadraticCurveTo(256,452,126,374);g.fill();
+  for(let i=0;i<9;i++){
+    const t=i/8, x=132+t*248;
+    const yTop=366+Math.sin(t*Math.PI)*10;
+    const tw=25-Math.abs(t-0.5)*10;
+    g.fillStyle='rgba('+ri(214,238)+','+ri(206,228)+','+ri(184,206)+',0.97)';
+    g.fillRect(x-tw/2,yTop,tw,rnd(24,32));
+    g.fillStyle='rgba(150,140,120,0.35)';g.fillRect(x-tw/2,yTop,tw,4);
+    const yBot=418-Math.sin(t*Math.PI)*12;
+    g.fillStyle='rgba('+ri(198,224)+','+ri(190,214)+','+ri(168,192)+',0.95)';
+    g.fillRect(x-tw/2+4,yBot,tw-6,rnd(18,26));
+  }
+  g.globalCompositeOperation='destination-in';
+  const mask=g.createRadialGradient(C,C,200,C,C,252);
+  mask.addColorStop(0,'rgba(0,0,0,1)');mask.addColorStop(0.9,'rgba(0,0,0,1)');
+  mask.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=mask;g.fillRect(0,0,w,h);
+});
+const bloodMoon=new THREE.Sprite(new THREE.SpriteMaterial({map:moonFaceTex,
+  transparent:true,depthWrite:false,fog:false,opacity:0}));
+bloodMoon.scale.set(66,66,1);bloodMoon.position.set(-64,62,-92);
+bloodMoon.visible=false;scene.add(bloodMoon);
+const bloodHalo=skySprite('#ff2a10',150);
+bloodHalo.material.blending=THREE.AdditiveBlending;
+bloodHalo.material.opacity=0;bloodHalo.visible=false;
+bloodHalo.position.copy(bloodMoon.position);scene.add(bloodHalo);
+const BMEMBERS=[];
+{
+  const bt=skyTex('#ff5a20');
+  for(let i=0;i<38;i++){
+    const m=new THREE.SpriteMaterial({map:bt,transparent:true,depthWrite:false,fog:false,
+      blending:THREE.AdditiveBlending,opacity:0});
+    const sp=new THREE.Sprite(m);
+    sp.visible=false;scene.add(sp);
+    BMEMBERS.push({s:sp,a:rnd(0,6.28),r:rnd(6,46),y:rnd(0,26),sp2:rnd(0.7,2.1),sc:rnd(0.5,1.5)});
+  }
+}
+function updateBloodMoon(dt){
+  const on=G.night>=10&&G.phase==='night';
+  if(bloodMoon.visible!==on){
+    bloodMoon.visible=on;bloodHalo.visible=on;
+    for(const e of BMEMBERS)e.s.visible=on;
+  }
+  if(!on)return;
+  const f=clamp((G.envMix-0.45)*2.4,0,1);
+  bloodMoon.material.opacity=f;
+  bloodHalo.material.opacity=f*(0.32+Math.sin(G.time*0.7)*0.08);
+  const s2=66*(1+Math.sin(G.time*0.35)*0.02);
+  bloodMoon.scale.set(s2,s2,1);
+  for(const e of BMEMBERS){
+    e.y+=dt*e.sp2;
+    if(e.y>34){e.y=-2;e.a=rnd(0,6.28);e.r=rnd(6,46);}
+    e.s.position.set(P.pos.x+Math.cos(e.a+G.time*0.05)*e.r,e.y,P.pos.z+Math.sin(e.a+G.time*0.05)*e.r);
+    const sc=e.sc*(0.5+Math.sin(G.time*3+e.a)*0.2);
+    e.s.scale.set(sc,sc,1);
+    e.s.material.opacity=f*0.5*clamp(1-e.y/34,0,1);
+  }
+}
+
 // ---------------- HIMMELKUPPEL ----------------
 // ekte fargeovergang frå senit til horisont, med sol-glorie som fylgjer sola over himmelen
 const SKYU={
@@ -3229,9 +3335,14 @@ const SKYPAL=[
 ];
 const _c1=new THREE.Color(),_c2=new THREE.Color();
 function _palLerp(uni,key,a,b,t){_c1.setHex(a[key]);_c2.setHex(b[key]);uni.value.copy(_c1).lerp(_c2,t);}
+// Under blodmanen brenn heile himmelen raudt.
+const SKYPAL_BLOOD={top:0x1c0305,hor:0x7a1206,gnd:0x260604,sun:0xff2e08,i:1.15};
 function envApply(mix){ // 0 dag .. 0.5 skumring .. 1 natt
   G.envMix=mix;
-  const a=mix<0.5?SKYPAL[0]:SKYPAL[1], b=mix<0.5?SKYPAL[1]:SKYPAL[2], t=mix<0.5?mix*2:(mix-0.5)*2;
+  const blood=(G.night>=10&&G.phase==='night');
+  const a=mix<0.5?SKYPAL[0]:SKYPAL[1];
+  const b=blood?SKYPAL_BLOOD:(mix<0.5?SKYPAL[1]:SKYPAL[2]);
+  const t=mix<0.5?mix*2:(mix-0.5)*2;
   _palLerp(SKYU.top,'top',a,b,t);_palLerp(SKYU.hor,'hor',a,b,t);
   _palLerp(SKYU.gnd,'gnd',a,b,t);_palLerp(SKYU.sunCol,'sun',a,b,t);
   SKYU.sunI.value=lerp(a.i,b.i,t);
@@ -3248,11 +3359,14 @@ function envApply(mix){ // 0 dag .. 0.5 skumring .. 1 natt
   sun.intensity=lerp(2.05,0.09,Math.pow(mix,0.85));
   sun.color.setHex(mix>0.8?0x8fa4d8:(mix>0.45?0xff9a4a:0xffdca4));
   hemi.intensity=lerp(0.42,0.055,mix);
-  hemi.groundColor.setHex(mix>0.6?0x2a3348:0xa07c50); // kaldt månelys nedanfrå om natta
+  hemi.groundColor.setHex(blood?0x3a0c08:(mix>0.6?0x2a3348:0xa07c50));
+  if(blood){                       // blodmanen fargar alt lyset raudt
+    hemi.color.setHex(0x8a1a10);amb.color.setHex(0x4a0e0a);sun.color.setHex(0xc02a10);
+  }else{hemi.color.setHex(0x9dc4ea);amb.color.setHex(0x46536e);}
   amb.intensity=lerp(0.18,0.07,mix);
   starMat.opacity=clamp((mix-0.6)*2.6,0,1);
   sunSprite.material.opacity=clamp(1-mix*1.6,0,1);
-  moonSprite.material.opacity=clamp((mix-0.55)*2.4,0,0.95);
+  moonSprite.material.opacity=blood?0:clamp((mix-0.55)*2.4,0,0.95);
   const night=mix>0.6;
   for(const wm of WINDOW_MATS)wm.emissive.setHex(night?0xcc8830:0x000000);
   for(const q of NIGHTGLOWS)q.material.opacity=night?q.userData.gmax:0;
@@ -4202,6 +4316,7 @@ function updatePlayer(dt){
   updateRagdolls(dt);
   updateBloodSplats(dt);
   updateHurtVision(dt);
+  updateBloodMoon(dt);
 }
 </script>
 <script>
