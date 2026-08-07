@@ -27,104 +27,77 @@ if (!KEY) {
 // ElevenLabs premade-stemmer — bytt gjerne ut med egne favoritter fra Voice Library
 // NB: kun standard premade-stemmer (gratisplanen tillater ikke library-stemmer via API)
 const VOICES = {
-  john:       'pqHfZKP75CvOlQylNhV4', // Bill  — eldre, barsk veteran (leder)
-  sigbjorn:   'onwK4e9ZLuTAKqWW03F9', // Daniel — dyp og alvorlig
-  kristoffer: 'iP95p4xoKVk53GoZ742B', // Chris — yngre og energisk
-  mio:        'pNInz6obpgDQGcFmaJgB'  // Adam  — rolig helt
+  // Amerikanske røyster — britiske kringkastarstemmer høyrest feil ut i ein western
+  cole:     'pqHfZKP75CvOlQylNhV4', // Bill  — gammal, forvitra amerikansk. Eldstebroren.
+  silas:    'nPczCjzI2devNBz1zQrb', // Brian — djup og roleg. Skarpskyttaren.
+  wade:     'SOYHLrjzK2X1ezoPC6cr', // Harry — ung og rasande. Yngstemann.
+  mio:      'pNInz6obpgDQGcFmaJgB', // Adam  — Mio sjølv
+  forteljar:'JBFqnCBsd6RMkjVDRZzb'  // George — varm forteljarrøyst til opninga
+};
+// litt lågare stabilitet + meir stil gjev slitne, dramatiske western-røyster
+const VSET = {
+  cole:     { stability: 0.34, similarity_boost: 0.82, style: 0.42, use_speaker_boost: true },
+  silas:    { stability: 0.42, similarity_boost: 0.85, style: 0.30, use_speaker_boost: true },
+  wade:     { stability: 0.26, similarity_boost: 0.80, style: 0.62, use_speaker_boost: true },
+  mio:      { stability: 0.40, similarity_boost: 0.82, style: 0.35, use_speaker_boost: true },
+  forteljar:{ stability: 0.50, similarity_boost: 0.85, style: 0.45, use_speaker_boost: true }
 };
 
 // MÅ matche spillets tekster nøyaktig (filnavn = taler + hash av tekst)
 const LINES = [
-  // --- intro-cutscene ---
-  ['John', 'Hold it right there, stranger! Hands where I can see them. Are you bitten?'],
-  ['Mio', 'The name is Mio. I am not bitten — just dusty and thirsty.'],
-  ['Kristoffer', 'Then you are the first living soul we have seen in three weeks.'],
-  ['Sigbjørn', 'The virus took the whole town. Neighbors. Friends. Family... All of them.'],
-  ['John', 'We three swore a pact: we wipe out this virus — or we die trying.'],
-  ['Mio', 'Then I ride no further. I am staying — and fighting beside you.'],
-  ['Kristoffer', 'Good. Find weapons and ammo before sundown. An old shotgun is hidden in the saloon.'],
-  ['Sigbjørn', 'Because when darkness falls... they come.'],
-  // --- seiers-cutscene ---
-  ['John', 'The Plague King is dead... It is over. It is actually over.'],
-  ['Sigbjørn', 'The virus dies with him. Dust Valley can finally rest in peace.'],
-  ['Kristoffer', 'We could never have done it without you, Mio. Never.'],
-  ['Mio', 'The pact is fulfilled, brothers. The sun rises over a free prairie.'],
-  // --- daggry-replikker ---
-  ['Kristoffer', 'Did you find the shotgun in the saloon? Sigbjørn saw dynamite over by the mine.'],
-  ['Sigbjørn', 'The miners hid dynamite in the crates out east. Go get it!'],
-  ['John', 'Something big is stirring underground. Tonight something worse is coming. Be ready.'],
-  ['Sigbjørn', 'The Grave Robber was only the beginning. The virus digs deeper.'],
-  ['Kristoffer', 'The hordes grow every night. But so do we.'],
-  ['John', 'I hear knives being sharpened in the mine... The Butcher comes tonight.'],
-  ['Sigbjørn', 'We are closing in on the source. I can feel it in the air.'],
-  ['Kristoffer', 'One more night, and I reckon the Plague King himself will show.'],
-  ['John', 'Tonight it ends, brothers. The Plague King himself. For the pact — for Dust Valley!'],
-  ['John', 'The endless night goes on... Stand your ground, Mio!'],
-  // --- kamprop om natten ---
-  ['John', 'For Dust Valley! Not one step back!'],
-  ['John', 'Hold the well — they are swarming!'],
-  ['John', 'For the pact, brothers! For the pact!'],
-  ['Sigbjørn', 'Aim for the head, that stops them fastest!'],
-  ['Sigbjørn', 'The virus dies tonight, I swear it!'],
-  ['Sigbjørn', 'Behind you, Mio!'],
-  ['Kristoffer', 'They are coming from the mine! Lots of them!'],
-  ['Kristoffer', 'Save your ammo, Mio — the night is long!'],
-  ['Kristoffer', 'Is that all you have, you rotten wretches?!'],
-  // --- natt-start / boss ---
-  ['Sigbjørn', 'To the well! Here they come!'],
-  ['John', 'Feel the ground shaking? Something big is coming tonight!'],
-  ['John', 'There he is! Aim for the head!'],
-  ['Sigbjørn', 'Holy smoke... he is HUGE!'],
-  ['Kristoffer', 'Hold the line, brothers!'],
-  ['Kristoffer', 'He is down! Nice work, Mio!'],
-  // --- skadet / nede / gjenopplivet ---
-  ['John', 'Argh!'],
-  ['Sigbjørn', 'They bite hard tonight!'],
-  ['Kristoffer', 'I need help over here!'],
-  ['John', 'I am down, boys! Help me now!! I am going to die!'],
-  ['Sigbjørn', 'I am down, boys! Help me now!! I am going to die!'],
-  ['Kristoffer', 'I am down, boys! Help me now!! I am going to die!'],
-  ['John', 'Thanks, partner. I owe you one.'],
-  ['Sigbjørn', 'Phew... that was close!'],
-  ['Kristoffer', 'Back in the fight!'],
-  // --- hjelper ein bror opp ---
-  ['John', 'Up you get, brother! I have got you!'],
-  ['Sigbjørn', 'Up you get, brother! I have got you!'],
-  ['Kristoffer', 'Up you get, brother! I have got you!'],
-  // --- tak-hendelse ---
-  ['John', 'Get up on the roofs!'],
-  ['Sigbjørn', 'Get up on the roofs!'],
-  ['Kristoffer', 'Get up on the roofs!'],
-  // --- siste nivå (gatling) ---
-  ['John', 'The gatling guns are ready! Open fire, brothers!'],
-  ['John', 'The town is burning, Mio! Shoot those skulls out of the sky!'],
-  // --- dødningskallar (natt 10) ---
-  ['John', 'Skulls in the sky! Shoot them down before they hit the houses!'],
-  ['Sigbjørn', 'More of those flying skulls! Blast them out of the sky, Mio!'],
-  ['Kristoffer', 'Skulls incoming from all sides! Watch the sky!'],
-  ['John', 'Do not let those skulls through!'],
-  ['Sigbjørn', 'They are diving for the roofs! Take them down!'],
-  ['Kristoffer', 'Another wave of skulls! Keep shooting!'],
-  // --- brann i byen ---
-  ['Sigbjørn', 'A house is on fire! The flames spread fast between the buildings — shoot those skulls down!'],
-  ['Kristoffer', 'One house is ash already! If seven burn down, the whole town is lost, Mio — all hope gone!'],
-  ['Sigbjørn', 'SIX houses gone! One more and Dust Valley is finished! SHOOT THE SKULLS!'],
-  // --- atombomba i kyrkja ---
-  ['John', 'It is no use, Mio... Arm the atom bomb in the church!'],
-  ['Kristoffer', 'Yeah Mio, this is hopeless! Blow the whole damn thing!'],
-  ['Sigbjørn', 'MIO!!! NUKE THIS SHIT!!!'],
-  // --- retry ---
-  ['John', 'Get up, Mio. Dust Valley still needs you!'],
-  // --- dagprat (E ved brødrene) ---
-  ['John', 'Stay close to the well at night — we cover each other.'],
-  ['John', 'The revolver is faithful, but the shotgun stops a whole horde.'],
-  ['John', 'The pact includes you too now, Mio.'],
-  ['Sigbjørn', 'Dynamite solves most problems out west.'],
-  ['Sigbjørn', 'Headshots, Mio. Always headshots.'],
-  ['Sigbjørn', 'I saw red eyes inside the mine last night...'],
-  ['Kristoffer', 'Beans and whiskey patch you right up.'],
-  ['Kristoffer', 'Every third night something bigger comes. Count the nights.'],
-  ['Kristoffer', 'Stjerna over there is the last horse in town. Guard her well.']
+  ['Wade', "He is down! Stay on your feet, Mio!"],
+  ['Silas', "A house is burning! The fire jumps roof to roof. Put those skulls in the dirt before it takes the town!"],
+  ['Wade', "One house is cinders. Seven and there is nothing left worth saving, Mio!"],
+  ['Cole', "The town is burning, Mio! Shoot them out of the sky!"],
+  ['Silas', "SIX gone! One more and Dust Valley dies tonight! SHOOT THEM DOWN!"],
+  ['Cole', "Far enough, stranger. Hands where I can see them. Have they had their teeth in you?"],
+  ['Mio', "Name is Mio. Nothing has bitten me yet. Only the sun and the road."],
+  ['Wade', "First living face in twenty-two days. We have counted every one of them."],
+  ['Silas', "The sickness took Dust Valley whole. Our mother. Our neighbours. Everyone we ever knew is out there walking."],
+  ['Cole', "We buried what we could and swore an oath over the graves. We end this plague, or we join it."],
+  ['Mio', "Then my road ends here. I will stand with you."],
+  ['Wade', "Then arm yourself before dark. There is a shotgun under the saloon floor. Take it."],
+  ['Silas', "The dead do not rest here. When the light goes, they come. They always come."],
+  ['Cole', "The Plague King is down. God help us... it is over."],
+  ['Silas', "The sickness dies with him. Dust Valley can sleep at last."],
+  ['Wade', "We would have died out here without you, Mio. All three of us."],
+  ['Mio', "The oath is kept, brothers. Let the sun come up on a clean prairie."],
+  ['Cole', "This night will not end... Hold the line, Mio. We do not break."],
+  ['Cole', "Guns are hot! Give them everything, brothers!"],
+  ['Cole', "Feel that in the ground? Something worse than dead is walking tonight."],
+  ['Silas', "To the well! Here they come!"],
+  ['Cole', "We cannot hold it, Mio... Arm the bomb in the church!"],
+  ['Wade', "There is nothing left to save, Mio! Burn it all!"],
+  ['Silas', "MIO! LIGHT IT UP! END IT!"],
+  ['Cole', "On your feet, Mio. This town is not done with you yet."],
+  ['Cole', "There he is! Put it in his skull!"],
+  ['Silas', "Lord above... look at the size of it."],
+  ['Wade', "Hold the line, brothers! Not one step back!"],
+  ['Cole', "I am down! Do not leave me out here! I do not want to go like they did!"],
+  ['Silas', "I am down! Do not leave me out here! I do not want to go like they did!"],
+  ['Wade', "I am down! Do not leave me out here! I do not want to go like they did!"],
+  ['Cole', "Argh!"],
+  ['Silas', "They bite deep tonight."],
+  ['Wade', "I need help over here!"],
+  ['Cole', "Thanks, partner. I owe you a life."],
+  ['Silas', "That was close. Too close."],
+  ['Wade', "Back on my feet. Let us finish it."],
+  ['Cole', "Up you get, brother. I have got you."],
+  ['Silas', "Up you get, brother. I have got you."],
+  ['Wade', "Up you get, brother. I have got you."],
+  ['Cole', "Stay near the well after dark. We cover each other."],
+  ['Cole', "The revolver is faithful. The shotgun clears a room."],
+  ['Cole', "You took our oath the day you stayed, Mio."],
+  ['Silas', "Dynamite settles most arguments out here."],
+  ['Silas', "Aim for the head, Mio. Always the head."],
+  ['Silas', "Something with red eyes moved in the mine last night."],
+  ['Wade', "Beans and whiskey put a man back together."],
+  ['Wade', "Every third night brings something worse. Keep count."],
+  ['Wade', "My brothers say we will win. I have decided to believe them."],
+  ['Forteljar', "The western frontier. Eighteen eighty seven. Out past the last railhead, where the maps go blank and no law has ever ridden."],
+  ['Forteljar', "A sickness came down out of the mine. It took the town of Dust Valley in a single week. It did not let the dead lie still."],
+  ['Forteljar', "Everyone who could run, ran. Three brothers stayed. They buried what was left of their kin, and they swore an oath over the graves."],
+  ['Forteljar', "They do not expect to see the other side of this. They expect to win anyway."],
 ];
 
 const MUSIC = [
@@ -152,7 +125,7 @@ async function genVoice(who, text) {
   const file = voiceKey + '_' + h32(text) + '.mp3';
   const out = path.join(VDIR, file);
   if (fs.existsSync(out)) { console.log('  finnes:', who, '—', text.slice(0, 40)); return; }
-  const voiceId = VOICES[voiceKey === 'sigbjrn' ? 'sigbjorn' : voiceKey];
+  const voiceId = VOICES[voiceKey];
   if (!voiceId) { console.log('  UKJENT TALER:', who); return; }
   // eleven_turbo_v2_5 støtter language_code — tvinger NORSK uttale (multilingual gjettet dansk!)
   const req = lang => fetch('https://api.elevenlabs.io/v1/text-to-speech/' + voiceId + '?output_format=mp3_44100_128', {
@@ -160,7 +133,7 @@ async function genVoice(who, text) {
     body: JSON.stringify(Object.assign({
       text: text,
       model_id: 'eleven_turbo_v2_5',
-      voice_settings: { stability: 0.5, similarity_boost: 0.8 }
+      voice_settings: VSET[voiceKey] || { stability: 0.4, similarity_boost: 0.82, style: 0.4, use_speaker_boost: true }
     }, lang ? { language_code: lang } : {}))
   });
   let r = await req('en');

@@ -331,7 +331,7 @@ document.getElementById('btnCoverStart').addEventListener('click',()=>{
   <div class="title">PRAIRIE OF THE DEAD</div>
   <div class="subtitle">Dust Valley · 1887</div>
   <div class="story">A virus has turned the little cowboy town of Dust Valley into a town of the dead.
-    Only three brothers remain — John, Sigbjørn and Kristoffer — bound by a sacred pact:
+    Only three brothers remain — Cole, Silas and Wade — bound by a sacred pact:
     <i>wipe out the virus, or die trying.</i><br><br>
     You are <b style="color:var(--gold)">Mio</b>, a stranger riding in. By day you gather weapons and gear.
     By night the hordes come. Every third night, something worse awakens…</div>
@@ -395,7 +395,7 @@ document.getElementById('btnCoverStart').addEventListener('click',()=>{
 "use strict";
 /* ============================================================
    DØDENS PRÆRIE — zombie-western FPS
-   Mio + brødrene John, Sigbjørn & Kristoffer mot viruset.
+   Mio + brødrene Cole, Silas & Wade mot viruset.
    ============================================================ */
 
 // ---------------- utils ----------------
@@ -1773,7 +1773,7 @@ addBuilding(48,34,6,5,4,{rotY:-Math.PI/2,windows:1,color:0x8a6844});
   nk.visible=false;
   scene.add(nk);
   G.nukeRoom=nk;G.nukeLight=nlight;
-  // STOR dobbeltdør på kyrkja (hengslar i sidene, svingar opp ved Johns ordre)
+  // STOR dobbeltdør på kyrkja (hengslar i sidene, svingar opp ved Coles ordre)
   const doorM=new THREE.MeshLambertMaterial({color:0x4a3320});
   const goldM=new THREE.MeshLambertMaterial({color:0xb08830,emissive:0x221100});
   // solid dørkarm rundt opninga
@@ -2711,7 +2711,7 @@ function damageKaiju(d){
     G.kills++;G.score+=2500;G.kaijuDefeated=true;
     sfxKaijuRoar(1);
     toast('☠ THE COLOSSUS IS SLAIN! +2500');
-    bark('Kristoffer','He is down! Nice work, Mio!');
+    bark('Wade','He is down! Stay on your feet, Mio!');
     $('bossBar').classList.remove('on');
   }
 }
@@ -2972,7 +2972,7 @@ function startFire(x,z){
   }
   FIRES.push({b:b,t:0,dur:26,light:light,flames:flames,collT:0,whT:rnd(0.4,1.2)});
   toast('🔥 '+b.name+' IS ON FIRE!','bad');
-  if(!G.fireBark1){G.fireBark1=true;bark('Sigbjørn','A house is on fire! The flames spread fast between the buildings — shoot those skulls down!');}
+  if(!G.fireBark1){G.fireBark1=true;bark('Silas','A house is burning! The fire jumps roof to roof. Put those skulls in the dirt before it takes the town!');}
 }
 function burnDownBuilding(f){
   const b=f.b;
@@ -2988,9 +2988,9 @@ function burnDownBuilding(f){
   G.shake=Math.max(G.shake,0.35);
   G.burnedHouses=(G.burnedHouses||0)+1;
   toast('🔥 '+b.name+' BURNED DOWN! ('+G.burnedHouses+'/7)','bad');
-  if(G.burnedHouses===1&&!G.fireBark2){G.fireBark2=true;bark('Kristoffer','One house is ash already! If seven burn down, the whole town is lost, Mio — all hope gone!');}
-  if(G.burnedHouses===3)bark('John','The town is burning, Mio! Shoot those skulls out of the sky!');
-  if(G.burnedHouses===6&&!G.fireBark4){G.fireBark4=true;bark('Sigbjørn','SIX houses gone! One more and Dust Valley is finished! SHOOT THE SKULLS!');}
+  if(G.burnedHouses===1&&!G.fireBark2){G.fireBark2=true;bark('Wade','One house is cinders. Seven and there is nothing left worth saving, Mio!');}
+  if(G.burnedHouses===3)bark('Cole','The town is burning, Mio! Shoot them out of the sky!');
+  if(G.burnedHouses===6&&!G.fireBark4){G.fireBark4=true;bark('Silas','SIX gone! One more and Dust Valley dies tonight! SHOOT THEM DOWN!');}
   if(G.burnedHouses>=7&&G.state==='playing'&&P.hp>0){
     G.deathReason='Seven buildings burned to the ground — Dust Valley was lost to the flames.';
     damagePlayer(9999);
@@ -3081,9 +3081,9 @@ function makeTurretAt(x,z,top){
 function buildTurrets(){
   if(G.turretsBuilt)return;
   G.turretsBuilt=true;
-  makeTurretAt(-12*TG,-9.6*TG,5.3);  // saloon (John) — TS-skalert
-  makeTurretAt(-12*TG,4.8*TG,4.9);   // sheriff (Sigbjørn)
-  makeTurretAt(12*TG,-7.2*TG,4.9);   // landhandel (Kristoffer)
+  makeTurretAt(-12*TG,-9.6*TG,5.3);  // saloon (Cole) — TS-skalert
+  makeTurretAt(-12*TG,4.8*TG,4.9);   // sheriff (Silas)
+  makeTurretAt(12*TG,-7.2*TG,4.9);   // landhandel (Wade)
   makeTurretAt(12*TG,8.4*TG,4.6);    // stall — MIO sin!
   toast('GATLING TURRETS mounted on the roofs! (press E to use)');
 }
@@ -4751,7 +4751,7 @@ function spawnBoss(night){
   banner('NATT '+night,def.name+' HAS AWAKENED');
   sfxRoar();G.shake=Math.max(G.shake,0.4);
   musicSet('boss');
-  const bossBark=[['John','There he is! Aim for the head!'],['Sigbjørn','Holy smoke... he is HUGE!'],['Kristoffer','Hold the line, brothers!']][tier-1];
+  const bossBark=[['Cole','There he is! Put it in his skull!'],['Silas','Lord above... look at the size of it.'],['Wade','Hold the line, brothers! Not one step back!']][tier-1];
   bark(bossBark[0],bossBark[1]);
 }
 function updateBossAbilities(z,dt,dist,tgt){
@@ -4792,7 +4792,7 @@ function bossDied(z){
   if(z.tier===3&&!G.endless&&G.night>=9){
     setTimeout(()=>{if(G.state==='playing')startVictory();},1800);
   }else{
-    bark('Kristoffer','He is down! Nice work, Mio!');
+    bark('Wade','He is down! Stay on your feet, Mio!');
     musicSet(G.phase==='night'?'night':'day');
   }
 }
@@ -4817,12 +4817,12 @@ function roofPathTo(bx,bz){
 }
 const BRO_ARSENAL=['revolver','hagle','rifle','gatling','pisk']; // alt Mio har, utan dynamitt og bazooka
 const BRO_DEFS=[
-  {name:'John',shirt:0xc0524a,hat:0x7a5c3c,anchor:V3(-3*TG,0,-3*TG),color:'#e07a6a',
-    wpn:'hagle',roofPath:roofPathTo(-12*TG,-9.6*TG)},      // saloon-taket — John har HAGLE
-  {name:'Sigbjørn',shirt:0x4a76c0,hat:0x4a4a50,anchor:V3(3*TG,0,-3*TG),color:'#7a9ae0',
-    wpn:'rifle',roofPath:roofPathTo(-12*TG,4.8*TG)},       // sheriff-taket — Sigbjørn har RIFLE
-  {name:'Kristoffer',shirt:0x46a068,hat:0xd8c9a4,anchor:V3(0,0,2.5*TG),color:'#7ad08a',
-    wpn:'revolver',roofPath:roofPathTo(12*TG,-7.2*TG)}     // landhandel-taket — Kristoffer har REVOLVER
+  {name:'Cole',shirt:0xc0524a,hat:0x7a5c3c,anchor:V3(-3*TG,0,-3*TG),color:'#e07a6a',
+    wpn:'hagle',roofPath:roofPathTo(-12*TG,-9.6*TG)},      // saloon-taket — Cole har HAGLE
+  {name:'Silas',shirt:0x4a76c0,hat:0x4a4a50,anchor:V3(3*TG,0,-3*TG),color:'#7a9ae0',
+    wpn:'rifle',roofPath:roofPathTo(-12*TG,4.8*TG)},       // sheriff-taket — Silas har RIFLE
+  {name:'Wade',shirt:0x46a068,hat:0xd8c9a4,anchor:V3(0,0,2.5*TG),color:'#7ad08a',
+    wpn:'revolver',roofPath:roofPathTo(12*TG,-7.2*TG)}     // landhandel-taket — Wade har REVOLVER
 ];
 // synlege våpenmodellar — ein ser kva kvar bror skyt med
 // Brørne sine våpen — same detaljnivå og same materiale som spelaren sine,
@@ -4930,7 +4930,7 @@ for(const def of BRO_DEFS){
     pool:pool,cryT:0,helper:null,helpT:0,tHeat:0,tPause:0,
     wpn:def.wpn,fav:def.wpn,wpnModels:wpnModels,swapT:rnd(6,16)});
 }
-const DOWNED_CRY='I am down, boys! Help me now!! I am going to die!';
+const DOWNED_CRY='I am down! Do not leave me out here! I do not want to go like they did!';
 function damageBro(b,dmg){
   if(b.downed)return;
   b.hp-=dmg;
@@ -4951,7 +4951,7 @@ function damageBro(b,dmg){
     bark(b.name,DOWNED_CRY);
     toast(b.name+' is down! Hold E to revive','bad');
   }else if(Math.random()<0.3&&b.barkCd<=0){
-    bark(b.name,{John:'Argh!','Sigbjørn':'They bite hard tonight!',Kristoffer:'I need help over here!'}[b.name]);
+    bark(b.name,{Cole:'Argh!','Silas':'They bite deep tonight.',Wade:'I need help over here!'}[b.name]);
     b.barkCd=6;
   }
 }
@@ -4961,7 +4961,7 @@ function reviveBro(b){
   b.pool.visible=false;
   b.helper=null;
   sfxHeal();
-  bark(b.name,{John:'Thanks, partner. I owe you one.','Sigbjørn':'Phew... that was close!',Kristoffer:'Back in the fight!'}[b.name]);
+  bark(b.name,{Cole:'Thanks, partner. I owe you a life.','Silas':'That was close. Too close.',Wade:'Back on my feet. Let us finish it.'}[b.name]);
   toast(b.name+' is back on their feet!');
 }
 function broMoveAlong(b,dt,speed){
@@ -5046,7 +5046,7 @@ function updateBro(b,dt){
         if(b.helpT>3){
           b.helpT=0;fallen.helper=null;
           reviveBro(fallen);
-          bark(b.name,'Up you get, brother! I have got you!');
+          bark(b.name,'Up you get, brother. I have got you.');
         }
       }
     }else b.helpT=0;
@@ -5232,15 +5232,15 @@ function updateBro(b,dt){
 }
 // battle barks
 const NIGHT_BARKS=[
-  ['John','For Dust Valley! Not one step back!'],
-  ['John','Hold the well — they are swarming!'],
-  ['Sigbjørn','Aim for the head, that stops them fastest!'],
-  ['Sigbjørn','The virus dies tonight, I swear it!'],
-  ['Kristoffer','They are coming from the mine! Lots of them!'],
-  ['Kristoffer','Save your ammo, Mio — the night is long!'],
-  ['John','For the pact, brothers! For the pact!'],
-  ['Sigbjørn','Behind you, Mio!'],
-  ['Kristoffer','Is that all you have, you rotten wretches?!']
+  ['Cole','For Dust Valley! Not one step back!'],
+  ['Cole','Hold the well — they are swarming!'],
+  ['Silas','Aim for the head, that stops them fastest!'],
+  ['Silas','The virus dies tonight, I swear it!'],
+  ['Wade','They are coming from the mine! Lots of them!'],
+  ['Wade','Save your ammo, Mio — the night is long!'],
+  ['Cole','For the pact, brothers! For the pact!'],
+  ['Silas','Behind you, Mio!'],
+  ['Wade','Is that all you have, you rotten wretches?!']
 ];
 </script>
 <script>
@@ -5265,9 +5265,9 @@ function bark(who,text){
   s.querySelector('.who').style.color=SPEAKER_COLORS[who]||'#d9a441';
   s.querySelector('.txt').textContent=' «'+text+'»';
   s.classList.add('on');subT=3.6;
-  if(!playVoice(who,text))sfxBark(who==='John'?300:who==='Sigbjørn'?240:280);
+  if(!playVoice(who,text))sfxBark(who==='Cole'?300:who==='Silas'?240:280);
 }
-const SPEAKER_COLORS={John:'#e07a6a','Sigbjørn':'#7a9ae0',Kristoffer:'#7ad08a',Mio:'#d9a441'};
+const SPEAKER_COLORS={Cole:'#e07a6a','Silas':'#7a9ae0',Wade:'#7ad08a',Mio:'#d9a441'};
 
 // ---------------- PICKUPS ----------------
 const PICKUPS=[];
@@ -5499,6 +5499,7 @@ function cineNext(){
     cap.innerHTML=s.caption+(s.small?'<span class="small">'+s.small+'</span>':'');
     cap.classList.add('on');
   }else cap.classList.remove('on');
+  if(s.narr)playVoice('Forteljar',s.narr);
   if(s.dlg){
     $('dlgWho').textContent=s.dlg.who;
     $('dlgWho').style.color=SPEAKER_COLORS[s.dlg.who]||'#d9a441';
@@ -5577,20 +5578,25 @@ function introCine(){
   const broShot={camA:[3.6,2,7],camB:[3.1,1.9,6.4],lookA:[0,1.5,1.5]};
   const mioShot={camA:[-1.5,1.8,2.5],camB:[-1.2,1.75,3],lookA:[0.3,1.7,8]};
   cineStart([
-    {dur:3,black:true,caption:'The Western Frontier, 1887.'},
-    {dur:3.2,black:true,caption:'A virus laid the town of Dust Valley to waste.'},
-    {dur:3.4,black:true,caption:'Only three brothers remain — bound by a sacred pact.'},
+    {dur:5.2,black:true,caption:'The Western Frontier, 1887.',
+      narr:'The western frontier. Eighteen eighty seven. Out past the last railhead, where the maps go blank and no law has ever ridden.'},
+    {dur:6.4,black:true,caption:'A sickness came, and Dust Valley died.',
+      narr:'A sickness came down out of the mine. It took the town of Dust Valley in a single week. It did not let the dead lie still.'},
+    {dur:6.6,black:true,caption:'Three brothers stayed behind.',
+      narr:'Everyone who could run, ran. Three brothers stayed. They buried what was left of their kin, and they swore an oath over the graves.'},
+    {dur:5.4,black:true,caption:'They do not expect to live.',
+      narr:'They do not expect to see the other side of this. They expect to win anyway.'},
     {dur:6,camA:[42,24,42],camB:[26,13,28],lookA:[0,2,0],caption:'DUST VALLEY',small:'Population: 3',
       sfx:()=>{musicSet('day');}},
     {dur:5,camA:[1.5,2.1,34],camB:[1.5,1.95,13],lookA:[0,1.6,0],caption:'A stranger rides in through the dust...'},
-    {dur:5,dlg:{who:'John',text:'Hold it right there, stranger! Hands where I can see them. Are you bitten?'},...broShot},
-    {dur:5,dlg:{who:'Mio',text:'The name is Mio. I am not bitten — just dusty and thirsty.'},...mioShot},
-    {dur:5,dlg:{who:'Kristoffer',text:'Then you are the first living soul we have seen in three weeks.'},...broShot},
-    {dur:5.5,dlg:{who:'Sigbjørn',text:'The virus took the whole town. Neighbors. Friends. Family... All of them.'},...broShot},
-    {dur:5.5,dlg:{who:'John',text:'We three swore a pact: we wipe out this virus — or we die trying.'},...broShot},
-    {dur:5,dlg:{who:'Mio',text:'Then I ride no further. I am staying — and fighting beside you.'},...mioShot},
-    {dur:5,dlg:{who:'Kristoffer',text:'Good. Find weapons and ammo before sundown. An old shotgun is hidden in the saloon.'},...broShot},
-    {dur:5,dlg:{who:'Sigbjørn',text:'Because when darkness falls... they come.'},camA:[2,1.9,4],camB:[2.4,2,4.4],lookA:[1.6,1.6,1.8],
+    {dur:5,dlg:{who:'Cole',text:'Far enough, stranger. Hands where I can see them. Have they had their teeth in you?'},...broShot},
+    {dur:5,dlg:{who:'Mio',text:'Name is Mio. Nothing has bitten me yet. Only the sun and the road.'},...mioShot},
+    {dur:5,dlg:{who:'Wade',text:'First living face in twenty-two days. We have counted every one of them.'},...broShot},
+    {dur:5.5,dlg:{who:'Silas',text:'The sickness took Dust Valley whole. Our mother. Our neighbours. Everyone we ever knew is out there walking.'},...broShot},
+    {dur:5.5,dlg:{who:'Cole',text:'We buried what we could and swore an oath over the graves. We end this plague, or we join it.'},...broShot},
+    {dur:5,dlg:{who:'Mio',text:'Then my road ends here. I will stand with you.'},...mioShot},
+    {dur:5,dlg:{who:'Wade',text:'Then arm yourself before dark. There is a shotgun under the saloon floor. Take it.'},...broShot},
+    {dur:5,dlg:{who:'Silas',text:'The dead do not rest here. When the light goes, they come. They always come.'},camA:[2,1.9,4],camB:[2.4,2,4.4],lookA:[1.6,1.6,1.8],
       sfx:()=>sfxGroan(15)},
     {dur:4.5,camA:[0,2.5,10],camB:[0,7,18],lookA:[30,25,-40],caption:'DAY 1',small:'Find weapons and gear before nightfall'}
   ],()=>{
@@ -5613,10 +5619,10 @@ function victoryCine(){
   cineStart([
     {dur:4,camA:[0,3,14],camB:[0,5,18],lookA:[0,2,0],caption:'Sunrise over Dust Valley',
       sfx:()=>{musicSet('day');sfxBell(3);}},
-    {dur:5,dlg:{who:'John',text:'The Plague King is dead... It is over. It is actually over.'},...wellShot},
-    {dur:5,dlg:{who:'Sigbjørn',text:'The virus dies with him. Dust Valley can finally rest in peace.'},...wellShot},
-    {dur:5,dlg:{who:'Kristoffer',text:'We could never have done it without you, Mio. Never.'},...wellShot},
-    {dur:5.5,dlg:{who:'Mio',text:'The pact is fulfilled, brothers. The sun rises over a free prairie.'},
+    {dur:5,dlg:{who:'Cole',text:'The Plague King is down. God help us... it is over.'},...wellShot},
+    {dur:5,dlg:{who:'Silas',text:'The sickness dies with him. Dust Valley can sleep at last.'},...wellShot},
+    {dur:5,dlg:{who:'Wade',text:'We would have died out here without you, Mio. All three of us.'},...wellShot},
+    {dur:5.5,dlg:{who:'Mio',text:'The oath is kept, brothers. Let the sun come up on a clean prairie.'},
       camA:[-2,1.9,3],camB:[-2.5,2.1,3.6],lookA:[0.3,1.7,7]},
   ],()=>{
     G.state='victory';
@@ -5682,15 +5688,15 @@ function resetAll(){
   envApply(0);
 }
 const DAWN_LINES={
-  2:[['Kristoffer','Did you find the shotgun in the saloon? Sigbjørn saw dynamite over by the mine.'],
-     ['Sigbjørn','The miners hid dynamite in the crates out east. Go get it!']],
-  3:[['John','Something big is stirring underground. Tonight something worse is coming. Be ready.']],
-  4:[['Sigbjørn','The Grave Robber was only the beginning. The virus digs deeper.']],
-  5:[['Kristoffer','The hordes grow every night. But so do we.']],
-  6:[['John','I hear knives being sharpened in the mine... The Butcher comes tonight.']],
-  7:[['Sigbjørn','We are closing in on the source. I can feel it in the air.']],
-  8:[['Kristoffer','One more night, and I reckon the Plague King himself will show.']],
-  9:[['John','Tonight it ends, brothers. The Plague King himself. For the pact — for Dust Valley!']]
+  2:[['Wade','Did you find the shotgun in the saloon? Silas saw dynamite over by the mine.'],
+     ['Silas','The miners hid dynamite in the crates out east. Go get it!']],
+  3:[['Cole','Something big is stirring underground. Tonight something worse is coming. Be ready.']],
+  4:[['Silas','The Grave Robber was only the beginning. The virus digs deeper.']],
+  5:[['Wade','The hordes grow every night. But so do we.']],
+  6:[['Cole','I hear knives being sharpened in the mine... The Butcher comes tonight.']],
+  7:[['Silas','We are closing in on the source. I can feel it in the air.']],
+  8:[['Wade','One more night, and I reckon the Plague King himself will show.']],
+  9:[['Cole','Tonight it ends, brothers. The Plague King himself. For the pact — for Dust Valley!']]
 };
 function startDay(first){
   G.phase='day';
@@ -5721,7 +5727,7 @@ function startDay(first){
   if(lines){
     lines.forEach((l,i)=>setTimeout(()=>{if(G.state==='playing')bark(l[0],l[1]);},1500+i*4200));
   }else if(!first&&G.day>9){
-    setTimeout(()=>{if(G.state==='playing')bark('John','The endless night goes on... Stand your ground, Mio!');},1500);
+    setTimeout(()=>{if(G.state==='playing')bark('Cole','This night will not end... Hold the line, Mio. We do not break.');},1500);
   }
 }
 function startNight(){
@@ -5764,12 +5770,12 @@ function startNight(){
       if(G.state!=='playing')return;
       banner('FINAL LEVEL','GATLING UNLOCKED — KEY 5');
       toast('Everyone got a GATLING! ∞ ammo — watch the heat');
-      bark('John','The gatling guns are ready! Open fire, brothers!');
+      bark('Cole','Guns are hot! Give them everything, brothers!');
     },3600);
   }
   banner('NIGHT '+G.night,isBoss?'⚠ SOMETHING BIG IS COMING ⚠':'They are coming...');
-  if(isBoss)bark('John','Feel the ground shaking? Something big is coming tonight!');
-  else bark('Sigbjørn','To the well! Here they come!');
+  if(isBoss)bark('Cole','Feel that in the ground? Something worse than dead is walking tonight.');
+  else bark('Silas','To the well! Here they come!');
   G.barkT=rnd(7,12);
 }
 function startDawn(){
@@ -5786,12 +5792,12 @@ function startDawn(){
   },1600);
 }
 const SKULL_BARKS=[
-  ['John','Skulls in the sky! Shoot them down before they hit the houses!'],
-  ['Sigbjørn','More of those flying skulls! Blast them out of the sky, Mio!'],
-  ['Kristoffer','Skulls incoming from all sides! Watch the sky!'],
-  ['John','Do not let those skulls through!'],
-  ['Sigbjørn','They are diving for the roofs! Take them down!'],
-  ['Kristoffer','Another wave of skulls! Keep shooting!']
+  ['Cole','Skulls in the sky! Shoot them down before they hit the houses!'],
+  ['Silas','More of those flying skulls! Blast them out of the sky, Mio!'],
+  ['Wade','Skulls incoming from all sides! Watch the sky!'],
+  ['Cole','Do not let those skulls through!'],
+  ['Silas','They are diving for the roofs! Take them down!'],
+  ['Wade','Another wave of skulls! Keep shooting!']
 ];
 function updateNight(dt){
   // dødningskallar frå alle kantar — vanskeleg å prioritere mot kolossen
@@ -5854,16 +5860,16 @@ function updateNight(dt){
     G.lightningT=rnd(9,22);
     lightningStrike();
   }
-  // brørne ber Mio trykke på knappen (fast rekkefølge: John, Kristoffer, Sigbjørn)
+  // brørne ber Mio trykke på knappen (fast rekkefølge: Cole, Wade, Silas)
   if(G.night>=10&&!G.nuked){
     G.nukeClock=(G.nukeClock||0)+dt;
     if(!G.nukeBark1&&G.nukeClock>12){
       G.nukeBark1=true;
-      bark('John','It is no use, Mio... Arm the atom bomb in the church!');
-      setTimeout(()=>{if(G.state==='playing')openChurch();},2500); // døra svingar opp etter Johns ord
+      bark('Cole','We cannot hold it, Mio... Arm the bomb in the church!');
+      setTimeout(()=>{if(G.state==='playing')openChurch();},2500); // døra svingar opp etter Coles ord
     }
-    if(!G.nukeBark2&&G.nukeClock>55){G.nukeBark2=true;bark('Kristoffer','Yeah Mio, this is hopeless! Blow the whole damn thing!');}
-    if(!G.nukeBark3&&G.nukeClock>100){G.nukeBark3=true;bark('Sigbjørn','MIO!!! NUKE THIS SHIT!!!');}
+    if(!G.nukeBark2&&G.nukeClock>55){G.nukeBark2=true;bark('Wade','There is nothing left to save, Mio! Burn it all!');}
+    if(!G.nukeBark3&&G.nukeClock>100){G.nukeBark3=true;bark('Silas','MIO! LIGHT IT UP! END IT!');}
   }
   // bazooka-slipp på siste nivå
   if(G.night>=10&&P.owned.gatling){
@@ -5935,7 +5941,7 @@ function retryDay(){
   G.state='playing';
   startDay(false);
   $('lockHint').classList.add('on');
-  bark('John','Get up, Mio. Dust Valley still needs you!');
+  bark('Cole','On your feet, Mio. This town is not done with you yet.');
 }
 function saveBest(){
   if(G.score>G.best){G.best=G.score;try{localStorage.setItem('dp_best',''+G.best);}catch(e){}}
@@ -6043,9 +6049,9 @@ function closePause(){
 
 // ---------------- INTERACTION (E) ----------------
 const BRO_TIPS={
-  John:['Stay close to the well at night — we cover each other.','The revolver is faithful, but the shotgun stops a whole horde.','The pact includes you too now, Mio.'],
-  'Sigbjørn':['Dynamite solves most problems out west.','Headshots, Mio. Always headshots.','I saw red eyes inside the mine last night...'],
-  Kristoffer:['Beans and whiskey patch you right up.','Every third night something bigger comes. Count the nights.','Stjerna over there is the last horse in town. Guard her well.']
+  Cole:['Stay near the well after dark. We cover each other.','The revolver is faithful. The shotgun clears a room.','You took our oath the day you stayed, Mio.'],
+  'Silas':['Dynamite settles most arguments out here.','Aim for the head, Mio. Always the head.','Something with red eyes moved in the mine last night.'],
+  Wade:['Beans and whiskey put a man back together.','Every third night brings something worse. Keep count.','My brothers say we will win. I have decided to believe them.']
 };
 function nearestTurret(){
   for(const t of TURRETS){
