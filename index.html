@@ -1309,8 +1309,10 @@ const roadMat=new THREE.MeshStandardMaterial({map:TEX.road,color:0xc6ab86,roughn
 // grusmateriale til veiskuldrene — bryt opp den knivrette kanten mot ørkenen
 const shoulderM=new THREE.MeshStandardMaterial({map:TEX.road,color:0xb99b74,roughness:1,metalness:0});
 const shoulderRockM=new THREE.MeshStandardMaterial({color:0x7e7466,roughness:1,metalness:0,flatShading:true});
+const ROADRECTS=[]; // kvar gate registrerer seg her, så gjerda kan opne seg for dei
 function addRoad(w,d,x,z){
   w*=TG;d*=TG;x*=TG;z*=TG; // gatene veks med byen
+  ROADRECTS.push({minX:x-w/2-0.7,maxX:x+w/2+0.7,minZ:z-d/2-0.7,maxZ:z+d/2+0.7});
   const m=new THREE.Mesh(uvPlane(new THREE.PlaneGeometry(w,d),w,d,0.62),roadMat);
   m.rotation.x=-Math.PI/2;m.position.set(x,0.02,z);m.receiveShadow=true;scene.add(m);
   // uregelmessig skulder: flekkar av hardtrampa jord som flyt ut i sanden,
@@ -1381,35 +1383,35 @@ function addStairs(bx,bz,fw,fd,top,side){
   const sx=bx+side*(fw/2+0.75);
   const z0=bz+fd/2+1.6,z1=bz-fd/2+0.6;
   const len=z0-z1;
-  RAMPS.push({x:sx,z:z0,dx:0,dz:-1,len:len,w:1.5,h0:0,h1:top});
+  RAMPS.push({x:sx,z:z0,dx:0,dz:-1,len:len,w:2.4,h0:0,h1:top});
   const g=new THREE.Group();
   const wb=new Batch(stairWoodM), tb=new Batch(stairTreadM), ib=new Batch(stairIronM);
   const ang=Math.atan2(top,len);            // stigninga
   const diag=Math.hypot(top,len);
   const zc=(z0+z1)/2;
   // to vanger som ber heile trappa
-  for(const ox of [-0.78,0.78])
-    wb.box(0.16,0.34,diag,ox,top/2-0.16,zc,0.8,ang);
+  for(const ox of [-1.22,1.22])
+    wb.box(0.16,0.34,diag,ox,top/2-0.2,zc,0.8,ang);
   const n=Math.max(3,Math.ceil(top/0.32));
   for(let i=0;i<n;i++){
     const t=(i+0.5)/n, y=t*top, z=z0-t*len;
-    tb.box(1.62,0.12,len/n+0.1,0,y,z,1.2);                       // trinn
-    wb.box(1.5,top/n-0.1,0.07,0,y-(top/n)/2,z-(len/n)/2+0.04,1.2); // stussbrett
-    ib.box(1.5,0.03,0.05,0,y-0.07,z+(len/n)/2-0.06,1.5);          // slitejern på framkanten
+    tb.box(2.5,0.12,len/n+0.1,0,y-0.06,z,1.2);                     // trinn — topp i flukt med gangplanet
+    wb.box(2.36,top/n-0.1,0.07,0,y-0.06-(top/n)/2,z-(len/n)/2+0.04,1.2); // stussbrett
+    ib.box(2.36,0.03,0.05,0,y-0.12,z+(len/n)/2-0.06,1.5);          // slitejern på framkanten
   }
   // bukkar ned til bakken, så trappa ikkje ser ut til å sveve
   const legs=Math.max(2,Math.round(len/2.4));
   for(let i=1;i<=legs;i++){
     const t=i/(legs+1), y=t*top, z=z0-t*len;
     if(y<0.5)continue;
-    for(const ox of [-0.78,0.78]){
+    for(const ox of [-1.22,1.22]){
       wb.box(0.15,y,0.15,ox,y/2,z,0.8);
       wb.box(0.1,0.5,0.1,ox,y*0.55,z+0.28,1,0.6);                 // skråstiver
     }
-    wb.box(1.7,0.12,0.12,0,y*0.42,z,1);                           // tverrband
+    wb.box(2.6,0.12,0.12,0,y*0.42,z,1);                           // tverrband
   }
   // handlaup med spiler på YTTERSIDA (mot gata), så veggen står fri
-  const rx=side>=0?0.86:-0.86;
+  const rx=side>=0?1.3:-1.3;
   wb.box(0.11,0.11,diag,rx,top/2+0.98,zc,1.1,ang);                // handlaupet
   const bal=Math.max(3,Math.round(diag/0.9));
   for(let i=0;i<=bal;i++){
@@ -1417,10 +1419,13 @@ function addStairs(bx,bz,fw,fd,top,side){
     wb.box(0.07,0.98,0.07,rx,y+0.49,z,1.2);
   }
   // avsats øvst, i flukt med taket
-  tb.box(1.62,0.14,1.15,0,top,z1-0.5,1.2);
-  for(const ox of [-0.78,0.78])wb.box(0.15,top,0.15,ox,top/2,z1-0.95,0.8);
-  wb.box(0.11,0.11,1.2,rx,top+0.98,z1-0.5,1.1);
+  tb.box(2.5,0.14,1.3,0,top-0.07,z1-0.55,1.2);                    // avsats i flukt med taket
+  for(const ox of [-1.22,1.22])wb.box(0.15,top,0.15,ox,top/2,z1-1.05,0.8);
+  wb.box(0.11,0.11,1.35,rx,top+0.91,z1-0.55,1.1);
   for(let i=0;i<3;i++)wb.box(0.07,0.98,0.07,rx,top+0.49,z1-0.02-i*0.48,1.2);
+  // slak kile heilt nede — verken spelar eller zombie skal måtte 'stige opp' på trappa
+  const foot=Math.atan2(0.34,1.5);
+  tb.box(2.5,0.12,1.6,0,0.02,z0+0.7,1.2,foot);
   wb.into(g);tb.into(g);ib.into(g);
   g.position.set(sx,0,0);scene.add(g);
 }
@@ -2176,17 +2181,40 @@ addBarrel(-21,2);addBarrel(21.5,7);addBarrel(-12,31);addBarrel(15.5,32);
 addCrate(16.5,-1,1.1);addCrate(4.2,-3.6,0.8);addCrate(29,22.5,1);addCrate(-12,11,0.9);
 addCrate(-20,-14,1);addCrate(20,20,0.9);addCrate(-27,18,0.8);addCrate(5,42,1);
 const fenceM=new THREE.MeshStandardMaterial({map:TEX.wood,color:0xa2825a,roughness:0.96,metalness:0});
+// Gjerdet blir bygd i korte seksjonar, og kvar seksjon som ville lagt seg tvers
+// over ei gate blir hoppa over. Slik opnar gjerda seg av seg sjølv i kryssa i
+// staden for å sperre vegen.
+function _onRoad(wx,wz){
+  for(const r of ROADRECTS)
+    if(wx>=r.minX&&wx<=r.maxX&&wz>=r.minZ&&wz<=r.maxZ)return true;
+  return false;
+}
 function addFence(x,z,len,rotY){
   x*=TG;z*=TG;len*=TG;
   const f=new THREE.Group();
   const b=new Batch(fenceM);
-  for(let i=0;i<=len;i+=2){
-    const lean=rnd(-0.05,0.05);                    // ingen stolpe står heilt rett etter 20 år i sola
-    b.box(0.13,1.14,0.13,i-len/2,0.57,0,1.1,0,0,lean);
-    b.box(0.17,0.09,0.17,i-len/2,1.16,0,1.1,0,0,lean); // stolpehatt
+  const ca=Math.cos(rotY),sa=Math.sin(rotY);
+  const w2w=(lx)=>[x+lx*ca,z-lx*sa]; // lokal x langs gjerdet -> verdskoordinat
+  const seg=2;
+  let built=0;
+  for(let i=-len/2;i<len/2-0.01;i+=seg){
+    const mid=i+seg/2;
+    const p=w2w(mid);
+    if(_onRoad(p[0],p[1]))continue;    // her går det ei gate — la det stå ope
+    const lean=rnd(-0.05,0.05);
+    b.box(0.13,1.14,0.13,i,0.57,0,1.1,0,0,lean);
+    b.box(0.17,0.09,0.17,i,1.16,0,1.1,0,0,lean);        // stolpehatt
+    b.box(seg+0.05,0.1,0.1,mid,0.87,0,1.1);             // øvre slå
+    b.box(seg+0.05,0.1,0.1,mid,0.47,0,1.1);             // nedre slå
+    built++;
+    // avsluttande stolpe der gjerdet tek slutt eller møter ei gate
+    const nx=w2w(mid+seg);
+    if(i+seg>=len/2-0.01||_onRoad(nx[0],nx[1])){
+      b.box(0.13,1.14,0.13,i+seg,0.57,0,1.1,0,0,rnd(-0.05,0.05));
+      b.box(0.17,0.09,0.17,i+seg,1.16,0,1.1,0,0,0);
+    }
   }
-  b.box(len,0.1,0.1,0,0.87,0,1.1);                 // øvre slå
-  b.box(len,0.1,0.1,0,0.47,0,1.1);                 // nedre slå
+  if(!built)return;
   b.into(f);
   f.position.set(x,0,z);f.rotation.y=rotY;scene.add(f);
 }
@@ -2358,7 +2386,7 @@ function extinguishFire(breg){
   for(let i=FIRES.length-1;i>=0;i--){
     const f=FIRES[i];
     if(f.b!==breg)continue;
-    scene.remove(f.light);
+    fireLightFree(f.light);
     for(const fl of f.flames)scene.remove(fl);
     FIRES.splice(i,1);
   }
@@ -2368,35 +2396,11 @@ function extinguishFire(breg){
   toast('💧 '+breg.name+' — fire doused! +75');
   G.score+=75;
 }
-// lanterns
+// (dei gamle, enkle lyktestolpane er fjerna — gasslyktene i LAMPPOSTS har teke over)
 G.lanterns=[];
-for(const lp of [[-4,-8],[4,-8],[-4,10],[4,10],[-4,24],[4,26],[-19,-4],[19,-2],[-19,12],[19,12],[-4,-24],[4,-26],[-4,38],[16,32]]){
-  const lx=lp[0],lz=lp[1];
-  const post=new THREE.Mesh(new THREE.BoxGeometry(0.14,2.6,0.14),new THREE.MeshLambertMaterial({color:0x2a1c12}));
-  post.position.set(lx,1.3,lz);scene.add(post);
-  const lampM=new THREE.MeshLambertMaterial({color:0xffcc66,emissive:0x000000});
-  const lamp=new THREE.Mesh(new THREE.BoxGeometry(0.3,0.4,0.3),lampM);
-  lamp.position.set(lx,2.5,lz);scene.add(lamp);
-  const light=new THREE.PointLight(0xffaa44,0,13,2);
-  light.position.set(lx,2.6,lz);scene.add(light);
-  G.lanterns.push({light:light,mat:lampM,seed:rnd(0,10)});
-}
 
-// horse "Stjerna"
-const horse=new THREE.Group();
-{
-  const hm=new THREE.MeshLambertMaterial({color:0x5a3a22});
-  const body=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.9,0.7),hm);body.position.y=1.1;body.castShadow=true;horse.add(body);
-  const head=new THREE.Mesh(new THREE.BoxGeometry(0.75,0.4,0.34),hm);head.position.set(1.1,1.7,0);head.rotation.z=0.5;horse.add(head);
-  horse.userData.head=head;
-  const maneM=new THREE.MeshLambertMaterial({color:0x2a1a0c});
-  const tail=new THREE.Mesh(new THREE.BoxGeometry(0.15,0.7,0.15),maneM);tail.position.set(-0.9,1.05,0);tail.rotation.z=0.3;horse.add(tail);
-  for(const pp of [[-0.6,-0.22],[-0.6,0.22],[0.6,-0.22],[0.6,0.22]]){
-    const leg=new THREE.Mesh(new THREE.BoxGeometry(0.16,0.9,0.16),hm);leg.position.set(pp[0],0.45,pp[1]);horse.add(leg);
-  }
-  horse.position.set(4.5,0,40);horse.rotation.y=-0.5;scene.add(horse);
-  addCollider(4.5,40,2,1.4,0.1);
-}
+// (den statiske hesten "Stjerna" er fjerna — dei vandrande hestane i HORSES
+//  har den nye modellen, og denne stod berre og var gammal)
 
 // TUMBLEWEED — ei floke av tørre kvistar, ikkje eit trådnett-ikosaeder.
 // Fleire av dei, i ulik storleik og fart, så prærien aldri står heilt stille.
@@ -2426,7 +2430,6 @@ const TUMBLES=[];
     TUMBLES.push({g:g,r:r,sp:rnd(2.2,4.6),drift:rnd(-0.5,0.5),bounce:rnd(0,6.28)});
   }
 }
-const tumble=TUMBLES[0].g; // eldre kode refererer til denne
 
 // ---------------- HUNDER ----------------
 const DOGS=[];
@@ -2934,6 +2937,23 @@ function updateSkulls(dt){
     }
   }
 }
+// Fast pool av brannlys. Lystalet i scena MÅ vere konstant — legg ein til under
+// spel, og three kompilerer kvar einaste shader på nytt (det synlege hakket når
+// eit dødningehovud slo ned). Åtte lys held til dei sju husa som kan brenne.
+const FIRELIGHTS=[],FIRELIGHTFREE=[];
+for(let i=0;i<8;i++){
+  const L=new THREE.PointLight(0xff6820,0,38,2);
+  L.position.set(0,-500,0);scene.add(L);FIRELIGHTS.push(L);FIRELIGHTFREE.push(L);
+}
+function fireLightGet(){
+  const L=FIRELIGHTFREE.pop()||FIRELIGHTS[0];
+  return L;
+}
+function fireLightFree(L){
+  if(!L)return;
+  L.intensity=0;L.position.set(0,-500,0);
+  if(FIRELIGHTS.indexOf(L)>=0&&FIRELIGHTFREE.indexOf(L)<0)FIRELIGHTFREE.push(L);
+}
 function startFire(x,z){
   let b=null,bd=64;
   for(const r of BREG){
@@ -2943,8 +2963,8 @@ function startFire(x,z){
   if(!b||b.burned)return;
   if(b.burning){for(const f of FIRES)if(f.b===b)f.t=Math.max(0,f.t-6);return;} // meir brensel på bålet
   b.burning=true;
-  const light=new THREE.PointLight(0xff6820,4.5,38,2);
-  light.position.set(b.x,b.h*0.7,b.z);scene.add(light);
+  const light=fireLightGet();               // frå fast pool — ingen nye lys under spel
+  light.position.set(b.x,b.h*0.7,b.z);light.intensity=4.5;
   const flames=[];
   for(let i=0;i<15;i++){ // flammetunger over heile huset — indre kvitgul kjerne, ytre raud
     const inner=Math.random()<0.4;
@@ -3018,7 +3038,7 @@ function updateFires(dt){
       f.collT+=dt;
       f.b.grp.scale.y=Math.max(0.32,1-f.collT*0.5);
       if(f.collT>2){
-        scene.remove(f.light);
+        fireLightFree(f.light);
         for(const fl of f.flames)scene.remove(fl);
         FIRES.splice(i,1);
       }
@@ -3026,7 +3046,7 @@ function updateFires(dt){
   }
 }
 function unburnAll(){ // nullstill brannskadar (retry / nytt spel)
-  for(const f of FIRES){scene.remove(f.light);for(const fl of (f.flames||[]))scene.remove(fl);}
+  for(const f of FIRES){fireLightFree(f.light);for(const fl of (f.flames||[]))scene.remove(fl);}
   FIRES.length=0;
   for(const b of BREG){
     b.burning=false;b.burned=false;
@@ -3070,11 +3090,44 @@ function buildTurrets(){
   makeTurretAt(12*TG,8.4*TG,4.6);    // stall — MIO sin!
   toast('GATLING TURRETS mounted on the roofs! (press E to use)');
 }
+
+// Munningsglimt for takkanonane. Spriten lever i verda (ikkje på kameraet), og
+// blir plassert ute ved løpsmunningen slik at smellen kjem ut av røyret.
+const TFLASH=[];
+let _tfi=0;
+function turretFlashInit(){       // burstTex er definert lenger nede i fila, så vi
+  if(TFLASH.length)return;        // lagar spritane fyrste gong ein kanon fyrer
+  for(let i=0;i<3;i++){
+    const m=new THREE.SpriteMaterial({map:burstTex,transparent:true,depthWrite:false,fog:false,
+      blending:THREE.AdditiveBlending,opacity:0});
+    const sp=new THREE.Sprite(m);sp.visible=false;scene.add(sp);
+    TFLASH.push({s:sp,t:0});
+  }
+}
+function turretFlash(pos,dir){
+  turretFlashInit();
+  const f=TFLASH[_tfi++%TFLASH.length];
+  f.s.position.copy(pos).addScaledVector(dir,0.35);
+  f.s.visible=true;f.t=1;
+  f.s.material.rotation=rnd(0,6.28);
+  spawnParts(pos,ri(3,5),0xffcc55,7,0.18,2.5,0.2,0.35);
+}
+function updateTurretFlash(dt){
+  for(const f of TFLASH){
+    if(f.t<=0){if(f.s.visible)f.s.visible=false;continue;}
+    f.t=Math.max(0,f.t-dt/0.055);
+    const sc=1.9*(0.6+(1-f.t)*0.5);
+    f.s.scale.set(sc,sc,1);
+    f.s.material.opacity=f.t*f.t;
+  }
+}
 function fireTurretShot(t){
   const dir=camDir();
   sfxShot('gatling',1);
-  const from=V3(t.x,t.top+1.45,t.z).addScaledVector(dir,1.4);
-  flash.position.copy(from);flash.intensity=6;flashT=0.05;
+  const from=V3(t.x,t.top+1.45,t.z).addScaledVector(dir,1.8); // heilt ute ved løpsmunningen
+  flash.position.copy(from);flash.intensity=8;flashT=0.05;
+  // MUNNINGSGLIMT ute på løpet — same stjernesmell som handvåpna, i verdsrommet
+  turretFlash(from,dir);
   let bestT=1e9,kind=null,obj=null;
   const o=camera.position.clone();
   if(KAIJU.alive){
@@ -3549,7 +3602,25 @@ function slugImpact(s,a){ // true = kula trefte noko og er brukt opp
   const dir=s.v.clone().normalize();
   for(const z of targets){
     const sc=z.scale||1,zp=z.grp.position;
-    if(segHit(a,b,V3(zp.x,zp.y+1.62*sc,zp.z),0.34*sc)){damageZombie(z,pay.dmg*1.8,true,dir);mark(true);return true;}
+    // HOVUDET — hardt treff kan rive det heilt av
+    if(segHit(a,b,V3(zp.x,zp.y+1.62*sc,zp.z),0.34*sc)){
+      damageZombie(z,pay.dmg*1.8,true,dir);mark(true);
+      if(!z.boss&&pay.dmg>=20&&Math.random()<0.5)dismember(z,'head',dir);
+      return true;
+    }
+    // ARMANE — eigne treffsoner ut til sidene
+    if(!z.boss){
+      const ca=Math.cos(z.grp.rotation.y),sa2=Math.sin(z.grp.rotation.y);
+      for(const arm of ['armL','armR']){
+        const ox=(arm==='armL'?-0.34:0.34)*sc;
+        const ax=zp.x+ca*ox, az=zp.z-sa2*ox;
+        if(segHit(a,b,V3(ax,zp.y+1.06*sc,az),0.2*sc)){
+          damageZombie(z,pay.dmg*0.8,false,dir);mark(false);
+          if(pay.dmg>=18&&Math.random()<0.45)dismember(z,arm,dir);
+          return true;
+        }
+      }
+    }
     if(segHit(a,b,V3(zp.x,zp.y+1.0*sc,zp.z),0.62*sc)){damageZombie(z,pay.dmg,false,dir);mark(false);return true;}
   }
   return false;
@@ -4014,6 +4085,8 @@ function updatePlayer(dt){
   if(flashT>0){flashT-=dt;if(flashT<=0)flash.intensity=0;}
   updateMuzzleFx(dt);
   updateLampLights(dt);
+  updateFlyParts(dt);
+  updateTurretFlash(dt);
 }
 </script>
 <script>
@@ -4050,6 +4123,14 @@ function makeHumanoid(o){ // {skin,shirt,pants,hat,eyes,style}
     tb.pbox(0.16,0.2,0.02,blood,-0.14,0.02,0.17);
     for(let i=0;i<5;i++)                                    // fillete skjortesnipp
       tb.pbox(0.09,rnd(0.08,0.2),0.3,shirt,-0.2+i*0.1,-0.36-rnd(0,0.06),0);
+    if(o.gore){                                            // dei STORE er langt verre tilreidde
+      tb.pbox(0.1,0.34,0.1,bone,0,0.08,-0.15);             // ryggrada stikk ut bak
+      for(let i=0;i<4;i++)tb.pbox(0.16,0.04,0.12,bone,0,0.2-i*0.11,-0.16);
+      tb.pbox(0.22,0.26,0.03,blood,-0.12,-0.1,0.16);       // stort opprive sår
+      tb.pbox(0.14,0.16,0.06,_hc(0x5a1a12),0.13,0.14,0.15);// hol inn i brystkassa
+      tb.pbox(0.3,0.1,0.03,blood,0,-0.3,0.15);
+      tb.pbox(0.09,0.22,0.09,bone,0.2,0.24,0.02);          // knust kragebein
+    }
   }else{
     tb.pbox(0.14,0.44,0.03,dark,-0.16,0.1,0.16);           // vestkantar
     tb.pbox(0.14,0.44,0.03,dark,0.16,0.1,0.16);
@@ -4079,6 +4160,12 @@ function makeHumanoid(o){ // {skin,shirt,pants,hat,eyes,style}
     hb.pbox(0.15,0.13,0.02,blood,0.02,-0.165,0.175);        // blod ned kjeven
     hb.pbox(0.1,0.12,0.02,_hc(o.skin,0.5),-0.12,0.06,0.172); // rotnande flekk
     hb.pbox(0.07,0.05,0.02,_hc(o.skin,0.5),0.11,-0.06,0.172);
+    if(o.gore){                                            // halve andletet er rive bort
+      hb.pbox(0.14,0.18,0.03,_hc(0x6a1a14),0.09,0.02,0.168);
+      hb.pbox(0.11,0.09,0.03,bone,0.1,0.1,0.172);          // kinnbeinet ligg bart
+      hb.pbox(0.05,0.13,0.05,bone,-0.14,-0.14,0.1,0,0,0.4);// kjeven heng laus i eine sida
+      hb.pbox(0.2,0.06,0.02,blood,0,-0.2,0.16);
+    }
   }else{
     for(const ex of [-0.085,0.085]){
       hb.pbox(0.105,0.075,0.022,sock,ex,0.035,0.163);       // augehòle i skugge
@@ -4164,13 +4251,13 @@ const ZOMBIES=[];
 function makeZombie(type,night){
   let o,hp,speed,dmg,scale=1;
   if(type==='giant'){ // kjempe — siste nivå
-    o={skin:0x6f9048,shirt:0x5c5348,pants:0x4a4238,eyes:0xff2010,style:'zombie'};
+    o={skin:0x6f9048,shirt:0x5c5348,pants:0x4a4238,eyes:0xff2010,style:'zombie',gore:true};
     hp=500+30*night;speed=rnd(1.5,1.9);dmg=45;scale=1.9;
   }else if(type==='fast'){
     o={skin:0xb2c47e,shirt:0xb0705a,pants:0x766554,eyes:0xff3020,style:'zombie'};
     hp=40+5*night;speed=rnd(3.8,4.6)+Math.min(1.5,night*0.06);dmg=8+Math.floor(night/2);scale=0.9;
   }else if(type==='tank'){
-    o={skin:0x7d9457,shirt:0x6b6157,pants:0x574e44,eyes:0xff3020,style:'zombie'};
+    o={skin:0x7d9457,shirt:0x6b6157,pants:0x574e44,eyes:0xff3020,style:'zombie',gore:true};
     hp=200+16*night;speed=rnd(1.2,1.6)+Math.min(0.8,night*0.04);dmg=Math.min(40,20+night);scale=1.45;
   }else{
     o={skin:0x8fae62,shirt:[0x9a8468,0x7d90a8,0xa89372][ri(0,2)],pants:0x6a5c4c,eyes:0xff3020,style:'zombie'};
@@ -4331,6 +4418,8 @@ function updateZombie(z,dt){
     z.parts.legL.rotation.x=sw;z.parts.legR.rotation.x=-sw;
     z.parts.armL.rotation.x=-1.2+Math.sin(z.animT)*0.25; // zombie-arms forward
     z.parts.armR.rotation.x=-1.2-Math.sin(z.animT)*0.25;
+    // utan hovud famlar han blindt og vaglar frå side til side
+    if(z.headless)z.grp.rotation.z=Math.sin(z.animT*0.7)*0.14;
   }
   // attack
   z.atkT-=dt;
@@ -4400,6 +4489,57 @@ function updateZombie(z,dt){
     sfxZombieNear(pd);
   }
 }
+
+// ---------------- LEMLESTING ----------------
+// Hovudet og armane kan skytast av. Zombien held fram med å gå — han merkar det
+// knapt — men held på hitpointa sine og døyr som før når dei er brukte opp.
+function dismember(z,part,dir){
+  if(!z.parts||z.hp<=0)return false;
+  z.gone=z.gone||{};
+  if(z.gone[part])return false;
+  const p=z.parts[part];
+  if(!p||!p.visible)return false;
+  z.gone[part]=true;
+  const wp=new THREE.Vector3();p.getWorldPosition(wp);
+  p.visible=false;
+  // blodsprut og kjøtbitar der lemmen sat
+  blood(wp,part==='head'?30:20);
+  gibs(wp,part==='head'?4:3);
+  sfxSplat();
+  // ein raud stubbe att i opninga
+  const sc=z.scale||1;
+  const stump=new THREE.Mesh(
+    part==='head'?new THREE.CylinderGeometry(0.11,0.13,0.1,8):new THREE.BoxGeometry(0.16,0.1,0.16),
+    new THREE.MeshStandardMaterial({color:0x8e1f18,roughness:0.5,metalness:0}));
+  if(part==='head'){stump.position.set(0,0.46,0);z.parts.torso.add(stump);}
+  else{stump.position.set(0,-0.03,0);p.parent.add(stump);stump.position.copy(p.position);}
+  // den avrivne delen blir slengd av garde
+  const fly=p.clone(true);
+  fly.visible=true;fly.traverse(o=>{o.visible=true;});
+  fly.scale.multiplyScalar(sc);
+  fly.position.copy(wp);
+  scene.add(fly);
+  FLYPARTS.push({m:fly,v:V3(rnd(-2,2),rnd(3,5.5),rnd(-2,2)).addScaledVector(dir||V3(0,0,1),3.5),
+    spin:V3(rnd(-8,8),rnd(-8,8),rnd(-8,8)),life:4.5});
+  if(part==='head'){
+    z.headless=true;
+    z.speed*=0.82;                    // utan augo blir han litt meir hjelpelaus
+    toast('Head shot clean off!','');
+  }
+  return true;
+}
+const FLYPARTS=[];
+function updateFlyParts(dt){
+  for(let i=FLYPARTS.length-1;i>=0;i--){
+    const f=FLYPARTS[i];
+    f.life-=dt;
+    if(f.life<=0){scene.remove(f.m);FLYPARTS.splice(i,1);continue;}
+    f.v.y-=13*dt;
+    f.m.position.addScaledVector(f.v,dt);
+    if(f.m.position.y<0.12){f.m.position.y=0.12;f.v.set(0,0,0);f.spin.set(0,0,0);}
+    f.m.rotation.x+=f.spin.x*dt;f.m.rotation.y+=f.spin.y*dt;f.m.rotation.z+=f.spin.z*dt;
+  }
+}
 function damageZombie(z,dmg,head,dir,expl){
   if(z.hp<=0)return;
   z.hp-=dmg;
@@ -4412,7 +4552,7 @@ function damageZombie(z,dmg,head,dir,expl){
     z.staggerT=head?0.34:0.24;
     if(!z.hitMats){ // materiala som skal blinke raudt — samla éin gong per zombie
       z.hitMats=[];
-      for(const p of [z.parts.body,z.parts.head,z.parts.armL,z.parts.armR])
+      for(const p of [z.parts.body,z.parts.head,z.parts.armL,z.parts.armR,z.parts.legL,z.parts.legR])
         if(p)p.traverse(m=>{if(m.isMesh&&m.material&&m.material.emissive)z.hitMats.push(m.material);});
     }
   }
@@ -4458,7 +4598,7 @@ function spawnBoss(night){
   }
   const def=BOSS_DEFS[tier-1];
   const bossDmg=Math.round(def.dmg*(1+(mult-1)*0.5));
-  const h=makeHumanoid({skin:def.color,shirt:0x4e463c,pants:0x413a32,eyes:0xff2010,style:'zombie'});
+  const h=makeHumanoid({skin:def.color,shirt:0x4e463c,pants:0x413a32,eyes:0xff2010,style:'zombie',gore:true});
   h.grp.scale.setScalar(def.scale);
   h.grp.position.set(-8*TG,0,-38*TG); // graveyard
   // cosmetics
@@ -4552,6 +4692,7 @@ function roofPathTo(bx,bz){
     [bx,bz]                            // bort til kanonplassen
   ];
 }
+const BRO_ARSENAL=['revolver','hagle','rifle','gatling','pisk']; // alt Mio har, utan dynamitt og bazooka
 const BRO_DEFS=[
   {name:'John',shirt:0xc0524a,hat:0x7a5c3c,anchor:V3(-3*TG,0,-3*TG),color:'#e07a6a',
     wpn:'hagle',roofPath:roofPathTo(-12*TG,-9.6*TG)},      // saloon-taket — John har HAGLE
@@ -4561,52 +4702,95 @@ const BRO_DEFS=[
     wpn:'revolver',roofPath:roofPathTo(12*TG,-7.2*TG)}     // landhandel-taket — Kristoffer har REVOLVER
 ];
 // synlege våpenmodellar — ein ser kva kvar bror skyt med
+// Brørne sine våpen — same detaljnivå og same materiale som spelaren sine,
+// berre bygde langs +Z fordi dei heng i handa. Alt blir slått saman per material.
+const BROMAT={
+  steel:new THREE.MeshStandardMaterial({map:TEX.metal,color:0x9aa2aa,metalness:0.92,roughness:0.34}),
+  blued:new THREE.MeshStandardMaterial({map:TEX.metal,color:0x424952,metalness:0.95,roughness:0.28}),
+  bright:new THREE.MeshStandardMaterial({map:TEX.metal,color:0xc2cad2,metalness:0.96,roughness:0.18}),
+  brass:new THREE.MeshStandardMaterial({color:0xd8a63c,metalness:1,roughness:0.24}),
+  wood:new THREE.MeshStandardMaterial({map:TEX.wood,color:0x8a5630,roughness:0.5,metalness:0.05}),
+  orange:new THREE.MeshStandardMaterial({color:0xe86a1e,roughness:0.5,metalness:0.15}),
+  dark:new THREE.MeshStandardMaterial({color:0x35302a,roughness:0.7,metalness:0.2})
+};
 function buildBroWeapon(kind){
   const g=new THREE.Group();
-  const steel=new THREE.MeshLambertMaterial({color:0x444a50});
-  const wood=new THREE.MeshLambertMaterial({color:0x6a4a2c});
-  if(kind==='hagle'){ // dobbeltløpa hagle
-    for(const off of [-0.035,0.035]){
-      const brl=new THREE.Mesh(new THREE.CylinderGeometry(0.028,0.028,0.55,6),steel);
-      brl.rotation.x=Math.PI/2;brl.position.set(off,0,0.26);g.add(brl);
+  const B=BROMAT;
+  const sb=new Batch(B.blued), lb=new Batch(B.bright), wb=new Batch(B.wood),
+        gb=new Batch(B.brass), ob=new Batch(B.orange), db=new Batch(B.dark);
+  if(kind==='hagle'){                       // dobbeltløpa hagle
+    for(const off of [-0.036,0.036]){
+      sb.add(new THREE.CylinderGeometry(0.03,0.032,0.58,10),off,0,0.3,Math.PI/2);
+      db.add(new THREE.CylinderGeometry(0.022,0.022,0.04,10),off,0,0.585,Math.PI/2); // mørk munning
     }
-    const stock=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.11,0.3),wood);
-    stock.position.set(0,-0.02,-0.1);g.add(stock);
-  }else if(kind==='rifle'){ // lang rifle med sikte
-    const brl=new THREE.Mesh(new THREE.CylinderGeometry(0.026,0.026,0.75,6),steel);
-    brl.rotation.x=Math.PI/2;brl.position.set(0,0,0.34);g.add(brl);
-    const stock=new THREE.Mesh(new THREE.BoxGeometry(0.08,0.1,0.36),wood);
-    stock.position.set(0,-0.02,-0.12);g.add(stock);
-    const scope=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,0.16,6),steel);
-    scope.rotation.x=Math.PI/2;scope.position.set(0,0.07,0.12);g.add(scope);
-  }else if(kind==='gatling'){ // mini-gatling (natt 10+)
-    for(let i=0;i<3;i++){
-      const a=i/3*Math.PI*2;
-      const brl=new THREE.Mesh(new THREE.CylinderGeometry(0.025,0.025,0.5,6),steel);
-      brl.rotation.x=Math.PI/2;brl.position.set(Math.cos(a)*0.045,Math.sin(a)*0.045,0.24);g.add(brl);
+    lb.box(0.13,0.05,0.045,0,0,0.5);lb.box(0.13,0.05,0.045,0,0,0.2);  // løpsband
+    sb.box(0.115,0.1,0.17,0,-0.01,-0.02);                              // låskasse
+    gb.box(0.12,0.018,0.1,0,0.045,-0.02);                              // gravert topplate
+    for(const hx of [-0.03,0.03])lb.box(0.016,0.048,0.02,hx,0.075,-0.08,undefined,0.5);
+    wb.box(0.095,0.062,0.26,0,-0.03,0.24,1.4);                         // forskjefte
+    wb.box(0.085,0.11,0.32,0,-0.055,-0.2,1.2,-0.2);                    // kolbe
+  }else if(kind==='rifle'){                 // lang rifle med kikkertsikte
+    sb.add(new THREE.CylinderGeometry(0.026,0.028,0.8,10),0,0,0.38,Math.PI/2);
+    db.add(new THREE.CylinderGeometry(0.019,0.019,0.04,10),0,0,0.78,Math.PI/2);
+    sb.box(0.075,0.09,0.2,0,-0.005,-0.03);                             // låskasse
+    gb.box(0.08,0.016,0.12,0,0.04,-0.03);
+    lb.box(0.03,0.05,0.02,0.045,0.01,-0.05,undefined,0,0,0.5);         // sluttstykkehandtak
+    wb.box(0.08,0.1,0.4,0,-0.03,-0.22,1.2,-0.16);                      // kolbe
+    wb.box(0.085,0.06,0.24,0,-0.03,0.2,1.4);                           // forskjefte
+    lb.add(new THREE.CylinderGeometry(0.032,0.032,0.22,10),0,0.085,0.1,Math.PI/2); // kikkert
+    lb.add(new THREE.CylinderGeometry(0.042,0.042,0.03,10),0,0.085,0.2,Math.PI/2);
+    for(const rz of [0.03,0.17])lb.box(0.02,0.06,0.02,0,0.05,rz);      // sikteringar
+  }else if(kind==='gatling'){               // mini-gatling
+    for(let i=0;i<5;i++){
+      const a=i/5*Math.PI*2;
+      sb.add(new THREE.CylinderGeometry(0.022,0.022,0.52,7),Math.cos(a)*0.05,Math.sin(a)*0.05,0.28,Math.PI/2);
     }
-    const body=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.16,0.28),steel);
-    body.position.set(0,-0.02,-0.06);g.add(body);
-    const mag=new THREE.Mesh(new THREE.BoxGeometry(0.1,0.12,0.1),new THREE.MeshLambertMaterial({color:0xb08830}));
-    mag.position.set(0,0.1,-0.06);g.add(mag);
-  }else{ // revolver
-    const brl=new THREE.Mesh(new THREE.CylinderGeometry(0.024,0.024,0.26,6),steel);
-    brl.rotation.x=Math.PI/2;brl.position.set(0,0,0.13);g.add(brl);
-    const drum=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,0.09,8),steel);
-    drum.rotation.x=Math.PI/2;drum.position.set(0,-0.01,0);g.add(drum);
-    const grip=new THREE.Mesh(new THREE.BoxGeometry(0.06,0.14,0.07),wood);
-    grip.position.set(0,-0.1,-0.08);g.add(grip);
+    lb.add(new THREE.TorusGeometry(0.055,0.008,6,12),0,0,0.46);
+    lb.add(new THREE.TorusGeometry(0.055,0.008,6,12),0,0,0.16);
+    gb.add(new THREE.CylinderGeometry(0.07,0.07,0.1,12),0,0,0.05,Math.PI/2); // messingnav
+    sb.box(0.14,0.16,0.26,0,-0.02,-0.1);                               // kropp
+    gb.box(0.15,0.02,0.24,0,0.07,-0.1);
+    gb.box(0.1,0.13,0.11,0,0.11,-0.1);                                 // patronkasse
+    wb.box(0.06,0.11,0.09,0,-0.11,-0.16,1.4);                          // grep
+  }else if(kind==='pisk'){                  // motorsag
+    ob.box(0.15,0.14,0.22,0,0,-0.06);
+    db.box(0.13,0.055,0.16,0,0.085,-0.08);
+    db.add(new THREE.TorusGeometry(0.075,0.013,6,12,Math.PI),0,0.1,-0.02,0,Math.PI/2,0);
+    lb.box(0.035,0.075,0.44,0,0.005,0.26);                             // sverd
+    db.box(0.026,0.05,0.42,0,0.005,0.26);
+    lb.add(new THREE.CylinderGeometry(0.042,0.042,0.034,12),0,0.005,0.48,0,0,Math.PI/2);
+    for(let i=0;i<8;i++){
+      db.box(0.028,0.022,0.03,0,0.046,0.09+i*0.05);
+      db.box(0.028,0.022,0.03,0,-0.036,0.09+i*0.05);
+    }
+    db.box(0.048,0.06,0.13,0,-0.045,-0.19);                            // bakre grep
+  }else{                                    // revolver
+    sb.add(new THREE.CylinderGeometry(0.022,0.023,0.3,10),0,0.01,0.16,Math.PI/2);
+    db.add(new THREE.CylinderGeometry(0.016,0.016,0.03,10),0,0.01,0.3,Math.PI/2);
+    gb.box(0.046,0.005,0.24,0,0.032,0.15);                             // gravert list
+    sb.box(0.045,0.065,0.12,0,0,0.01);                                 // ramme
+    lb.add(new THREE.CylinderGeometry(0.042,0.042,0.085,12),0,0,0.0,Math.PI/2); // tromme
+    gb.add(new THREE.CylinderGeometry(0.0445,0.0445,0.016,12),0,0,0.055,Math.PI/2);
+    lb.box(0.014,0.048,0.02,0,0.048,-0.06,undefined,0.5);              // hane
+    sb.add(new THREE.TorusGeometry(0.028,0.005,6,12),0,-0.048,-0.01,0,Math.PI/2,0);
+    wb.box(0.042,0.13,0.055,0,-0.085,-0.075,1.6,-0.38);                // grep
   }
+  sb.into(g,false,false);lb.into(g,false,false);wb.into(g,false,false);
+  gb.into(g,false,false);ob.into(g,false,false);db.into(g,false,false);
   return g;
 }
 for(const def of BRO_DEFS){
   const h=makeHumanoid({skin:0xd8a878,shirt:def.shirt,pants:0x4a3a2a,hat:def.hat});
   h.grp.position.copy(def.anchor);
   // personleg våpen + gatling (natt 10+) i høgre hand
-  const wpnMain=buildBroWeapon(def.wpn);
-  wpnMain.position.set(0,-0.62,0.1);h.armR.add(wpnMain);
-  const wpnGat=buildBroWeapon('gatling');
-  wpnGat.position.set(0,-0.62,0.1);wpnGat.visible=false;h.armR.add(wpnGat);
+  // Brørne ber HEILE arsenalet ditt bortsett frå dynamitt og bazooka.
+  // Alle modellane heng i handa; berre den aktive er synleg.
+  const wpnModels={};
+  for(const k of BRO_ARSENAL){
+    const w=buildBroWeapon(k);
+    w.position.set(0,-0.62,0.1);w.visible=(k===def.wpn);
+    h.armR.add(w);wpnModels[k]=w;
+  }
   const tag=textSprite(def.name,def.color,44,1.7);
   tag.position.y=2.25;h.grp.add(tag);
   scene.add(h.grp);
@@ -4619,7 +4803,7 @@ for(const def of BRO_DEFS){
     downed:false,fireT:rnd(0.5,1.5),wanderT:0,wander:V3(),anchor:def.anchor.clone(),
     animT:rnd(0,9),barkCd:0,mode:'well',wpts:null,wpi:0,roofUntil:0,roofPath:def.roofPath,
     pool:pool,cryT:0,helper:null,helpT:0,tHeat:0,tPause:0,
-    wpn:def.wpn,wpnMain:wpnMain,wpnGat:wpnGat});
+    wpn:def.wpn,fav:def.wpn,wpnModels:wpnModels,swapT:rnd(6,16)});
 }
 const DOWNED_CRY='I am down, boys! Help me now!! I am going to die!';
 function damageBro(b,dmg){
@@ -4694,7 +4878,17 @@ function updateBro(b,dt){
   b.barkCd-=dt;
   // bytt til gatling-modellen på siste nivå — ein SER kva dei skyt med
   const wantGat=G.night>=10&&G.phase==='night';
-  if(b.wpnGat&&b.wpnGat.visible!==wantGat){b.wpnGat.visible=wantGat;b.wpnMain.visible=!wantGat;}
+  if(b.wpn!==b.shownWpn){                       // syn det våpenet han faktisk brukar
+    for(const k in b.wpnModels)b.wpnModels[k].visible=(k===b.wpn);
+    b.shownWpn=b.wpn;
+  }
+  // dei byter våpen med jamne mellomrom — og alle grip gatlingen når KOLOSSEN kjem
+  b.swapT-=dt;
+  if(wantGat){ if(b.wpn!=='gatling')b.wpn='gatling'; }
+  else if(b.swapT<=0){
+    b.swapT=rnd(14,30);
+    b.wpn=Math.random()<0.45?b.fav:BRO_ARSENAL[ri(0,BRO_ARSENAL.length-1)];
+  }
   if(b.downed){
     // roper om hjelp og blør
     b.cryT-=dt;
@@ -4845,6 +5039,14 @@ function updateBro(b,dt){
         // kvar bror skyt med SITT våpen — gatling for alle på natt 10+
         const gat=G.night>=10;
         const w=gat?'gatling':b.wpn;
+        if(w==='pisk'){                       // MOTORSAG — reint nærkampvåpen
+          b.fireT=0.16;
+          b.parts.armR.rotation.x=-1.0+Math.sin(G.time*30)*0.25;
+          if(bd<2.6){
+            sfxSawRev(true);
+            damageZombie(best,16,false,V3(best.grp.position.x-b.grp.position.x,0,best.grp.position.z-b.grp.position.z).normalize());
+          }else sfxSawRev(false);
+        }else{                                // ---- skytevåpen ----
         let miss;
         if(w==='gatling'){b.fireT=rnd(0.09,0.16);miss=0.3;}
         else if(w==='hagle'){b.fireT=rnd(1.4,1.9);miss=0.12;}
@@ -4863,6 +5065,7 @@ function updateBro(b,dt){
         }else{
           spawnSlug(from,to);
           if(hit)damageZombie(best,w==='gatling'?12:(w==='rifle'?55:22),false,null);
+        }
         }
       }
       // retreat if too close — eller rykk frem mot fienden (dynamisk!)
@@ -5946,9 +6149,6 @@ function updateAmbient(dt){
     t.g.position.y=t.r+Math.abs(Math.sin(t.bounce))*t.r*0.45;
     if(t.g.position.x>150*TG){t.g.position.x=-150*TG;t.g.position.z=rnd(-60,60)*TG;}
   }
-  if(tumble.position.x>58){tumble.position.x=-58;tumble.position.z=rnd(-20,20);}
-  // horse
-  horse.userData.head.position.y=1.7+Math.sin(G.time*1.1)*0.06;
   // lanterns
   const night=G.envMix>0.55;
   for(const l of G.lanterns){
