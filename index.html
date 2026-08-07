@@ -3121,9 +3121,10 @@ function updateTurretFlash(dt){
 function fireTurretShot(t){
   const dir=camDir();
   sfxShot('gatling',1);
-  const from=V3(t.x,t.top+1.45,t.z).addScaledVector(dir,1.8); // heilt ute ved løpsmunningen
+  // munningen rekna ut frå tårnet sitt EIGE koordinatsystem — løpa endar på z=-1.9
+  t.g.updateMatrixWorld();
+  const from=t.g.localToWorld(V3(0,1.45,-1.95));
   flash.position.copy(from);flash.intensity=8;flashT=0.05;
-  // MUNNINGSGLIMT ute på løpet — same stjernesmell som handvåpna, i verdsrommet
   turretFlash(from,dir);
   let bestT=1e9,kind=null,obj=null;
   const o=camera.position.clone();
@@ -3199,14 +3200,14 @@ const P={
   hp:100, onGround:true, locked:false,
   cur:'revolver',
   owned:{revolver:true,pisk:true,hagle:false,dynamitt:false,gatling:false,bazooka:false},
-  mag:{revolver:6,hagle:2},
+  mag:{revolver:6,hagle:6},
   ammo:{bullets:36,shells:0,dyn:0,rockets:0},
   fireT:0, reloadT:0, reloading:false, heat:0, overheatT:0,
   keys:{}, frozen:true, reviveT:0, reviveTarget:null, fallback:false
 };
 const WEAPONS={
   revolver:{name:'REVOLVER',key:'1',dmg:34,rate:0.35,mag:6,reload:0.8,ammo:'bullets'},
-  hagle:{name:'SHOTGUN',key:'2',dmg:12,pellets:8,rate:0.95,mag:2,reload:1.05,ammo:'shells',spread:0.065},
+  hagle:{name:'SHOTGUN',key:'2',dmg:12,pellets:8,rate:0.95,mag:6,reload:1.4,ammo:'shells',spread:0.065},
   pisk:{name:'CHAINSAW',key:'3',dmg:15,rate:0.13,range:2.8},
   dynamitt:{name:'DYNAMITE',key:'4',dmg:160,rate:1.1,radius:6.5,ammo:'dyn'},
   gatling:{name:'GATLING',key:'5',dmg:14,rate:0.075},
@@ -3602,7 +3603,7 @@ function slugImpact(s,a){ // true = kula trefte noko og er brukt opp
     // HOVUDET — hardt treff kan rive det heilt av
     if(segHit(a,b,V3(zp.x,zp.y+1.62*sc,zp.z),0.34*sc)){
       damageZombie(z,pay.dmg*1.8,true,dir);mark(true);
-      if(!z.boss&&pay.dmg>=20&&Math.random()<0.5)dismember(z,'head',dir);
+      if(!z.boss&&pay.dmg>=14&&Math.random()<0.55)dismember(z,'head',dir);
       return true;
     }
     // ARMANE — eigne treffsoner ut til sidene
@@ -3611,9 +3612,9 @@ function slugImpact(s,a){ // true = kula trefte noko og er brukt opp
       for(const arm of ['armL','armR']){
         const ox=(arm==='armL'?-0.34:0.34)*sc;
         const ax=zp.x+ca*ox, az=zp.z-sa2*ox;
-        if(segHit(a,b,V3(ax,zp.y+1.06*sc,az),0.2*sc)){
+        if(segHit(a,b,V3(ax,zp.y+1.06*sc,az),0.3*sc)){
           damageZombie(z,pay.dmg*0.8,false,dir);mark(false);
-          if(pay.dmg>=18&&Math.random()<0.45)dismember(z,arm,dir);
+          if(pay.dmg>=9&&Math.random()<0.7)dismember(z,arm,dir);
           return true;
         }
       }
@@ -4084,6 +4085,7 @@ function updatePlayer(dt){
   updateLampLights(dt);
   updateFlyParts(dt);
   updateTurretFlash(dt);
+  updateRagdolls(dt);
 }
 </script>
 <script>
@@ -4555,10 +4557,63 @@ function damageZombie(z,dmg,head,dir,expl){
   }
   if(z.hp<=0)killZombie(z,head,expl);
 }
+
+// ---------------- RAGDOLL VED SPRENGING ----------------
+// Når ein zombie blir teken av dynamitt eller bazooka, blir kvar kroppsdel riven
+// laus og slengd til vêrs med sin eigen fart og spinn. Fyrst når delen landar —
+// eller når han har vore i lufta lenge nok — sprekk han i ei blodsky.
+function ragdollBurst(z){
+  const sc=z.scale||1;
+  const src=z.grp.position;
+  const parts=[z.parts.body,z.parts.head,z.parts.armL,z.parts.armR,z.parts.legL,z.parts.legR];
+  let any=false;
+  for(const p of parts){
+    if(!p||!p.visible)continue;
+    const wp=new THREE.Vector3();p.getWorldPosition(wp);
+    const clone=p.clone(true);
+    clone.traverse(o=>{o.visible=true;});
+    clone.position.copy(wp);
+    clone.rotation.set(0,z.grp.rotation.y,0);
+    clone.scale.setScalar(sc);
+    scene.add(clone);
+    // sprengkrafta kastar delane ut og OPP frå senter
+    const out=V3(wp.x-src.x,0,wp.z-src.z);
+    if(out.lengthSq()<0.01)out.set(rnd(-1,1),0,rnd(-1,1));
+    out.normalize();
+    RAGDOLLS.push({m:clone,
+      v:out.multiplyScalar(rnd(4,9)).add(V3(rnd(-2,2),rnd(9,15),rnd(-2,2))),
+      spin:V3(rnd(-12,12),rnd(-12,12),rnd(-12,12)),
+      life:rnd(1.1,1.9),popped:false});
+    any=true;
+  }
+  // ei lita sky med ein gong i sjølve smellen, resten kjem når delane sprekk
+  blood(src.clone().add(V3(0,1*sc,0)),14);
+  if(!any)bloodMist(src.clone().add(V3(0,1,0)));
+}
+const RAGDOLLS=[];
+function updateRagdolls(dt){
+  for(let i=RAGDOLLS.length-1;i>=0;i--){
+    const r=RAGDOLLS[i];
+    r.life-=dt;
+    r.v.y-=19*dt;
+    r.m.position.addScaledVector(r.v,dt);
+    r.m.rotation.x+=r.spin.x*dt;r.m.rotation.y+=r.spin.y*dt;r.m.rotation.z+=r.spin.z*dt;
+    // blodspor etter delen medan han flyg
+    if(Math.random()<0.55)spawnParts(r.m.position,1,0x8a1410,1.2,0.5,7,0.2,0.55);
+    const landa=r.m.position.y<=0.2;
+    if(landa||r.life<=0){
+      // delen sprekk i ei blodsky
+      bloodMist(r.m.position.clone());
+      spawnParts(r.m.position,6,0x6a1210,4,0.7,9,0.3,0.8);
+      scene.remove(r.m);RAGDOLLS.splice(i,1);
+      G.shake=Math.max(G.shake,0.05);
+    }
+  }
+}
 function killZombie(z,head,expl){
   sfxZombieDie();
   sfxSplat();
-  if(expl)bloodMist(z.grp.position.clone().add(V3(0,1,0))); // sprengd i fillebitar
+  if(expl)ragdollBurst(z);                                  // sprengd — heile kroppen fyk til vêrs
   else{gibs(z.grp.position);blood(z.grp.position.clone().add(V3(0,1,0)),18);}
   scene.remove(z.grp);
   if(z.boss){
@@ -4785,7 +4840,9 @@ for(const def of BRO_DEFS){
   const wpnModels={};
   for(const k of BRO_ARSENAL){
     const w=buildBroWeapon(k);
-    w.position.set(0,-0.62,0.1);w.visible=(k===def.wpn);
+    // armen roterer -1.45 rad når han siktar; vi motroterer våpenet like mykje
+    // slik at løpet peikar RETT FRAM i staden for opp i lufta
+    w.position.set(0,-0.6,0.06);w.rotation.x=1.45;w.visible=(k===def.wpn);
     h.armR.add(w);wpnModels[k]=w;
   }
   const tag=textSprite(def.name,def.color,44,1.7);
@@ -5323,7 +5380,7 @@ function collectPickup(p){
   else if(k==='dyn'){P.ammo.dyn+=p.amt;toast('+'+p.amt+' dynamite');}
   else if(k==='beans'){P.hp=Math.min(100,P.hp+30);toast('Beans! +30 health');sfxHeal();}
   else if(k==='whisky'){P.hp=Math.min(100,P.hp+50);toast('Whiskey! +50 health');sfxHeal();}
-  else if(k==='w_hagle'){P.owned.hagle=true;P.ammo.shells+=10;P.mag.hagle=2;toast('NEW WEAPON: SHOTGUN! (key 2)');banner('','NEW WEAPON: SHOTGUN');}
+  else if(k==='w_hagle'){P.owned.hagle=true;P.ammo.shells+=12;P.mag.hagle=6;toast('NEW WEAPON: SHOTGUN! (key 2)');banner('','NEW WEAPON: SHOTGUN');}
   else if(k==='w_dyn'){P.owned.dynamitt=true;P.ammo.dyn+=4;toast('NEW WEAPON: DYNAMITE! (key 4)');banner('','NEW WEAPON: DYNAMITE');}
   else if(k==='w_bazooka'){P.owned.bazooka=true;P.ammo.rockets+=3;toast('BAZOOKA! (key 6) — one rocket kills everything');banner('','NEW WEAPON: BAZOOKA');}
   else if(k==='rockets'){P.ammo.rockets+=p.amt;toast('+'+p.amt+' rockets');}
@@ -5437,9 +5494,13 @@ function introCine(){
   mioModel.rotation.y=Math.PI; // vender mot brødrene
   mioModel.visible=true;
   // stage: brothers by the well, Mio at road
-  BROS[0].grp.position.set(-1.6*TG,0,1.6*TG);BROS[0].grp.rotation.y=Math.PI*0.85;
-  BROS[1].grp.position.set(1.6*TG,0,1.8*TG);BROS[1].grp.rotation.y=-Math.PI*0.85;
-  BROS[2].grp.position.set(0,0,3*TG);BROS[2].grp.rotation.y=Math.PI;
+  // alle tre snur seg mot Mio, som står lenger nede i gata
+  const mioAt=V3(0,0,8*TG);
+  BROS[0].grp.position.set(-1.6*TG,0,1.6*TG);
+  BROS[1].grp.position.set(1.6*TG,0,1.8*TG);
+  BROS[2].grp.position.set(0,0,3*TG);
+  for(const b of BROS)
+    b.grp.rotation.y=Math.atan2(mioAt.x-b.grp.position.x,mioAt.z-b.grp.position.z);
   P.pos.set(0,1.7,8*TG);P.yaw=0;P.pitch=0;
   envApply(0);
   const broShot={camA:[3.6,2,7],camB:[3.1,1.9,6.4],lookA:[0,1.5,1.5]};
@@ -5534,7 +5595,7 @@ function resetAll(){
   G.pending=0;G.bossPending=false;G.endless=false;G.bossCount=0;
   P.hp=100;P.pos.set(0,1.7,44*TG);P.yaw=0;P.pitch=0;P.vel.set(0,0,0);
   P.owned={revolver:true,pisk:true,hagle:false,dynamitt:false,gatling:false,bazooka:false};
-  P.mag={revolver:6,hagle:2};P.ammo={bullets:36,shells:0,dyn:0,rockets:0};
+  P.mag={revolver:6,hagle:6};P.ammo={bullets:36,shells:0,dyn:0,rockets:0};
   P.cur='revolver';P.reloading=false;P.firing=false;
   P.heat=0;P.overheatT=0;
   for(const r of ROCKETS)scene.remove(r.m);ROCKETS.length=0;
@@ -5666,8 +5727,8 @@ function updateNight(dt){
   if(G.kaijuNight){
     updateSkulls(dt);
     G.skullT-=dt;
-    if(G.skullT<=0&&SKULLS.length<14&&KAIJU.alive){
-      G.skullT=rnd(2.2,4.5);
+    if(G.skullT<=0&&SKULLS.length<11&&KAIJU.alive){
+      G.skullT=rnd(2.9,6.0);   // ~25 % færre skallar mot byen
       spawnSkull();
       if(Math.random()<0.35&&SKULLS.length<14)spawnSkull();
     }
@@ -5794,7 +5855,7 @@ function retryDay(){
   P.ammo.bullets=Math.max(P.ammo.bullets,24);
   if(P.owned.hagle)P.ammo.shells=Math.max(P.ammo.shells,6);
   if(P.owned.dynamitt)P.ammo.dyn=Math.max(P.ammo.dyn,2);
-  P.mag.revolver=6;P.mag.hagle=2;P.reloading=false;
+  P.mag.revolver=6;P.mag.hagle=6;P.reloading=false;
   P.heat=0;P.overheatT=0;
   for(const r of ROCKETS)scene.remove(r.m);ROCKETS.length=0;
   for(const b of BROS){b.hp=b.maxHp;b.downed=false;b.grp.scale.y=1;b.grp.rotation.x=0;b.pool.visible=false;b.grp.position.copy(b.anchor);b.mode='well';b.wpts=null;b.wpi=0;}
