@@ -88,7 +88,7 @@ _Eldstebroren. Barsk, myndig, forvitra av sol og sorg. Snakkar seint og tydeleg.
 - `cole_819bbaae.mp3`  
   <<You took our oath the day you stayed, Clay.>>
 
-## Silas (23 replikkar)
+## Silas (24 replikkar)
 
 _Skarpskyttaren. Djup og roleg. Seier lite, og meiner alt._
 
@@ -96,6 +96,8 @@ _Skarpskyttaren. Djup og roleg. Seier lite, og meiner alt._
   <<A house is burning! The fire jumps roof to roof. Put those skulls in the dirt before it takes the town!>>
 - `silas_8841b297.mp3`  
   <<SIX gone! One more and Dust Valley dies tonight! SHOOT THEM DOWN!>>
+- `silas_200a39cf.mp3`  
+  <<Skulls in the sky! Shoot them down before they hit the houses!>>
 - `silas_118b42f0.mp3`  
   <<The sickness took Dust Valley whole. Our mother. Our neighbours. Everyone we ever knew is out there walking.>>
 - `silas_3a78f152.mp3`  

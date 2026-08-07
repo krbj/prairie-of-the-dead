@@ -813,9 +813,12 @@ function playVoice(who,text){
   if(VOICE.cur)VOICE.cur.pause();
   const a=new Audio('audio/voice/'+f);
   a.volume=0.95;a.muted=AU.muted;
-  a.play().catch(()=>{});
+  a.done=false;                       // set når replikken er ferdig
+  a.addEventListener('ended',()=>{a.done=true;});
+  a.addEventListener('error',()=>{a.done=true;});
+  a.play().catch(()=>{a.done=true;}); // får han ikkje spele, skal vi ikkje vente på han
   VOICE.cur=a;
-  return true;
+  return a;                           // sannverdi som før, men no kan den som ventar sjå på han
 }
 function stopVoice(){if(VOICE.cur){VOICE.cur.pause();VOICE.cur=null;}}
 // filbaserte lydeffekter: legg egne opptak i audio/sfx/<navn>.mp3 (se LYDLISTE.md)
@@ -2035,12 +2038,20 @@ function updateNuke(dt){
   const base=new THREE.Mesh(uvPlane(new THREE.CylinderGeometry(1.2,1.3,1,16,1,true),5,1,0.9),wStone);
   base.material.side=THREE.DoubleSide;
   base.position.y=0.5;base.castShadow=true;base.receiveShadow=true;well.add(base);
-  const shaft=new THREE.Mesh(new THREE.CylinderGeometry(1.06,0.9,7,16,1,true),
-    new THREE.MeshStandardMaterial({map:TEX.stone,color:0x2a2620,roughness:1,metalness:0,side:THREE.BackSide}));
-  shaft.position.y=-3.2;well.add(shaft);                    // sjakta nedover
-  const water=new THREE.Mesh(new THREE.CircleGeometry(0.86,16),
-    new THREE.MeshStandardMaterial({color:0x14202a,roughness:0.06,metalness:0.5}));
-  water.rotation.x=-Math.PI/2;water.position.y=-6.4;well.add(water); // vatnet langt nede
+  // Sjakta: øvst ser du så vidt steinen, så sluker mørkret alt. Bygd av tre ledd
+  // som blir mørkare nedover — botnen er heilt svart, så det ser botnlaust ut.
+  const shaftTop=new THREE.Mesh(new THREE.CylinderGeometry(1.06,1.0,1.6,16,1,true),
+    new THREE.MeshBasicMaterial({map:TEX.stone,color:0x2a2620,side:THREE.BackSide,fog:false}));
+  shaftTop.position.y=0.1;well.add(shaftTop);
+  const shaftMid=new THREE.Mesh(new THREE.CylinderGeometry(1.0,0.94,2.4,16,1,true),
+    new THREE.MeshBasicMaterial({map:TEX.stone,color:0x0b0a09,side:THREE.BackSide,fog:false}));
+  shaftMid.position.y=-1.9;well.add(shaftMid);
+  const shaftDeep=new THREE.Mesh(new THREE.CylinderGeometry(0.94,0.9,6,16,1,true),
+    new THREE.MeshBasicMaterial({color:0x000000,side:THREE.BackSide,fog:false}));
+  shaftDeep.position.y=-6.1;well.add(shaftDeep);
+  const bottom=new THREE.Mesh(new THREE.CircleGeometry(0.94,16),
+    new THREE.MeshBasicMaterial({color:0x000000,fog:false}));
+  bottom.rotation.x=-Math.PI/2;bottom.position.y=-9.1;well.add(bottom); // botnlaust svart
   const lip=new THREE.Mesh(new THREE.RingGeometry(1.06,1.22,16),
     new THREE.MeshStandardMaterial({map:TEX.stone,color:0x8e857a,roughness:1,side:THREE.DoubleSide}));
   lip.rotation.x=-Math.PI/2;lip.position.y=0.995;well.add(lip); // steinkant rundt opninga
@@ -4993,24 +5004,26 @@ function updateBossAbilities(z,dt,dist,tgt){
   if(z.tier===3){
     z.skullT-=dt;
     if(z.skullT<=0){
-      z.skullT=z.raged?9:15;
-      const n=z.raged?4:2;
+      z.skullT=z.raged?12:18;
+      const n=z.raged?12:8;      // ein heil sverm — minst åtte kvar gong
       let sent=0;
       for(let i=0;i<n;i++){
-        if(typeof spawnSkull==='function'&&SKULLS.length<12){
+        if(typeof spawnSkull==='function'&&SKULLS.length<26){
           spawnSkull();
           const sk=SKULLS[SKULLS.length-1];
           if(sk){ // start dei ved staven hans og kast dei OPP fyrst
-            sk.m.position.copy(z.grp.position).add(V3(rnd(-2,2),2.6*z.scale,rnd(-2,2)));
-            sk.v.set(rnd(-9,9),34,rnd(-9,9));                 // rett til vêrs
-            sk.arc=1.9;                                        // fell mot huset etterpå
+            sk.m.position.copy(z.grp.position).add(V3(rnd(-2.5,2.5),2.6*z.scale,rnd(-2.5,2.5)));
+            // kastar dei i ei brei vifte høgt til vêrs — dei spreier seg over heile byen
+            sk.v.set(rnd(-16,16),rnd(32,42),rnd(-16,16));
+            sk.arc=rnd(1.7,2.6);                               // så snur dei og styrer mot kvart sitt hus
             sent++;
           }
         }
       }
       if(sent){
-        banner('','THE PLAGUE KING HURLS HIS SKULLS AT THE SKY',true);
-        toast('They will come down burning — shoot them!','bad');
+        banner('','THE PLAGUE KING HURLS '+sent+' SKULLS AT THE SKY',true);
+        toast('They are coming down burning — shoot every one of them!','bad');
+        bark('Silas','Skulls in the sky! Shoot them down before they hit the houses!');
         sfxRoar();G.shake=Math.max(G.shake,0.45);
         spawnParts(z.grp.position.clone().add(V3(0,2.4*z.scale,0)),20,0xff7a20,8,0.9,2,1.2,1.3);
       }
@@ -5745,7 +5758,7 @@ function updatePickups(dt){
 
 // ---------------- DIALOGUE + CUTSCENES ----------------
 const DLG={active:false};
-const CINE={active:false,steps:null,i:-1,t:0,done:null};
+const CINE={active:false,steps:null,i:-1,t:0,done:null,voice:null,pause:0};
 function dlgAdvance(){
   if(CINE.active){cineNext();return;}
   DLG.active=false;$('dlgBox').classList.remove('on');
@@ -5761,7 +5774,7 @@ function cineStart(steps,done){
   cineNext();
 }
 function cineNext(){
-  CINE.i++;CINE.t=0;
+  CINE.i++;CINE.t=0;CINE.pause=0;
   $('dlgBox').classList.remove('on');DLG.active=false;
   const s=CINE.steps[CINE.i];
   if(!s){cineEnd();return;}
@@ -5771,13 +5784,14 @@ function cineNext(){
     cap.innerHTML=s.caption+(s.small?'<span class="small">'+s.small+'</span>':'');
     cap.classList.add('on');
   }else cap.classList.remove('on');
-  if(s.narr)playVoice('Forteljar',s.narr);
+  CINE.voice=null;
+  if(s.narr)CINE.voice=playVoice('Forteljar',s.narr)||null;
   if(s.dlg){
     $('dlgWho').textContent=s.dlg.who;
     $('dlgWho').style.color=SPEAKER_COLORS[s.dlg.who]||'#d9a441';
     $('dlgText').textContent='«'+s.dlg.text+'»';
     $('dlgBox').classList.add('on');DLG.active=true;
-    playVoice(s.dlg.who,s.dlg.text);
+    CINE.voice=playVoice(s.dlg.who,s.dlg.text)||null;
   }
   if(s.sfx)s.sfx();
 }
@@ -5794,7 +5808,22 @@ function cineUpdate(dt){
     const lb=s.lookB||s.lookA;
     camera.lookAt(lerp(s.lookA[0],lb[0],e),lerp(s.lookA[1],lb[1],e),lerp(s.lookA[2],lb[2],e));
   }
-  if(CINE.t>=s.dur)cineNext();
+  // Vent på at replikken skal bli ferdig. Den oppgjevne varigheita er eit
+  // MINIMUM — tek stemma lenger tid, står biletet til ho er ferdig, med eit
+  // lite pust etterpå. Utan dette kutta neste steg replikken midt i setninga.
+  if(CINE.t>=s.dur){
+    const v=CINE.voice;
+    let venter=false;
+    if(v&&!v.done){
+      // ferdig? (nokre nettlesarar fyrer ikkje 'ended' heilt presist)
+      const slutt=(v.duration&&isFinite(v.duration))?(v.currentTime>=v.duration-0.06):false;
+      if(!slutt&&CINE.t<s.dur+14)venter=true;   // tryggleiksgrense så vi aldri heng
+    }
+    if(!venter){
+      CINE.pause=(CINE.pause||0)+dt;
+      if(CINE.pause>=(CINE.voice?0.45:0)){CINE.pause=0;cineNext();}
+    }
+  }
 }
 function cineEnd(){
   CINE.active=false;DLG.active=false;
