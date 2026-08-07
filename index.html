@@ -486,27 +486,69 @@ function toggleMute(){
 }
 
 function _env(g,t0,a,peak,dur){g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(peak,t0+a);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);}
-function _noiseHit(dur,peak,filterType,freq,q=1){
-  if(!AU.ctx||!(peak>0.001))return;const t=AU.ctx.currentTime;
+function _noiseHit(dur,peak,filterType,freq,q=1,when=0,sweepTo){
+  if(!AU.ctx||!(peak>0.001))return;const t=AU.ctx.currentTime+(when||0);
   const s=AU.ctx.createBufferSource();s.buffer=AU.noise;
+  s.playbackRate.value=rnd(0.9,1.1);           // litt variasjon så to skot aldri er heilt like
   const f=AU.ctx.createBiquadFilter();f.type=filterType;f.frequency.value=freq;f.Q.value=q;
+  if(sweepTo)f.frequency.exponentialRampToValueAtTime(Math.max(40,sweepTo),t+dur);
   const g=AU.ctx.createGain();_env(g,t,0.004,peak,dur);
   s.connect(f);f.connect(g);g.connect(AU.sfx);s.start(t);s.stop(t+dur+0.05);
 }
-function _tone(type,f0,f1,dur,peak,dest){
-  if(!AU.ctx||!(peak>0.001))return;const t=AU.ctx.currentTime;
+function _tone(type,f0,f1,dur,peak,dest,when){
+  if(!AU.ctx||!(peak>0.001))return;const t=AU.ctx.currentTime+(when||0);
   const o=AU.ctx.createOscillator();o.type=type;
   o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(Math.max(1,f1),t+dur);
   const g=AU.ctx.createGain();_env(g,t,0.005,peak,dur);
   o.connect(g);g.connect(dest||AU.sfx);o.start(t);o.stop(t+dur+0.05);
 }
+// EIT SKOT er tre ting: den knallharde transienten (kruttet som smell),
+// kroppen (trykkbølgja gjennom løpet) og halen (dalen som kastar lyden tilbake).
+// Alle våpna deler denne oppbygginga, men med kvar sine tal — difor høyrest
+// revolveren, hagla, rifla og gatlingen ut som tre heilt ulike våpen.
+function _gunShot(o,vol){
+  const v=vol===undefined?1:vol;
+  // 1) transient — den skarpe smellen
+  _noiseHit(o.crackDur,o.crack*v,'highpass',o.crackHz,0.7);
+  // 2) kropp — trykket, med filteret som fell medan lyden døyr
+  _noiseHit(o.bodyDur,o.body*v,'lowpass',o.bodyHz,1.1,0.004,o.bodyHz*0.25);
+  _tone('square',o.thump0,o.thump1,o.thumpDur,o.thump*v,null,0.004);
+  _tone('sine',o.sub0||70,22,o.subDur||0.16,(o.sub||0)*v);      // sub-dunk i magen
+  // 3) hale — to ekko frå åsane rundt Dust Valley, mørkare for kvar gong
+  if(o.tail>0){
+    _noiseHit(o.tailDur,o.tail*v,'bandpass',o.tailHz,0.8,o.tailT,o.tailHz*0.5);
+    _noiseHit(o.tailDur*1.5,o.tail*0.45*v,'lowpass',o.tailHz*0.6,0.7,o.tailT*2.1,o.tailHz*0.3);
+  }
+  // 4) mekanikk — låsen som arbeider
+  if(o.mech)_noiseHit(0.03,o.mech*v,'bandpass',2400,3,o.mechT||0.05);
+}
+const GUNS={
+  // tørr, hard smell og lang ørkenhale
+  revolver:{crack:0.85,crackDur:0.035,crackHz:2900, body:0.62,bodyDur:0.13,bodyHz:1500,
+    thump0:210,thump1:52,thumpDur:0.1,thump:0.3, sub:0.3,sub0:80,subDur:0.18,
+    tail:0.2,tailDur:0.3,tailHz:1200,tailT:0.1, mech:0.1,mechT:0.07},
+  // brei, djup drønn med mykje kruttrøyk og lang etterklang
+  hagle:{crack:0.95,crackDur:0.05,crackHz:1900, body:0.95,bodyDur:0.3,bodyHz:820,
+    thump0:150,thump1:34,thumpDur:0.22,thump:0.5, sub:0.5,sub0:58,subDur:0.3,
+    tail:0.3,tailDur:0.45,tailHz:700,tailT:0.12, mech:0.14,mechT:0.13},
+  // langt løp: knivskarp krakk, minimal kropp, veldig lang hale
+  rifle:{crack:1,crackDur:0.028,crackHz:4200, body:0.45,bodyDur:0.1,bodyHz:1900,
+    thump0:250,thump1:60,thumpDur:0.08,thump:0.22, sub:0.22,sub0:90,subDur:0.14,
+    tail:0.32,tailDur:0.42,tailHz:1500,tailT:0.13, mech:0.16,mechT:0.1},
+  // rask, metallisk hakking — nesten ingen hale, den druknar i neste skot
+  gatling:{crack:0.6,crackDur:0.018,crackHz:3600, body:0.4,bodyDur:0.06,bodyHz:1700,
+    thump0:280,thump1:90,thumpDur:0.045,thump:0.18, sub:0.12,sub0:100,subDur:0.07,
+    tail:0.06,tailDur:0.12,tailHz:1400,tailT:0.05, mech:0.12,mechT:0.02},
+  // brørne i det fjerne — dempa og tynn
+  npc:{crack:0.34,crackDur:0.03,crackHz:2600, body:0.26,bodyDur:0.1,bodyHz:1300,
+    thump0:180,thump1:50,thumpDur:0.08,thump:0.12, sub:0.1,sub0:80,subDur:0.12,
+    tail:0.1,tailDur:0.26,tailHz:1000,tailT:0.11, mech:0}
+};
 function sfxShot(kind,vol=1){
   if(!AU.ctx)return;
   if(sfxFile(kind,vol*0.9))return;
-  if(kind==='revolver'){_noiseHit(0.16,0.7*vol,'lowpass',2600);_tone('square',180,40,0.12,0.35*vol);}
-  else if(kind==='hagle'){_noiseHit(0.3,0.9*vol,'lowpass',1400);_tone('square',120,30,0.2,0.45*vol);_noiseHit(0.4,0.25*vol,'highpass',3000);}
-  else if(kind==='gatling'){_noiseHit(0.07,0.45*vol,'lowpass',3200);_tone('square',240,70,0.05,0.18*vol);}
-  else if(kind==='npc'){_noiseHit(0.12,0.28*vol,'lowpass',2200);_tone('square',160,45,0.09,0.14*vol);}
+  const g=GUNS[kind]||GUNS.revolver;
+  _gunShot(g,vol);
 }
 function sfxWhip(){ // øksehugg
   if(sfxFile('oks'))return;
@@ -519,7 +561,22 @@ function sfxExplosion(){
 }
 function sfxBazooka(){
   if(sfxFile('bazooka'))return;
-  _noiseHit(0.4,0.7,'lowpass',1200);_tone('sawtooth',300,80,0.5,0.4);
+  // avfyringa: hardt trykk ut av røyret, så raketten som kviner av garde
+  _noiseHit(0.05,0.9,'highpass',1400,0.8);          // tennsatsen
+  _noiseHit(0.34,0.85,'lowpass',900,1,0.005,300);   // utblåsen bakover
+  _tone('sine',95,30,0.4,0.55);                     // djup dunk
+  _tone('sawtooth',420,140,0.55,0.22,null,0.03);    // rakettmotoren som fjernar seg
+  _noiseHit(0.6,0.3,'bandpass',1100,1.4,0.06,420);  // kvin frå halen
+  _noiseHit(0.5,0.14,'lowpass',600,0.7,0.34,220);   // ekko frå åsane
+}
+// motorsaga: to-takts motor med turtal — nyttast medan ein sagar
+function sfxSawRev(load){
+  if(!AU.ctx)return;
+  if(sfxFile('saw',0.35))return;
+  const base=load?rnd(150,190):rnd(95,120);
+  _tone('sawtooth',base,base*rnd(0.85,1.15),0.1,0.1);
+  _tone('square',base*2.02,base*1.9,0.09,0.045);
+  _noiseHit(0.08,load?0.16:0.07,'bandpass',load?1800:1100,1.6);
 }
 function sfxThunder(){
   if(sfxFile('thunder'))return;
@@ -592,7 +649,17 @@ function sawSet(on){
     AU.saw=null;
   }
 }
-function sfxReload(){if(sfxFile('reload'))return;_tone('square',700,500,0.05,0.12);setTimeout(()=>_tone('square',500,900,0.05,0.12),140);}
+// omlading: tomhylser som fell ut, nye patronar inn, og låsen som smekk att
+function sfxReload(){
+  if(sfxFile('reload'))return;
+  _noiseHit(0.05,0.2,'bandpass',2200,4);                 // tromma svingar ut
+  _noiseHit(0.04,0.16,'bandpass',3100,5,0.09);           // hylsene ramlar
+  _noiseHit(0.04,0.13,'bandpass',2700,5,0.15);
+  _noiseHit(0.05,0.2,'bandpass',1800,3,0.34);            // ny patron på plass
+  _noiseHit(0.06,0.26,'bandpass',1300,2.5,0.5);          // låsen smekk att
+  _tone('square',420,240,0.05,0.12,null,0.5);
+}
+function sfxDryReplaced(){}
 function sfxDry(){if(sfxFile('dry'))return;_tone('square',300,250,0.04,0.1);}
 function sfxPickup(){if(sfxFile('pickup'))return;_tone('triangle',520,880,0.12,0.25);setTimeout(()=>_tone('triangle',700,1200,0.12,0.2),90);}
 function sfxHeal(){if(sfxFile('heal'))return;_tone('triangle',400,800,0.3,0.2);}
@@ -1241,7 +1308,7 @@ const roadMat=new THREE.MeshStandardMaterial({map:TEX.road,color:0xc6ab86,roughn
 // (alle gater skalert 20 % opp saman med bygga — TS=1.2)
 // grusmateriale til veiskuldrene — bryt opp den knivrette kanten mot ørkenen
 const shoulderM=new THREE.MeshStandardMaterial({map:TEX.road,color:0xb99b74,roughness:1,metalness:0});
-const shoulderRockM=new THREE.MeshStandardMaterial({color:0x9c9084,roughness:1,metalness:0,flatShading:true});
+const shoulderRockM=new THREE.MeshStandardMaterial({color:0x7e7466,roughness:1,metalness:0,flatShading:true});
 function addRoad(w,d,x,z){
   w*=TG;d*=TG;x*=TG;z*=TG; // gatene veks med byen
   const m=new THREE.Mesh(uvPlane(new THREE.PlaneGeometry(w,d),w,d,0.62),roadMat);
@@ -1261,8 +1328,8 @@ function addRoad(w,d,x,z){
       sb.add(uvPlane(new THREE.PlaneGeometry(horiz?pw:pd,horiz?pd:pw),pw,pd,0.62),
         px,0.019,pz,-Math.PI/2,0,rnd(-0.25,0.25));
       if(Math.random()<0.55)
-        rb.add(new THREE.DodecahedronGeometry(rnd(0.07,0.19),0),
-          px+rnd(-0.7,0.7),rnd(0.03,0.1),pz+rnd(-0.7,0.7),rnd(0,3),rnd(0,3),rnd(0,3));
+        rb.add(new THREE.DodecahedronGeometry(rnd(0.04,0.1),0),
+          px+rnd(-0.7,0.7),rnd(0.02,0.06),pz+rnd(-0.7,0.7),rnd(0,3),rnd(0,3),rnd(0,3));
     }
   }
   sb.into(scene,false,true);rb.into(scene,false,true);
@@ -1749,39 +1816,151 @@ function openChurch(){
 }
 // atomsopp-animasjon
 const NUKE={active:false,t:0,built:false,stem:null,cap:null,ring:null,glow:null};
+// ---------------- ATOMSOPPEN ----------------
+// Bygd av mange mjuke røyk-billboards i staden for éin sylinder og éi kule:
+// ein rullande søyle, ein soppkant som veltar utover, ein eldkule i botnen,
+// Wilson-ringen som ekspanderer, og ei støvbølgje som feiar langs bakken.
+const nukeSmokeTex=makeCanvasTex(256,256,(g,w,h)=>{
+  g.clearRect(0,0,w,h);
+  for(let i=0;i<22;i++){
+    const cx=rnd(70,186),cy=rnd(70,186),r=rnd(34,76);
+    const gr=g.createRadialGradient(cx,cy,2,cx,cy,r);
+    gr.addColorStop(0,'rgba(255,255,255,0.5)');
+    gr.addColorStop(0.5,'rgba(240,236,228,0.26)');
+    gr.addColorStop(1,'rgba(230,226,218,0)');
+    g.fillStyle=gr;g.beginPath();g.arc(cx,cy,r,0,6.29);g.fill();
+  }
+  g.globalCompositeOperation='destination-in';
+  const f=g.createRadialGradient(128,128,10,128,128,124);
+  f.addColorStop(0,'rgba(0,0,0,1)');f.addColorStop(0.7,'rgba(0,0,0,0.9)');f.addColorStop(1,'rgba(0,0,0,0)');
+  g.fillStyle=f;g.fillRect(0,0,w,h);
+});
+function nukePuff(add){
+  const m=new THREE.SpriteMaterial({map:nukeSmokeTex,transparent:true,depthWrite:false,fog:false,
+    blending:add?THREE.AdditiveBlending:THREE.NormalBlending,opacity:0});
+  const s=new THREE.Sprite(m);s.visible=false;scene.add(s);return s;
+}
 function buildNuke(){
   if(NUKE.built)return;
   NUKE.built=true;
-  const smokeM=new THREE.MeshLambertMaterial({color:0x9a9088,emissive:0x664422,emissiveIntensity:0.5});
-  const stem=new THREE.Mesh(new THREE.CylinderGeometry(3.5,5.5,1,14),smokeM);
-  stem.position.set(0,0.5,-5);scene.add(stem);
-  const cap=new THREE.Mesh(new THREE.SphereGeometry(1,16,12),smokeM.clone());
-  cap.scale.set(1,0.62,1);cap.position.set(0,2,-5);scene.add(cap);
-  const ring=new THREE.Mesh(new THREE.TorusGeometry(3,1.2,8,24),
-    new THREE.MeshBasicMaterial({color:0xffe8c0,transparent:true,opacity:0.85}));
-  ring.rotation.x=Math.PI/2;ring.position.set(0,1.2,-5);scene.add(ring);
-  const glow=new THREE.PointLight(0xff8830,0,120,1.5);
-  glow.position.set(0,6,-5);scene.add(glow);
-  NUKE.stem=stem;NUKE.cap=cap;NUKE.ring=ring;NUKE.glow=glow;
-  stem.visible=cap.visible=ring.visible=false;
+  NUKE.stemPuffs=[];NUKE.capPuffs=[];NUKE.firePuffs=[];NUKE.groundPuffs=[];
+  for(let i=0;i<20;i++)NUKE.stemPuffs.push({s:nukePuff(false),h:i/19,a:rnd(0,6.28),r:rnd(0.3,1),sp:rnd(0.7,1.4)});
+  for(let i=0;i<26;i++){
+    const a=i/26*Math.PI*2;
+    NUKE.capPuffs.push({s:nukePuff(false),a:a+rnd(-0.2,0.2),rr:rnd(0.55,1),yy:rnd(-0.25,0.3),sp:rnd(0.8,1.3)});
+  }
+  for(let i=0;i<12;i++)NUKE.firePuffs.push({s:nukePuff(true),a:rnd(0,6.28),rr:rnd(0,1),yy:rnd(0,1)});
+  for(let i=0;i<18;i++)NUKE.groundPuffs.push({s:nukePuff(false),a:i/18*Math.PI*2+rnd(-0.15,0.15),rr:rnd(0.85,1.15)});
+  // eldkula i sjølve nedslaget
+  const ball=new THREE.Mesh(new THREE.SphereGeometry(1,20,16),
+    new THREE.MeshBasicMaterial({color:0xffffff,fog:false,transparent:true}));
+  ball.position.set(0,6,-5);ball.visible=false;scene.add(ball);
+  // Wilson-ringen — kondensskiva som spring utover frå eldkula
+  const ring=new THREE.Mesh(new THREE.TorusGeometry(1,0.24,10,40),
+    new THREE.MeshBasicMaterial({color:0xf2f6ff,transparent:true,opacity:0,fog:false}));
+  ring.rotation.x=Math.PI/2;ring.position.set(0,7,-5);ring.visible=false;scene.add(ring);
+  // støvbølgja langs bakken
+  const shock=new THREE.Mesh(new THREE.RingGeometry(0.9,1,64),
+    new THREE.MeshBasicMaterial({color:0xd8c8a8,transparent:true,opacity:0,side:THREE.DoubleSide,fog:false}));
+  shock.rotation.x=-Math.PI/2;shock.position.set(0,0.4,-5);shock.visible=false;scene.add(shock);
+  const glow=new THREE.PointLight(0xff8830,0,400,1.4);
+  glow.position.set(0,20,-5);scene.add(glow);
+  NUKE.ball=ball;NUKE.ring=ring;NUKE.shock=shock;NUKE.glow=glow;
 }
 function updateNuke(dt){
   if(!NUKE.active)return;
   NUKE.t+=dt;
-  const t=NUKE.t;
-  NUKE.stem.visible=NUKE.cap.visible=NUKE.ring.visible=true;
-  const h=Math.min(42,t*5.5);          // søyla veks
-  NUKE.stem.scale.set(1+t*0.14,h,1+t*0.14);
-  NUKE.stem.position.y=h/2;
-  NUKE.cap.position.y=h+2;
-  const cs=Math.min(22,2+t*2.8);       // soppen breier seg
-  NUKE.cap.scale.set(cs,cs*0.62,cs);
-  const rs=1+t*9;                       // trykkbølgja
-  NUKE.ring.scale.set(rs,rs,1);
-  NUKE.ring.material.opacity=Math.max(0,0.85-t*0.1);
-  NUKE.glow.intensity=Math.max(0,10-t*0.9);
-  G.shake=Math.max(G.shake,Math.max(0,0.7-t*0.06));
-  if(Math.random()<0.6)spawnParts(V3(rnd(-8,8),rnd(0,h),-5+rnd(-8,8)),1,0x777068,2.4,1.4,-1.5);
+  const t=NUKE.t, Z=-5;
+  // ---- ELDKULA: blindande kvit, kjøler ned til raudt og døyr ut ----
+  const bt=clamp(t/2.6,0,1);
+  NUKE.ball.visible=bt<1;
+  if(bt<1){
+    const br=6+t*16;
+    NUKE.ball.scale.setScalar(br);
+    NUKE.ball.position.set(0,8+t*7,Z);
+    const c=NUKE.ball.material.color;
+    if(t<0.5)c.setRGB(1,1,1);
+    else if(t<1.3)c.setRGB(1,0.82-(t-0.5)*0.35,0.42-(t-0.5)*0.4);
+    else c.setRGB(1,0.4-(t-1.3)*0.2,0.1);
+    NUKE.ball.material.opacity=Math.max(0,1-bt*bt);
+  }
+  // ---- SØYLA: rullande røyk som stig og vrir seg ----
+  const h=Math.min(140,8+t*17);   // stig roleg og majestetisk
+  for(const p of NUKE.stemPuffs){
+    const y=p.h*h;
+    if(y<1){p.s.visible=false;continue;}
+    p.s.visible=true;
+    const wob=Math.sin(t*p.sp+p.a*3)*0.3;
+    const rad=(9+p.h*15+t*1.6)*p.r;
+    p.s.position.set(Math.cos(p.a+t*0.35*p.sp)*rad*(0.6+wob*0.2),y,Z+Math.sin(p.a+t*0.35*p.sp)*rad*(0.6+wob*0.2));
+    const sc=(26+p.h*30+t*3)*p.r;
+    p.s.scale.set(sc,sc,1);
+    // varm i botnen, kald oske øvst
+    const heat=clamp(1-p.h*1.5-t*0.12,0,1);
+    p.s.material.color.setRGB(0.78+heat*0.22,0.73+heat*0.2,0.68+heat*0.04);
+    p.s.material.opacity=clamp(0.92-t*0.025,0,0.92);
+  }
+  // ---- SOPPHATTEN: veltar utover og krøllar seg ned i kantane ----
+  const capY=h+6, capR=Math.min(96,16+t*13);
+  for(const p of NUKE.capPuffs){
+    p.s.visible=true;
+    const roll=Math.sin(t*0.8*p.sp+p.a*2)*0.16;
+    const r=capR*p.rr;
+    p.s.position.set(Math.cos(p.a)*r,capY+p.yy*20-Math.pow(p.rr,2)*40+roll*10,Z+Math.sin(p.a)*r); // kanten krøllar seg ned
+    const sc=(44+t*4)*(0.72+p.rr*0.5);
+    p.s.scale.set(sc,sc,1);
+    const heat=clamp(0.75-t*0.16-p.rr*0.3,0,1);
+    p.s.material.color.setRGB(0.84+heat*0.16,0.79+heat*0.16,0.74+heat*0.06);
+    p.s.material.opacity=clamp(0.95-t*0.02,0,0.95);
+  }
+  // ---- gloande eld inne i stilken dei fyrste sekunda ----
+  for(const p of NUKE.firePuffs){
+    const on=t<4.2;
+    p.s.visible=on;
+    if(!on)continue;
+    const y=6+p.yy*h*0.55;
+    const r=(4+p.rr*9)*(1+t*0.2);
+    p.s.position.set(Math.cos(p.a+t*0.6)*r,y,Z+Math.sin(p.a+t*0.6)*r);
+    const sc=16+p.rr*16;
+    p.s.scale.set(sc,sc,1);
+    p.s.material.color.setRGB(1,0.55-t*0.09,0.18-t*0.04);
+    p.s.material.opacity=clamp(0.75-t*0.17,0,0.75);
+  }
+  // ---- støvkrage som feiar utover langs bakken ----
+  const gR=t*38;
+  for(const p of NUKE.groundPuffs){
+    p.s.visible=t<9;
+    if(t>=9)continue;
+    const r=gR*p.rr;
+    p.s.position.set(Math.cos(p.a)*r,3+t*1.4,Z+Math.sin(p.a)*r);
+    const sc=18+t*9;
+    p.s.scale.set(sc,sc,1);
+    p.s.material.color.setRGB(0.9,0.83,0.72);
+    p.s.material.opacity=clamp(0.7-t*0.075,0,0.7);
+  }
+  // ---- Wilson-ringen: kondensskiva som spring ut frå eldkula ----
+  NUKE.ring.visible=t<3.2;
+  if(t<3.2){
+    const rr=8+t*62;
+    NUKE.ring.scale.set(rr,rr,Math.max(1,rr*0.5));
+    NUKE.ring.position.y=10+t*8;
+    NUKE.ring.material.opacity=Math.max(0,0.75-t*0.24);
+  }
+  // ---- trykkbølgja langs bakken ----
+  NUKE.shock.visible=t<6;
+  if(t<6){
+    const sr=6+t*78;
+    NUKE.shock.scale.set(sr,sr,1);
+    NUKE.shock.material.opacity=Math.max(0,0.7-t*0.12);
+  }
+  // ---- lys og risting ----
+  NUKE.glow.position.set(0,Math.min(80,10+t*20),Z);
+  NUKE.glow.intensity=Math.max(0,26-t*3.4);
+  G.shake=Math.max(G.shake,Math.max(0,1.5-t*0.16));
+  // sot, gneistar og vrakrestar som blir kasta til vêrs
+  if(Math.random()<0.9)spawnParts(V3(rnd(-14,14),rnd(2,h),Z+rnd(-14,14)),1,0x8a8078,3,1.6,-1.2,2,1.6);
+  if(t<3&&Math.random()<0.7)spawnParts(V3(rnd(-10,10),rnd(2,26),Z+rnd(-10,10)),1,0xffa030,7,0.9,-0.5,2,1.4);
+  if(t<5&&Math.random()<0.5)spawnParts(V3(rnd(-40,40),1,Z+rnd(-40,40)),1,0x3a3028,10,1.3,7,1,2.2);
   // ØYDELEGGINGSBØLGJA — bygningane blir svidde og knuste utover frå senteret
   NUKE.waveR=(NUKE.waveR||0)+dt*26;
   for(const b of BREG){
@@ -1799,9 +1978,15 @@ function updateNuke(dt){
     }
     if(b.nukeWrecked&&b.grp.scale.y>0.22)b.grp.scale.y=Math.max(0.22,b.grp.scale.y-dt*0.9); // husa seig saman
   }
-  // himmelen mørknar til oske
-  _sky.setHex(0x4a3a30);scene.background=_sky;scene.fog.color.copy(_sky);
-  scene.fog.density=0.014;
+  // himmelen: blindande kvit i blitsen, så eit brennande oransje, så oskegrått
+  const k=clamp(t/5,0,1);
+  const skyC=t<0.6?0xfff4e0:(t<2.2?0xc86a2a:0x4a3a30);
+  SKYU.top.value.setHex(skyC);SKYU.hor.value.setHex(t<2.2?0xff9a40:0x6a5040);
+  SKYU.gnd.value.setHex(0x2e2420);SKYU.sunI.value=Math.max(0.1,1.6-t*0.3);
+  _sky.setHex(skyC);scene.background=_sky;scene.fog.color.copy(_sky);
+  scene.fog.density=lerp(0.004,0.016,k);
+  sun.intensity=Math.max(0.05,3.2-t*0.6);
+  hemi.intensity=Math.max(0.06,1.4-t*0.28);
 }
 // gravestones — skeive, forvitra steinar med jordhaug framfor
 {
@@ -2005,6 +2190,75 @@ function addFence(x,z,len,rotY){
   b.into(f);
   f.position.set(x,0,z);f.rotation.y=rotY;scene.add(f);
 }
+// ---------------- GATELYKTER ----------------
+// Dust Valley har fått gassbelysning. Kvar stolpe har ei lykt som lyser om natta;
+// dei som står langs hovudgata får i tillegg eit EKTE lys som kastar skinn på jorda.
+const LAMPPOSTS=[];
+{
+  const postM=new THREE.MeshStandardMaterial({map:TEX.metal,color:0x3e3a38,roughness:0.55,metalness:0.7});
+  const glassM=new THREE.MeshStandardMaterial({color:0x2a2418,emissive:0x000000,roughness:0.2,metalness:0.1});
+  function addLamp(x,z,real){
+    x*=TG;z*=TG;
+    const g=new THREE.Group();
+    const b=new Batch(postM);
+    b.add(new THREE.CylinderGeometry(0.19,0.26,0.34,10),0,0.17,0);        // fot
+    b.add(new THREE.CylinderGeometry(0.075,0.1,3.2,8),0,1.75,0);          // stolpe
+    b.add(new THREE.CylinderGeometry(0.13,0.09,0.16,8),0,3.4,0);          // krage
+    for(let i=0;i<4;i++){                                                  // lyktehus-stolpar
+      const a=i/4*Math.PI*2+0.78;
+      b.box(0.045,0.42,0.045,Math.cos(a)*0.14,3.72,Math.sin(a)*0.14,1);
+    }
+    b.add(new THREE.ConeGeometry(0.26,0.22,8),0,4.05,0);                   // hatt
+    b.add(new THREE.SphereGeometry(0.045,6,5),0,4.2,0);
+    b.box(0.05,0.05,0.05,0,3.5,0,1);
+    b.into(g,true,false);
+    const glass=new THREE.Mesh(new THREE.BoxGeometry(0.24,0.4,0.24),glassM);
+    glass.position.y=3.72;g.add(glass);
+    WINDOW_MATS.push(glassM);                                              // tenner seg med resten av byen
+    const gl=skySprite('#ffb44a',2.6);
+    gl.position.y=3.72;gl.material.opacity=0;gl.userData.gmax=0.9;
+    g.add(gl);NIGHTGLOWS.push(gl);
+    g.position.set(x,0,z);scene.add(g);
+    LAMPPOSTS.push({x:x,z:z,g:g});
+    addCollider(x,z,0.5,0.5,0.05,3.2);
+  }
+  // hovudgata — tett med lykter heile vegen frå sørenden opp til kyrkja
+  for(let i=0;i<11;i++){
+    const z=-30+i*10;
+    addLamp(-5.6,z,true);
+    addLamp(5.6,z+5,true);
+  }
+  // tverrgatene aust–vest
+  for(const z of [2.4,30,-24,57.6])for(const x of [-30,-15,15,30])addLamp(x,z+4.2,false);
+  // sidegatene nord–sør
+  for(const x of [-26.4,26.4])for(let i=0;i<6;i++)addLamp(x+3.4,-24+i*18,i%2===0);
+  // torget ved brønnen
+  for(const p of [[-4,-6],[4,-6],[-4,4],[4,4]])addLamp(p[0],p[1],true);
+}
+// YTING: 54 ekte lyskjelder ville tvinge kvar einaste shader til å rekne på alle 54.
+// I staden har vi ÅTTE lys som flyttar seg til dei lyktene spelaren står nærast —
+// dei fjerne lyktene treng berre gløden sin, for lysflekken deira ser ein ikkje uansett.
+const LAMPLIGHTS=[];
+for(let i=0;i<8;i++){
+  const L=new THREE.PointLight(0xffb45a,0,19,1.7);
+  L.position.set(0,-50,0);scene.add(L);LAMPLIGHTS.push(L);
+}
+let _lampSortT=0;
+function updateLampLights(dt){
+  const on=clamp((G.envMix-0.42)*2.6,0,1);
+  _lampSortT-=dt;
+  if(_lampSortT<=0){                       // finn dei nærmaste lyktene nokre gonger i sekundet
+    _lampSortT=0.35;
+    LAMPPOSTS.sort((a,b)=>
+      ((a.x-P.pos.x)**2+(a.z-P.pos.z)**2)-((b.x-P.pos.x)**2+(b.z-P.pos.z)**2));
+    for(let i=0;i<LAMPLIGHTS.length;i++){
+      const lp=LAMPPOSTS[i];
+      if(lp)LAMPLIGHTS[i].position.set(lp.x,3.6,lp.z);
+    }
+  }
+  for(let i=0;i<LAMPLIGHTS.length;i++)LAMPLIGHTS[i].intensity=on*2.7;
+}
+
 // GJERDE FØLGJER VEIENE — langs hovudgata, innfartsvegane og rundt gravlunden
 // hovudgata (mellom bygningsradene, i gløttane mellom husa)
 addFence(-5.2,-22,10,Math.PI/2);addFence(5.2,-22,10,Math.PI/2);   // innfarten mot kyrkja
@@ -2354,7 +2608,17 @@ function updateHorses(dt){
 }
 
 // ---------------- KOLOSSEN — natt 10 ----------------
-const KAIJU={alive:false,dormant:false,grp:null,hp:0,maxHp:220000,parts:null,eyes:[],roarT:4,stepT:1,animT:0,fallT:0};
+const KAIJU={alive:false,dormant:false,grp:null,hp:0,maxHp:220000,parts:null,eyes:[],roarT:4,stepT:1,animT:0,fallT:0,scale:150};
+// Lyskastaren mot overkroppen og gloa i brystet blir laga med ein gong, ikkje ved
+// spawn — lystalet må vere fast frå fyrste bilete, elles kompilerer alle shaderane
+// på nytt i det kjempa reiser seg.
+KAIJU.spot=new THREE.SpotLight(0xffd0a0,0,0,Math.PI*0.13,0.55,1);
+KAIJU.spot.position.set(0,-9000,0);
+KAIJU.spotTarget=new THREE.Object3D();KAIJU.spotTarget.position.set(0,-9000,0);
+KAIJU.spot.target=KAIJU.spotTarget;
+scene.add(KAIJU.spot);scene.add(KAIJU.spotTarget);
+KAIJU.core=new THREE.PointLight(0xff6a20,0,210,2);
+KAIJU.core.position.set(0,-9000,0);scene.add(KAIJU.core);
 function kaijuWantDist(){return 900+Math.max(0,10-G.day)*170;} // ruslar nærare for kvar dag
 function spawnKaiju(dormant){
   // finst han alt der ute? — vekk han til live der han står
@@ -2369,9 +2633,42 @@ function spawnKaiju(dormant){
   if(KAIJU.grp)scene.remove(KAIJU.grp);
   const s=150; // ≈60x hushøgd — ein levande skyskrapar
   const g=new THREE.Group();
-  const m=new THREE.MeshLambertMaterial({color:0x1c2418,fog:false}); // synleg gjennom dis — heilt frå starten
+  // Rotnande kjempe: mørk hud med glødande sprekker, utstikkande ribbein, ryggpiggar
+  // og eit lyskastar-skinn opp mot overkroppen så han ikkje berre er ein svart silhuett.
+  const m=new THREE.MeshStandardMaterial({color:0x2e3a26,roughness:0.95,metalness:0,
+    emissive:0x160c06,fog:false});
+  const boneK=new THREE.MeshStandardMaterial({color:0xb8ad90,roughness:0.8,metalness:0,
+    emissive:0x241608,fog:false});
+  const glowK=new THREE.MeshBasicMaterial({color:0xff5a18,fog:false}); // glødande sprekker
+  const kb=new Batch(m), bk=new Batch(boneK), gk=new Batch(glowK);
   const body=new THREE.Mesh(new THREE.BoxGeometry(0.52*s,0.75*s,0.3*s),m);body.position.y=1.05*s;g.add(body);
   const head=new THREE.Mesh(new THREE.BoxGeometry(0.36*s,0.36*s,0.36*s),m);head.position.y=1.62*s;g.add(head);
+  // brystkasse med ribbein som stikk ut gjennom huda
+  for(let i=0;i<6;i++){
+    const y=(1.24+i*0.085)*s, w=(0.44-i*0.028)*s*rnd(0.88,1.06);
+    const off=rnd(-0.02,0.02)*s, tilt=rnd(-0.05,0.05);
+    bk.box(w,0.032*s,0.05*s,off,y,0.16*s,0.3,0,0,tilt);              // ribbein, aldri heilt like
+    gk.box(w*0.9,0.011*s,0.02*s,off,y-0.043*s,0.166*s,0.3,0,0,tilt); // glo mellom ribbeina
+  }
+  for(let i=0;i<5;i++){                                               // oppsprukken hud nedover magen
+    const y=(0.86+i*0.055)*s;
+    gk.box(rnd(0.02,0.035)*s,rnd(0.05,0.11)*s,0.02*s,rnd(-0.2,0.2)*s,y,0.16*s,0.3,0,0,rnd(-0.4,0.4));
+  }
+  bk.box(0.5*s,0.06*s,0.06*s,0,0.7*s,0.15*s,0.3);                     // hoftebein
+  for(let i=0;i<7;i++)                                                 // ryggpiggar
+    bk.add(new THREE.ConeGeometry(0.035*s-i*0.002*s,0.16*s,5),0,(0.82+i*0.13)*s,-0.17*s,-0.5);
+  for(const sx of [-1,1]){                                            // skulderpiggar
+    bk.add(new THREE.ConeGeometry(0.06*s,0.24*s,6),sx*0.28*s,1.42*s,0,0,0,sx*1.2);
+    bk.box(0.05*s,0.3*s,0.05*s,sx*0.24*s,1.2*s,0.14*s,0.3);           // kragebein
+  }
+  // kjeve og tenner
+  bk.box(0.3*s,0.05*s,0.28*s,0,1.5*s,0.03*s,0.3);
+  for(let i=0;i<6;i++){
+    bk.add(new THREE.ConeGeometry(0.018*s,0.07*s,4),(-0.12+i*0.048)*s,1.53*s,0.16*s,Math.PI);
+    bk.add(new THREE.ConeGeometry(0.016*s,0.06*s,4),(-0.11+i*0.045)*s,1.47*s,0.16*s);
+  }
+  gk.box(0.26*s,0.03*s,0.02*s,0,1.5*s,0.175*s,0.3);                   // glo i gapet
+  kb.into(g,false,false);bk.into(g,false,false);gk.into(g,false,false);
   KAIJU.eyes=[];
   for(const ex of [-0.09,0.09]){
     const eye=skySprite('#ff2010',14);
@@ -2380,9 +2677,19 @@ function spawnKaiju(dormant){
   const armG=new THREE.BoxGeometry(0.14*s,0.68*s,0.14*s);armG.translate(0,-0.3*s,0);
   const armL=new THREE.Mesh(armG,m);armL.position.set(-0.34*s,1.4*s,0);g.add(armL);
   const armR=new THREE.Mesh(armG.clone(),m);armR.position.set(0.34*s,1.4*s,0);g.add(armR);
+  for(const [arm,sx] of [[armL,-1],[armR,1]]){                        // klør på kvar hand
+    const cb3=new Batch(boneK);
+    for(let i=0;i<4;i++)
+      cb3.add(new THREE.ConeGeometry(0.022*s,0.16*s,5),(-0.05+i*0.033)*s,-0.68*s,0.02*s,Math.PI*0.92);
+    cb3.into(arm,false,false);
+  }
   const legG=new THREE.BoxGeometry(0.17*s,0.7*s,0.17*s);legG.translate(0,-0.35*s,0);
   const legL=new THREE.Mesh(legG,m);legL.position.set(-0.14*s,0.7*s,0);g.add(legL);
   const legR=new THREE.Mesh(legG.clone(),m);legR.position.set(0.14*s,0.7*s,0);g.add(legR);
+  // (lyskastaren og bryst-lyset er laga ÉIN gong ved oppstart — sjå KAIJULIGHTS.
+  //  Å leggje til lys midt i spelet ville tvinge alle shaderar til å kompilere på nytt
+  //  og gjeve ei kraftig frysing akkurat når kjempa dukkar opp.)
+  KAIJU.scale=s;
   const a=rnd(0,Math.PI*2);
   const dd=dormant?kaijuWantDist()+rnd(100,300):900;
   g.position.set(Math.cos(a)*dd,0,Math.sin(a)*dd);
@@ -2400,7 +2707,7 @@ function damageKaiju(d){
   if(!KAIJU.alive)return;
   KAIJU.hp-=d;
   if(KAIJU.hp<=0){
-    KAIJU.alive=false;KAIJU.fallT=3;
+    KAIJU.alive=false;KAIJU.fallT=3;KAIJU.spot.intensity=0;KAIJU.core.intensity=0;
     G.kills++;G.score+=2500;G.kaijuDefeated=true;
     sfxKaijuRoar(1);
     toast('☠ THE COLOSSUS IS SLAIN! +2500');
@@ -2438,6 +2745,9 @@ function updateKaiju(dt){
     KAIJU.roarT-=dt;
     if(KAIJU.roarT<=0){KAIJU.roarT=rnd(20,40);sfxKaijuRoar(0.1);} // fjern buldring
     for(const e of KAIJU.eyes)e.material.opacity=0.75+Math.sin(G.time*5)*0.25;
+  // lyskastaren og bryst-gloa pustar — kjempa ser levande ut, ikkje som ein kulisse
+  if(KAIJU.spot)KAIJU.spot.intensity=2.6+Math.sin(G.time*1.7)*0.5;
+  if(KAIJU.core)KAIJU.core.intensity=2.2+Math.sin(G.time*3.3)*0.9;
     return;
   }
   if(!KAIJU.alive)return;
@@ -2460,6 +2770,17 @@ function updateKaiju(dt){
   KAIJU.roarT-=dt;
   if(KAIJU.roarT<=0){KAIJU.roarT=rnd(6,11);sfxKaijuRoar(clamp(1-dist/900,0.2,1));}
   for(const e of KAIJU.eyes)e.material.opacity=0.75+Math.sin(G.time*5)*0.25;
+  // lyskastaren fylgjer kjempa og lyser opp overkroppen; bryst-gloa pustar
+  {
+    const s=KAIJU.scale||150, kp=KAIJU.grp.position;
+    // lyskastaren står føre kjempa, på den sida byen ligg, og peikar opp mot brystet
+    const dx=-kp.x, dz=-kp.z, dl=Math.hypot(dx,dz)||1;
+    KAIJU.spot.position.set(kp.x+dx/dl*1.5*s,0.12*s,kp.z+dz/dl*1.5*s);
+    KAIJU.spotTarget.position.set(kp.x,1.25*s,kp.z);
+    KAIJU.spot.intensity=2.9+Math.sin(G.time*1.7)*0.6;
+    KAIJU.core.position.set(kp.x,1.1*s,kp.z+0.1*s);
+    KAIJU.core.intensity=2.4+Math.sin(G.time*3.3)*1.0;
+  }
   $('bossHpFill').style.width=(KAIJU.hp/KAIJU.maxHp*100)+'%';
   if(dist<130){ // han nådde byen...
     KAIJU.alive=false;
@@ -2815,6 +3136,8 @@ function envApply(mix){ // 0 dag .. 0.5 skumring .. 1 natt
   const night=mix>0.6;
   for(const wm of WINDOW_MATS)wm.emissive.setHex(night?0xcc8830:0x000000);
   for(const q of NIGHTGLOWS)q.material.opacity=night?q.userData.gmax:0;
+  // (sjølve gatelysa blir styrte av updateLampLights, som flyttar ein liten pool
+  //  av lyskjelder til dei lyktene spelaren står nærast)
   for(const e of (G.mineEyes||[]))e.material.opacity=night?0.9:0;
 }
 envApply(0);
@@ -3560,6 +3883,7 @@ function tryFire(){
         }
       }
     }
+    sfxSawRev(hit); // motoren dreg til når kjedet bit
     if(hit){hitmarker(false);G.shake=Math.max(G.shake,0.06);}
   }else if(P.cur==='dynamitt'){
     if(P.ammo.dyn<=0){sfxDry();P.fireT=0.4;return;}
@@ -3689,6 +4013,7 @@ function updatePlayer(dt){
   // muzzle flash decay
   if(flashT>0){flashT-=dt;if(flashT<=0)flash.intensity=0;}
   updateMuzzleFx(dt);
+  updateLampLights(dt);
 }
 </script>
 <script>
@@ -4525,7 +4850,7 @@ function updateBro(b,dt){
         else if(w==='hagle'){b.fireT=rnd(1.4,1.9);miss=0.12;}
         else if(w==='rifle'){b.fireT=rnd(1.6,2.2);miss=0.08;}
         else{b.fireT=rnd(0.7,1.0);miss=0.15;}
-        sfxShot(w==='rifle'?'revolver':w,clamp(1-b.grp.position.distanceTo(P.pos)/30,0.1,w==='gatling'?0.5:0.8));
+        sfxShot(w,clamp(1-b.grp.position.distanceTo(P.pos)/30,0.1,w==='gatling'?0.5:0.8)); // kvart våpen sin eigen lyd
         // frå våpenmunninga — litt fram i skotretninga
         const fdir=V3(Math.sin(b.grp.rotation.y),0,Math.cos(b.grp.rotation.y));
         const from=b.grp.position.clone().add(V3(0,1.45,0)).addScaledVector(fdir,0.55);
@@ -4976,7 +5301,7 @@ function victoryCine(){
 // ---------------- GAME FLOW ----------------
 function cleanupSpecials(){
   if(KAIJU.grp){scene.remove(KAIJU.grp);KAIJU.grp=null;}
-  KAIJU.alive=false;KAIJU.dormant=false;KAIJU.fallT=0;
+  KAIJU.alive=false;KAIJU.dormant=false;KAIJU.fallT=0;KAIJU.spot.intensity=0;KAIJU.core.intensity=0;
   for(const s of SKULLS){scene.remove(s.m);if(s.tail)scene.remove(s.tail);}SKULLS.length=0;
   unburnAll();
   $('nukeCount').classList.remove('on');G.nukeCountSec=null;
