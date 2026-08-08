@@ -987,6 +987,19 @@ const bloodHalo=skySprite('#ff2a10',150);
 bloodHalo.material.blending=THREE.AdditiveBlending;
 bloodHalo.material.opacity=0;bloodHalo.visible=false;
 bloodHalo.position.copy(bloodMoon.position);scene.add(bloodHalo);
+const ringTex=makeCanvasTex(256,256,(g,w,h)=>{
+  g.clearRect(0,0,w,h);
+  const gr=g.createRadialGradient(128,128,84,128,128,124);
+  gr.addColorStop(0,'rgba(255,60,20,0)');
+  gr.addColorStop(0.62,'rgba(255,90,30,0.55)');
+  gr.addColorStop(0.78,'rgba(255,180,90,0.95)');
+  gr.addColorStop(0.88,'rgba(255,70,20,0.5)');
+  gr.addColorStop(1,'rgba(180,20,0,0)');
+  g.fillStyle=gr;g.fillRect(0,0,w,h);
+});
+const bloodRing=new THREE.Sprite(new THREE.SpriteMaterial({map:ringTex,transparent:true,
+  depthWrite:false,fog:false,blending:THREE.AdditiveBlending,opacity:0}));
+bloodRing.visible=false;scene.add(bloodRing);
 const BMEMBERS=[];
 {
   const bt=skyTex('#ff5a20');
@@ -1000,16 +1013,22 @@ const BMEMBERS=[];
 }
 function updateBloodMoon(dt){
   const on=G.night>=10&&G.phase==='night'&&!(typeof VIS!=='undefined'&&VIS.active);
-  if(bloodMoon.visible!==on){
-    bloodMoon.visible=on;bloodHalo.visible=on;
-    for(const e of BMEMBERS)e.s.visible=on;
-  }
+  // Manen er heilt vanleg. Det er GLODEN rundt han som er gal: ein raud korona
+  // som ved ei solformorking, med ein tynn, skarp ring ytst.
+  bloodMoon.visible=false;
+  if(bloodHalo.visible!==on){bloodHalo.visible=on;bloodRing.visible=on;
+    for(const e of BMEMBERS)e.s.visible=on;}
   if(!on)return;
   const f=clamp((G.envMix-0.45)*2.4,0,1);
-  bloodMoon.material.opacity=f;
-  bloodHalo.material.opacity=f*(0.32+Math.sin(G.time*0.7)*0.08);
-  const s2=66*(1+Math.sin(G.time*0.35)*0.02);
-  bloodMoon.scale.set(s2,s2,1);
+  bloodHalo.position.copy(moonSprite.position);
+  bloodRing.position.copy(moonSprite.position);
+  const puls=1+Math.sin(G.time*0.55)*0.05;
+  const hs=132*puls;
+  bloodHalo.scale.set(hs,hs,1);
+  bloodHalo.material.opacity=f*(0.5+Math.sin(G.time*0.9)*0.07);
+  const rs=30*puls;                       // den skarpe ringen tett inntil skiva
+  bloodRing.scale.set(rs,rs,1);
+  bloodRing.material.opacity=f*(0.85+Math.sin(G.time*1.7)*0.1);
   for(const e of BMEMBERS){
     e.y+=dt*e.sp2;
     if(e.y>34){e.y=-2;e.a=rnd(0,6.28);e.r=rnd(6,46);}
@@ -3438,7 +3457,7 @@ function envApply(mix){ // 0 dag .. 0.5 skumring .. 1 natt
   amb.intensity=lerp(0.18,0.07,mix);
   starMat.opacity=clamp((mix-0.6)*2.6,0,1);
   sunSprite.material.opacity=clamp(1-mix*1.6,0,1);
-  moonSprite.material.opacity=blood?0:clamp((mix-0.55)*2.4,0,0.95);
+  moonSprite.material.opacity=clamp((mix-0.55)*2.4,0,0.95);
   const night=mix>0.6;
   for(const wm of WINDOW_MATS)wm.emissive.setHex(night?0xcc8830:0x000000);
   for(const q of NIGHTGLOWS)q.material.opacity=night?q.userData.gmax:0;
@@ -6358,6 +6377,8 @@ function visionExit(){
 }
 function coleNightSpeech(){
   const VIS_Y=VIS.Y;
+  G.state='cutscene';   // UTAN DENNE koyrer aldri cineUpdate - scena frys
+
   // Natta FALL med det same. Blodmanen star alt oppe medan Cole snakkar,
   // sa scena spelar seg ut i raudt lys og ikkje i ettermiddagssol.
   G.night=10;G.phase='night';G.phaseT=0;
@@ -6416,7 +6437,7 @@ function coleNightSpeech(){
     {...crane,caption:'',sfx:()=>{G.shake=Math.max(G.shake,0.4);sfxKaijuRoar(0.6);}}
   ],()=>{
     if(clayModel)clayModel.visible=false;
-    P.frozen=false;
+    G.state='playing';P.frozen=false;
     G.night=9;G.phase='day';     // startNight tel opp sjolv
     startNight();
   });
@@ -6490,6 +6511,7 @@ function startDawn(){
 }
 function coleFinalTalk(){
   if(G.state!=='playing')return;
+  G.state='cutscene';
   const wellCam={camA:[3.2,1.9,4.6],camB:[2.4,1.85,3.6],lookA:[0,1.6,-1*TG]};
   const closeCam={camA:[-2.6,1.85,2.6],camB:[-2.0,1.8,2.2],lookA:[0.4,1.65,-0.6*TG]};
   for(let i=0;i<BROS.length;i++){
@@ -6508,7 +6530,7 @@ function coleFinalTalk(){
     {dur:5.2,...closeCam,dlg:{who:'Clay',text:'And you three? You will be standing in it.'}},
     {dur:6.0,...wellCam,dlg:{who:'Cole',text:'We swore an oath over those graves. We never swore to walk away from it.'}},
     {dur:5.6,...closeCam,dlg:{who:'Cole',text:'We are going to win this, Clay. One way or the other. Now go get ready.'}}
-  ],()=>{P.frozen=false;});
+  ],()=>{G.state='playing';P.frozen=false;});
 }
 const SKULL_BARKS=[
   ['Cole','Skulls in the sky! Shoot them down before they hit the houses!'],
