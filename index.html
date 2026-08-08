@@ -6314,7 +6314,7 @@ function buildVision(){
   try{grassTex.anisotropy=renderer.capabilities.getMaxAnisotropy();}catch(e){}
   const meadow=new THREE.Mesh(new THREE.PlaneGeometry(6000,4600),
     new THREE.MeshStandardMaterial({map:grassTex,roughness:1,metalness:0,fog:false}));
-  meadow.rotation.x=-Math.PI/2;meadow.position.set(0,Y,-1200);g.add(meadow);
+  meadow.rotation.x=-Math.PI/2;meadow.position.set(0,Y,-1450);g.add(meadow);
   // kvit strand
   const sandTexV=repeatTex(256,256,(c,w,h)=>{
     c.fillStyle='#f4ecdc';c.fillRect(0,0,w,h);
@@ -6323,10 +6323,10 @@ function buildVision(){
       c.fillRect(rnd(0,w),rnd(0,h),rnd(1,3),rnd(1,3));
     }
   });
-  sandTexV.repeat.set(120,14);
-  const beach=new THREE.Mesh(new THREE.PlaneGeometry(6000,290),
+  sandTexV.repeat.set(120,26);
+  const beach=new THREE.Mesh(new THREE.PlaneGeometry(6000,620),
     new THREE.MeshStandardMaterial({map:sandTexV,roughness:1,metalness:0,fog:false}));
-  beach.rotation.x=-Math.PI/2;beach.position.set(0,Y+0.05,1030);g.add(beach);
+  beach.rotation.x=-Math.PI/2;beach.position.set(0,Y+0.05,1160);g.add(beach);
   // HAVET: turkis grunne naer land, djupt blatt lenger ute.
   // Bolgjene er ein eigen tekstur som glir sakte innover -- utan han blir
   // havet berre ei flat plate.
@@ -6352,7 +6352,7 @@ function buildVision(){
   VIS.waveTex=waveTex;
   const shallow=new THREE.Mesh(new THREE.PlaneGeometry(6000,1500),
     new THREE.MeshStandardMaterial({color:0x86cfdc,roughness:0.12,metalness:0.45,fog:false}));
-  shallow.rotation.x=-Math.PI/2;shallow.position.set(0,Y+0.03,1930);g.add(shallow);
+  shallow.rotation.x=-Math.PI/2;shallow.position.set(0,Y+0.03,2220);g.add(shallow);
   const deep=new THREE.Mesh(new THREE.PlaneGeometry(9000,4600),
     new THREE.MeshStandardMaterial({color:0x3f8cb8,roughness:0.06,metalness:0.6,fog:false}));
   deep.rotation.x=-Math.PI/2;deep.position.set(0,Y+0.01,4700);g.add(deep);
@@ -6373,7 +6373,7 @@ function buildVision(){
     const fm=new THREE.Mesh(new THREE.PlaneGeometry(6000,rnd(14,34)),
       new THREE.MeshBasicMaterial({map:foamTex,transparent:true,depthWrite:false,fog:false,opacity:0.5}));
     fm.rotation.x=-Math.PI/2;
-    fm.position.set(0,Y+0.07,1210+i*rnd(90,190));
+    fm.position.set(0,Y+0.07,1490+i*rnd(90,190));
     g.add(fm);VIS.foam.push({m:fm,z0:fm.position.z,sp2:rnd(7,16),ph:rnd(0,6.28)});
   }
   // sola blir teikna av sjolve himmelskuppelen (sjaa visionEnter) -- sprites
@@ -6536,7 +6536,7 @@ function coleNightSpeech(){
     {dur:7.4,camA:[0,VIS_Y+22,1450],camB:[0,VIS_Y+5,-380],lookA:[0,VIS_Y+1,1000],lookB:[0,VIS_Y+1.8,-640],
       dlg:{who:'Cole',text:'Rivers running clean. And every soul this valley took, standing out in that sun, waiting on you.'}},
     // ...heilt ned pa bakken og rett inn i mengda som star og vinkar
-    {dur:6.2,camA:[0,VIS_Y+4.0,-390],camB:[0,VIS_Y+1.78,-596],lookA:[0,VIS_Y+1.7,-660],lookB:[0,VIS_Y+1.62,-730],
+    {dur:6.2,camA:[0,VIS_Y+4.0,-390],camB:[0,VIS_Y+1.78,-596],lookA:[0,VIS_Y+2.0,-680],lookB:[0,VIS_Y+2.5,-760],
       sfx:()=>{setTimeout(()=>{visionExit();musicSet('speech');},5400);}},
     {dur:4.8,...onClay,dlg:{who:'Clay',text:'Well. That does not sound so bad.'}},
     {dur:6.4,...heroic,dlg:{who:'Cole',text:'No. No, it does not. Now load your gun, son. We have got one more night to get through first.'}},
