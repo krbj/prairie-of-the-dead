@@ -149,6 +149,10 @@
   #letterTop,#letterBot{position:fixed;left:0;width:100%;height:0;background:#000;z-index:40;transition:height .8s ease}
   #letterTop{top:0}#letterBot{bottom:0}
   body.cine #letterTop,body.cine #letterBot{height:11vh}
+  /* Ingen sikte i ei cutscene. Musepeikaren er styla som eit trådkors over
+     lerretet, og cutscena slepp musa fri — så han dukka opp midt i biletet. */
+  body.cine canvas#c{cursor:none}
+  body.cine #crosshair,body.cine #hitmarker{display:none}
   #caption{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:41;text-align:center;
     font-family:'Rye',serif;font-size:clamp(22px,3.4vw,40px);color:var(--bone);max-width:80vw;
     text-shadow:2px 2px 0 #000, 0 0 30px rgba(0,0,0,.9);opacity:0;transition:opacity .7s;letter-spacing:.05em}
@@ -296,7 +300,7 @@ document.getElementById('btnCoverStart').addEventListener('click',()=>{
 <div id="reloadPop"><span class="boom">✦</span> RELOADING! <span class="boom">✦</span></div>
 <div id="overheatPop">🔥 OVERHEATED! 🔥</div>
 <div id="nukeCount">☢ 10 ☢</div>
-<div id="fireBadge">🔥 ON FIRE: <b>0</b> · BURNED DOWN: <b>0/7</b></div>
+<div id="fireBadge">🔥 ON FIRE: <b>0</b> · BURNED DOWN: <b>0/15</b></div>
 <div id="slowmoTint"></div>
 <div id="hurtVig"></div><div id="hurtPulse"></div><div id="hurtBlood"></div>
 <div id="shotFlash"></div>
@@ -2878,7 +2882,7 @@ function updateHorses(dt){
 }
 
 // ---------------- KOLOSSEN — natt 10 ----------------
-const KAIJU={alive:false,dormant:false,grp:null,hp:0,maxHp:220000,parts:null,eyes:[],roarT:4,stepT:1,animT:0,fallT:0,scale:150};
+const KAIJU={alive:false,dormant:false,grp:null,hp:0,maxHp:165000,parts:null,eyes:[],roarT:4,stepT:1,animT:0,fallT:0,scale:150};
 // Lyskastaren mot overkroppen og gloa i brystet blir laga med ein gong, ikkje ved
 // spawn — lystalet må vere fast frå fyrste bilete, elles kompilerer alle shaderane
 // på nytt i det kjempa reiser seg.
@@ -2894,7 +2898,7 @@ function spawnKaiju(dormant){
   // finst han alt der ute? — vekk han til live der han står
   if(!dormant&&KAIJU.grp&&KAIJU.dormant){
     KAIJU.dormant=false;KAIJU.alive=true;
-    KAIJU.hp=KAIJU.maxHp=220000;KAIJU.fallT=0;KAIJU.stepT=1;KAIJU.roarT=3;
+    KAIJU.hp=KAIJU.maxHp=165000;KAIJU.fallT=0;KAIJU.stepT=1;KAIJU.roarT=3;
     $('bossBar').classList.add('on');
     $('bossName').textContent='THE COLOSSUS';
     sfxKaijuRoar(0.8);
@@ -2962,7 +2966,7 @@ function spawnKaiju(dormant){
   g.position.set(Math.cos(a)*dd,0,Math.sin(a)*dd);
   scene.add(g);
   KAIJU.grp=g;KAIJU.parts={legL:legL,legR:legR,armL:armL,armR:armR};
-  KAIJU.hp=KAIJU.maxHp=220000;KAIJU.fallT=0;KAIJU.stepT=1;KAIJU.roarT=dormant?rnd(10,20):3;
+  KAIJU.hp=KAIJU.maxHp=165000;KAIJU.fallT=0;KAIJU.stepT=1;KAIJU.roarT=dormant?rnd(10,20):3;
   KAIJU.dormant=!!dormant;KAIJU.alive=!dormant;KAIJU.animT=rnd(0,9);
   if(!dormant){
     $('bossBar').classList.add('on');
@@ -3264,16 +3268,16 @@ function burnDownBuilding(f){
   boomFx(V3(b.x,1,b.z),8);
   G.shake=Math.max(G.shake,0.35);
   G.burnedHouses=(G.burnedHouses||0)+1;
-  toast('🔥 '+b.name+' BURNED DOWN! ('+G.burnedHouses+'/7)','bad');
-  if(G.burnedHouses===1&&!G.fireBark2){G.fireBark2=true;bark('Wade','One house is cinders. Seven and there is nothing left worth saving, Clay!');}
-  if(G.burnedHouses===3)bark('Cole','The town is burning, Clay! Shoot them out of the sky!');
-  if(G.burnedHouses===6&&!G.fireBark4){G.fireBark4=true;bark('Silas','SIX gone! One more and Dust Valley dies tonight! SHOOT THEM DOWN!');}
-  if(G.burnedHouses>=7&&G.state==='playing'&&P.hp>0){
-    G.deathReason='Seven buildings burned to the ground — Dust Valley was lost to the flames.';
+  toast('🔥 '+b.name+' BURNED DOWN! ('+G.burnedHouses+'/15)','bad');
+  if(G.burnedHouses===3&&!G.fireBark2){G.fireBark2=true;bark('Wade','Three houses are cinders. Fifteen and there is nothing left worth saving, Clay!');}
+  if(G.burnedHouses===7)bark('Cole','The town is burning, Clay! Shoot them out of the sky!');
+  if(G.burnedHouses===13&&!G.fireBark4){G.fireBark4=true;bark('Silas','THIRTEEN gone! Two more and Dust Valley dies tonight! SHOOT THEM DOWN!');}
+  if(G.burnedHouses>=15&&G.state==='playing'&&P.hp>0){
+    G.deathReason='Fifteen buildings burned to the ground — Dust Valley was lost to the flames.';
     damagePlayer(9999);
   }
   // elden SPREIER seg — nabohus innanfor 12 m kan ta fyr når eit hus brenn ned
-  if(G.burnedHouses<7&&Math.random()<0.5){
+  if(G.burnedHouses<15&&Math.random()<0.5){
     let nb=null,nd=144;
     for(const r of BREG){
       if(r===b||r.burned||r.burning)continue;
@@ -4380,17 +4384,6 @@ function updatePlayer(dt){
   const gy=groundHeightAt(P.pos.x,P.pos.z,P.pos.y-1.7)+1.7;
   if(P.pos.y<=gy&&P.vel.y<=0){P.pos.y=gy;P.vel.y=0;P.onGround=true;}
   else if(P.pos.y>gy+0.02)P.onGround=false;
-  // hakekroken: eit jamt drag over eit halvt sekund, med kollisjon undervegs
-  if(P.pull&&P.pull.t>0){
-    if(P.pull.d>0)P.pull.d-=dt;
-    else{
-      const step=Math.min(dt,P.pull.t);
-      P.pos.x+=P.pull.vx*step;P.pos.z+=P.pull.vz*step;
-      P.pull.t-=step;
-      collideCircle(P.pos,0.45,P.pos.y-1.7);
-      if(P.pull.t<=0)P.pull=null;
-    }
-  }
   P.moveAmt=Math.hypot(P.vel.x,P.vel.z);
   // fire
   if(P.firing)tryFire();
@@ -4690,8 +4683,6 @@ function updateZombie(z,dt){
   }
   const res=pickTarget(z);
   const tgt=res.t,dist=res.dist;
-  // under jorda: berre nedgravinga koyrer, ingen rorsle og ingen angrep
-  if(z.burrow){updateBossAbilities(z,dt,dist,tgt);return;}
   // dei som blir kalla opp av jorda stig sakte fram -- dei skal ikkje 'poppe' inn
   if(z.rise>0){
     z.rise-=dt;
@@ -5156,7 +5147,7 @@ function spawnBoss(night){
   const z={grp:h.grp,parts:h,hp:Math.round(def.hp*mult),maxHp:Math.round(def.hp*mult),
     speed:def.speed+Math.min(0.8,(mult-1)*0.3),dmg:bossDmg,scale:def.scale,type:'boss',boss:true,tier:tier,name:def.name,
     animT:0,atkT:2,windup:-1,groanT:3,abilT:5,charging:false,chargeT:0,
-    ragedT:0,skullT:6,digT:8,hookT:7,cleaveT:5};
+    ragedT:0,skullT:6,digT:8,cleaveT:5};
   scene.add(h.grp);
   G.boss=z;
   // UI + drama
@@ -5182,33 +5173,8 @@ function updateBossAbilities(z,dt,dist,tgt){
   z.abilT-=dt;
 
   // ================= TIER 1 — GRAVROVAREN =================
-  // Grev opp lika sine der du står, og forsvinn ned i jorda for å dukke opp bak deg.
+  // Grev opp lika sine der du står. Han flyttar seg aldri anna enn ved å gå.
   if(z.tier===1){
-    if(z.burrow){
-      z.burrowT-=dt;
-      if(z.burrow==='down'){
-        z.grp.position.y=-2.8*(1-clamp(z.burrowT/0.85,0,1));   // sokk ned i jorda
-        if(Math.random()<0.5)spawnParts(z.grp.position.clone().setY(0.2),2,0x6a5236,3,0.6,4,0.9,1.1);
-        if(z.burrowT<=0){
-          // opp att BAK spelaren -- men aldri naermare enn 5,5 m
-          const bx=P.pos.x+Math.sin(P.yaw)*5.5, bz=P.pos.z+Math.cos(P.yaw)*5.5;
-          z.grp.position.set(bx,-2.8,bz);
-          collideCircle(z.grp.position,0.4*z.scale,0);
-          z.burrow='up';z.burrowT=0.7;
-          spawnParts(z.grp.position.clone().setY(0.2),26,0x6a5236,6,1,9,1,1.6);
-          _noiseHit(0.45,0.7,'lowpass',420);
-          sfxRoar();G.shake=Math.max(G.shake,0.45);
-        }
-      }else{
-        z.grp.position.y=-2.8*clamp(z.burrowT/0.7,0,1);        // bryt opp gjennom jorda
-        if(Math.random()<0.6)spawnParts(z.grp.position.clone().setY(0.2),3,0x6a5236,4,0.7,5,1.1,1.2);
-        if(z.burrowT<=0){
-          z.burrow=null;
-          z.grp.position.y=groundHeightAt(z.grp.position.x,z.grp.position.z,0.7);
-        }
-      }
-      return;                                                   // ingen andre evner medan han er nede
-    }
     z.digT-=dt;
     if(z.digT<=0){
       z.digT=z.raged?7:11;
@@ -5225,37 +5191,13 @@ function updateBossAbilities(z,dt,dist,tgt){
           bloodSplat(m.grp.position,0.8);
         }
         G.shake=Math.max(G.shake,0.3);
-      }else if(dist>6&&dist<26){
-        // Startar nedgravinga. Sjolve flyttinga skjer fyrst naar han er UNDER
-        // jorda, og aldri fra andre sida av byen.
-        banner('','HE IS DIGGING',true);
-        spawnParts(z.grp.position,26,0x6a5236,6,1,9,1,1.6);
-        _noiseHit(0.5,0.6,'lowpass',500);
-        z.burrow='down';z.burrowT=0.85;
-        G.shake=Math.max(G.shake,0.3);
       }
     }
   }
 
   // ================= TIER 2 — SLAKTAREN =================
-  // Kastar kjøtkroken og drar deg inn til seg, og gjer eit roterande hogg som treffer alt rundt.
+  // Stormar inn og gjer eit roterande hogg som treffer alt rundt seg.
   if(z.tier===2){
-    z.hookT-=dt;
-    if(z.hookT<=0&&dist>7&&dist<26){
-      z.hookT=z.raged?6:9;
-      banner('','THE BUTCHER THROWS THE HOOK',true);
-      sfxRoar();
-      // kroken flyg mot deg som eit synleg prosjektil
-      spawnSlug(z.grp.position.clone().add(V3(0,1.4*z.scale,0)),P.pos.clone());
-      // Draget gjekk for i EIN frame -- det kjendest som at bossen teleporterte
-      // seg inntil deg. No blir du dregen jamt, og fyrst naar kroken har rukke fram.
-      const pull=V3().subVectors(z.grp.position,P.pos).setY(0).normalize();
-      const len=Math.min(9,dist*0.55);
-      P.pull={vx:pull.x*len/0.5,vz:pull.z*len/0.5,t:0.5,d:0.22};
-      damagePlayer(Math.round(z.dmg*0.35));
-      G.shake=Math.max(G.shake,0.5);
-      toast('The hook bites! You are dragged in!','bad');
-    }
     z.cleaveT-=dt;
     if(z.cleaveT<=0&&dist<7){
       z.cleaveT=z.raged?3.2:5;
@@ -7165,7 +7107,7 @@ function updateHUD(){
   const burned=G.burnedHouses||0;
   const fb=$('fireBadge');
   if(burning>0||burned>0){
-    fb.innerHTML='🔥 ON FIRE: <b>'+burning+'</b> · BURNED DOWN: <b>'+burned+'/7</b>';
+    fb.innerHTML='🔥 ON FIRE: <b>'+burning+'</b> · BURNED DOWN: <b>'+burned+'/15</b>';
     fb.classList.add('on');
   }else fb.classList.remove('on');
   $('hpFill').style.width=P.hp+'%';

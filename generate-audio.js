@@ -47,9 +47,9 @@ const VSET = {
 const LINES = [
   ['Wade', "He is down! Stay on your feet, Clay!"],
   ['Silas', "A house is burning! The fire jumps roof to roof. Put those skulls in the dirt before it takes the town!"],
-  ['Wade', "One house is cinders. Seven and there is nothing left worth saving, Clay!"],
+  ['Wade', "Three houses are cinders. Fifteen and there is nothing left worth saving, Clay!"],
   ['Cole', "The town is burning, Clay! Shoot them out of the sky!"],
-  ['Silas', "SIX gone! One more and Dust Valley dies tonight! SHOOT THEM DOWN!"],
+  ['Silas', "THIRTEEN gone! Two more and Dust Valley dies tonight! SHOOT THEM DOWN!"],
   ['Silas', "Skulls in the sky! Shoot them down before they hit the houses!"],
   ['Cole', "Far enough, stranger. Hands where I can see them. Have they had their teeth in you?"],
   ['Clay', "Name is Clay. Nothing has bitten me yet. Only the sun and the road."],
