@@ -308,7 +308,7 @@ document.getElementById('btnCoverStart').addEventListener('click',()=>{
   </div>
   <div id="bossBar"><div id="bossName">THE GRAVE ROBBER</div><div id="bossHpWrap"><div id="bossHpFill"></div></div></div>
   <div id="brosPanel"></div>
-  <div id="hpWrap"><div id="hpLabel">MIO — HEALTH</div><div id="hpBar"><div id="hpFill"></div></div></div>
+  <div id="hpWrap"><div id="hpLabel">CLAY — HEALTH</div><div id="hpBar"><div id="hpFill"></div></div></div>
   <div id="ammoBox">
     <div id="weaponName">REVOLVER</div>
     <div id="ammoCount">6 <span id="ammoReserve">/ 36</span></div>
@@ -3361,7 +3361,7 @@ function buildTurrets(){
   makeTurretAt(-12*TG,-9.6*TG,5.3);  // saloon (Cole) — TS-skalert
   makeTurretAt(-12*TG,4.8*TG,4.9);   // sheriff (Silas)
   makeTurretAt(12*TG,-7.2*TG,4.9);   // landhandel (Wade)
-  makeTurretAt(12*TG,8.4*TG,4.6);    // stall — MIO sin!
+  makeTurretAt(12*TG,8.4*TG,4.6);    // stall — Clay sin!
   toast('GATLING TURRETS mounted on the roofs! (press E to use)');
 }
 
@@ -4336,10 +4336,10 @@ function updatePlayer(dt){
     camera.position.copy(P.pos).addScaledVector(cd,-7.2);
     camera.position.y=Math.max(t.top+1.2,camera.position.y+2.4);
     t.g.rotation.y=P.yaw; // løpa peikar FRAMOVER — langs siktet
-    if(G.mioBody){ // synleg Clay BAK kanona
-      G.mioBody.grp.position.set(t.x,t.top,t.z).addScaledVector(V3(-Math.sin(P.yaw),0,-Math.cos(P.yaw)),-0.95);
-      G.mioBody.grp.rotation.y=P.yaw+Math.PI;
-      G.mioBody.armL.rotation.x=-1.25;G.mioBody.armR.rotation.x=-1.25;
+    if(G.clayBody){ // synleg Clay BAK kanona
+      G.clayBody.grp.position.set(t.x,t.top,t.z).addScaledVector(V3(-Math.sin(P.yaw),0,-Math.cos(P.yaw)),-0.95);
+      G.clayBody.grp.rotation.y=P.yaw+Math.PI;
+      G.clayBody.armL.rotation.x=-1.25;G.clayBody.armR.rotation.x=-1.25;
     }
     if(t.overT>0){t.overT-=dt;if(t.overT<=0){t.heat=0;toast('The turret has cooled down!');}}
     else if(!P.firing)t.heat=Math.max(0,t.heat-dt/4);
@@ -5040,6 +5040,7 @@ function killZombie(z,head,expl){
     if(i>=0)ZOMBIES.splice(i,1);
     G.kills++;G.score+=head?15:10;
     if(head)G.headshots++;
+    gallowsBark(z);
     G.slowCharge=Math.min(8,(G.slowCharge||0)+1);
     if(G.slowCharge===8&&!(G.slowmoT>0))toast('⏳ SLOW MOTION READY — press X!');
     // drops
@@ -5745,6 +5746,21 @@ function updateBro(b,dt){
     b.parts.armR.rotation.x=0;
   }
 }
+// Ein av brorne kommenterer drapet -- men berre av og til, og berre om han
+// star naer nok til a ha sett det. Elles blir det maseprat.
+function gallowsBark(z){
+  if(G.phase!=='night'||CINE.active||subT>0)return;
+  if((G.gallowsT||0)>0)return;
+  if(Math.random()>0.16)return;
+  const near=BROS.filter(b=>!b.downed&&b.grp.position.distanceTo(z.grp.position)<26);
+  if(!near.length)return;
+  const b=near[ri(0,near.length-1)];
+  const mine=GALLOWS_BARKS.filter(l=>l[0]===b.name);
+  if(!mine.length)return;
+  G.gallowsT=rnd(26,48);
+  const l=mine[ri(0,mine.length-1)];
+  bark(l[0],l[1]);
+}
 // battle barks
 const NIGHT_BARKS=[
   ['Cole','Hold the well! Not one step back!'],
@@ -5766,7 +5782,60 @@ const NIGHT_BARKS=[
   ['Wade','Come on then! We are still standing!'],
   ['Wade','How many is that? I lost count hours ago.'],
   ['Wade','My hands will not stop shaking. Do not tell Cole.'],
-  ['Wade','We are going to see the sun come up. Say it with me.']
+  ['Wade','We are going to see the sun come up. Say it with me.'],
+  ['Cole','If I turn, you put me down. That is an order, not a favour.'],
+  ['Cole','Powder is dry, hands are steady. That is all a man gets.'],
+  ['Cole','Do not think that far ahead. Think as far as sunrise.'],
+  ['Cole','Save your prayers, Wade. Save your bullets first.'],
+  ['Cole','The well is behind you. It always is. Fall back if you must.'],
+  ['Silas','I counted the graves this morning. There are not enough.'],
+  ['Silas','The dogs stopped barking an hour ago. That is never good.'],
+  ['Silas','There is no bottom to that mine. We stopped asking what is down there.'],
+  ['Silas','Aim for the head. It is the only part that still argues.'],
+  ['Silas','Every one of them knew my name once.'],
+  ['Wade','If I go down tonight, do not let me get back up. Promise me.'],
+  ['Wade','Do you ever wonder if we are the last ones? Anywhere?'],
+  ['Wade','My brother says we are winning. My brother lies beautifully.'],
+  ['Wade','Beans, whiskey and the dead. This town has everything.'],
+  ['Wade','I have decided to live forever. So far it is working.'],
+  ['Wade','You know what I miss? Doors. Doors that stayed shut.']
+];
+// ---- GALGENHUMOR ----
+// Dei kjende kvar einaste sjel i Dust Valley. No skyt Clay dei ned foran
+// augo deira, og det einaste som er att a gjere er a spoke om det.
+const GALLOWS_BARKS=[
+  ['Cole','Clay. Clay, that was my grandmother. ... Fine shot, though.'],
+  ['Cole','That one married us in the church. Now look at him.'],
+  ['Cole','Do not apologise. She would have done the same to you.'],
+  ['Cole','Every face out there belonged to someone. Shoot them anyway.'],
+  ['Cole','That is the Widow Hale. Put another in her, she is still twitching.'],
+  ['Silas','Hey Clay. That was the last of my family walking. Thanks, I suppose.'],
+  ['Silas','You just put down the man who taught me to read.'],
+  ['Silas','Aunt Ruth. She never liked me much either.'],
+  ['Silas','That was the preacher. He did say the dead would rise. Nobody laughed twice.'],
+  ['Silas','Good shot. Bad memory.'],
+  ['Wade','That was the mayor! He owed me four dollars!'],
+  ['Wade','That is three of my cousins tonight. Three!'],
+  ['Wade','That was the barber. He was a terrible barber.'],
+  ['Wade','Sorry, missus Abernathy!'],
+  ['Wade','Was that... yes. That was my schoolmaster. I feel nothing. Is that bad?'],
+  ['Wade','I owed that man money. It feels rude to be relieved.']
+];
+// ---- DAGREPLIKKAR ----
+// Mellom nettene er det stille, og det er da det verkelege veg tyngst.
+const DAY_BARKS=[
+  ['Cole','Powder, shot, water, bandages. In that order. Every morning.'],
+  ['Cole','Check the buckets. Fire takes this town faster than they do.'],
+  ['Cole','Eat something, Clay. You are no use to me thin and brave.'],
+  ['Cole','Sleep in your boots. You will not get the time to lace them.'],
+  ['Silas','Sleep while it is light. The dark does not care that you are tired.'],
+  ['Silas','I keep setting four plates. Habit is a cruel thing.'],
+  ['Silas','I cleaned my rifle twice. There is nothing else left to do.'],
+  ['Silas','Wade ate the chickens. He will tell you it was the dead.'],
+  ['Wade','I washed the blood off the porch. It comes back every night.'],
+  ['Wade','Found a doll in the street this morning. I did not pick it up.'],
+  ['Wade','Nice day. Shame about the circumstances.'],
+  ['Wade','The chickens are gone. Either the dead got them, or Silas did.']
 ];
 </script>
 <script>
@@ -6093,7 +6162,7 @@ function cineSkip(){
 
 // Clay — synlig karakter i cutscener (FPS ellers)
 let clayModel=null;
-function ensureMio(){
+function ensureClay(){
   if(clayModel)return clayModel;
   const h=makeHumanoid({skin:0xe8bd8e,shirt:0xa8834a,pants:0x6a5c4e,hat:0x5a4230});
   const serape=new THREE.Mesh(new THREE.BoxGeometry(0.62,0.36,0.42),new THREE.MeshLambertMaterial({color:0x8a2f2b}));
@@ -6109,18 +6178,18 @@ function ensureMio(){
 
 // intro cutscene
 function introCine(){
-  ensureMio();
+  ensureClay();
   clayModel.position.set(0,0,8*TG);
   clayModel.rotation.y=Math.PI; // vender mot brødrene
   clayModel.visible=true;
   // stage: brothers by the well, Clay at road
   // alle tre snur seg mot Clay, som står lenger nede i gata
-  const mioAt=V3(0,0,8*TG);
+  const clayStood=V3(0,0,8*TG);
   BROS[0].grp.position.set(-1.6*TG,0,1.6*TG);
   BROS[1].grp.position.set(1.6*TG,0,1.8*TG);
   BROS[2].grp.position.set(0,0,3*TG);
   for(const b of BROS)
-    b.grp.rotation.y=Math.atan2(mioAt.x-b.grp.position.x,mioAt.z-b.grp.position.z);
+    b.grp.rotation.y=Math.atan2(clayStood.x-b.grp.position.x,clayStood.z-b.grp.position.z);
   P.pos.set(0,1.7,8*TG);P.yaw=0;P.pitch=0;
   envApply(0);
   const broShot={camA:[3.6,2,7],camB:[3.1,1.9,6.4],lookA:[0,1.5,1.5]};
@@ -6168,7 +6237,7 @@ function introCine(){
 }
 function victoryCine(){
   G.state='cutscene';
-  ensureMio();
+  ensureClay();
   clayModel.position.set(0,0,7);
   clayModel.rotation.y=Math.PI;
   clayModel.visible=true;
@@ -6203,7 +6272,7 @@ function cleanupSpecials(){
   for(const s of SLUGS)scene.remove(s.m);SLUGS.length=0;
   for(const m of MISTS)scene.remove(m.s);MISTS.length=0;
   if(P.mounted){P.mounted.user=null;P.mounted=null;VM.group.visible=true;}
-  if(G.mioBody)G.mioBody.grp.visible=false;
+  if(G.clayBody)G.clayBody.grp.visible=false;
   if(G.nukeBomb){scene.remove(G.nukeBomb);G.nukeBomb=null;}
   G.nukeDropping=false;G.nukeWarn60=G.nukeWarn30=G.nukeWarn10=G.nukeWhistled=false;
   G.slowmoT=0;G.slowCharge=0;$('slowmoTint').style.opacity=0;
@@ -6508,7 +6577,7 @@ function coleNightSpeech(){
   for(const b of BROS)
     b.grp.rotation.y=Math.atan2(clayAt.x-b.grp.position.x,clayAt.z-b.grp.position.z);
   P.pos.set(clayAt.x,1.7,clayAt.z);P.yaw=Math.PI;
-  ensureMio();
+  ensureClay();
   if(clayModel){clayModel.position.set(clayAt.x,0,clayAt.z);clayModel.rotation.y=Math.PI;clayModel.visible=true;}
 
   // ---- kinematiske innstillingar ----
@@ -6724,7 +6793,7 @@ function updateNight(dt){
       setTimeout(()=>{if(G.state==='playing')openChurch();},2500); // døra svingar opp etter Coles ord
     }
     if(!G.nukeBark2&&G.nukeClock>55){G.nukeBark2=true;bark('Wade','There is nothing left to save, Clay! Burn it all!');}
-    if(!G.nukeBark3&&G.nukeClock>100){G.nukeBark3=true;bark('Silas','MIO! LIGHT IT UP! END IT!');}
+    if(!G.nukeBark3&&G.nukeClock>100){G.nukeBark3=true;bark('Silas','CLAY! LIGHT IT UP! END IT!');}
   }
   // bazooka-slipp på siste nivå
   if(G.night>=10&&P.owned.gatling){
@@ -6737,6 +6806,7 @@ function updateNight(dt){
       toast('Supply drop from the sky! Find the crate in the street','bad');
     }
   }
+  if(G.gallowsT>0)G.gallowsT-=dt;
   // night barks
   G.barkT-=dt;
   if(G.barkT<=0){
@@ -6944,7 +7014,7 @@ function updateInteract(dt){
       P.talkCd=true;setTimeout(()=>P.talkCd=false,600);
       P.mounted.user=null;P.mounted=null;
       VM.group.visible=true;
-      if(G.mioBody)G.mioBody.grp.visible=false;
+      if(G.clayBody)G.clayBody.grp.visible=false;
     }
     return;
   }
@@ -6958,11 +7028,11 @@ function updateInteract(dt){
       nt.user='clay';P.mounted=nt;
       VM.group.visible=false;
       P.vel.set(0,0,0);P.firing=false;
-      if(!G.mioBody){ // synleg kropp for tredjeperson
-        G.mioBody=makeHumanoid({skin:0xe8bd8e,shirt:0x6a7fa8,pants:0x6a6156,hat:0x53483c});
-        scene.add(G.mioBody.grp);
+      if(!G.clayBody){ // synleg kropp for tredjeperson
+        G.clayBody=makeHumanoid({skin:0xe8bd8e,shirt:0x6a7fa8,pants:0x6a6156,hat:0x53483c});
+        scene.add(G.clayBody.grp);
       }
-      G.mioBody.grp.visible=true;
+      G.clayBody.grp.visible=true;
     }
     return;
   }
@@ -7052,7 +7122,7 @@ function updateHUD(){
     broRows[i].fill.style.width=(BROS[i].hp/BROS[i].maxHp*100)+'%';
     broRows[i].row.classList.toggle('down',BROS[i].downed);
   }
-  $('hpLabel').textContent='MIO — HEALTH'+((G.slowCharge||0)>=8?' · ⏳ SLOW-MO READY (X)':((G.slowCharge||0)>0?' · slow-mo '+G.slowCharge+'/8':''));
+  $('hpLabel').textContent='CLAY — HEALTH'+((G.slowCharge||0)>=8?' · ⏳ SLOW-MO READY (X)':((G.slowCharge||0)>0?' · slow-mo '+G.slowCharge+'/8':''));
   const w=WEAPONS[P.cur];
   $('weaponName').textContent=P.mounted?'GATLING TURRET':w.name;
   if(P.mounted)
@@ -7188,6 +7258,19 @@ function updateAmbient(dt){
   else if(G.bellMesh)G.bellMesh.rotation.z*=0.9;
   // subtitle timer
   if(subT>0){subT-=dt;if(subT<=0)$('subtitle').classList.remove('on');}
+  // laust prat i dagslys -- dagane var heilt stille for
+  if(G.state==='playing'&&G.phase==='day'&&!CINE.active){
+    G.dayBarkT=(G.dayBarkT===undefined?rnd(14,24):G.dayBarkT)-dt;
+    if(G.dayBarkT<=0){
+      G.dayBarkT=rnd(22,38);
+      const alive=BROS.filter(b=>!b.downed);
+      if(alive.length&&subT<=0){
+        const b=alive[ri(0,alive.length-1)];
+        const mine=DAY_BARKS.filter(l=>l[0]===b.name);
+        if(mine.length){const l=mine[ri(0,mine.length-1)];bark(l[0],l[1]);}
+      }
+    }
+  }
   if(G.nearCd>0)G.nearCd-=dt; // nedkjøling for nær-zombielydar
   // SOLBANEN — sola vandrar frå aust mot vest og går ned i takt med dagen
   if(G.state==='playing'&&G.phase==='day'){

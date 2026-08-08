@@ -137,7 +137,7 @@ _Skarpskyttaren. Djup og roleg. Seier lite, og meiner alt._
 - `silas_27f6c10b.mp3`  
   <<To the well! Here they come!>>
 - `silas_752760fb.mp3`  
-  <<MIO! LIGHT IT UP! END IT!>>
+  <<CLAY! LIGHT IT UP! END IT!>>
 - `silas_e15de275.mp3`  
   <<Lord above... look at the size of it.>>
 - `silas_1213f869.mp3`  
