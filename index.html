@@ -5049,7 +5049,9 @@ function killZombie(z,head,expl){
     else if(r<0.19&&P.owned.hagle)spawnPickup(z.grp.position.x,z.grp.position.z,'shells',3);
     else if(r<0.21&&P.owned.bazooka)spawnPickup(z.grp.position.x,z.grp.position.z,'rockets',1);
     else if(r<0.24&&P.owned.dynamitt)spawnPickup(z.grp.position.x,z.grp.position.z,'dyn',1);
-    else if(r<0.27)spawnPickup(z.grp.position.x,z.grp.position.z,'beans',0);
+    else if(r<0.28)spawnPickup(z.grp.position.x,z.grp.position.z,'beans',0);
+    // ein og annan hadde ei flaske i lomma da han fall om
+    else if(r<0.30)spawnPickup(z.grp.position.x,z.grp.position.z,'whisky',0);
   }
 }
 
