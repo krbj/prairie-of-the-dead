@@ -730,10 +730,16 @@ function musicSet(mode){
   AU.mode=mode;
   if(AU.drone){try{AU.drone.forEach(o=>o.stop());}catch(e){}AU.drone=null;}
   // filbasert musikk hvis tilgjengelig — 'final' overtar nattemusikken på gatling-nivåene
-  const fkey=(mode==='night'&&G.night>=10&&MFILES.final)?'final':mode;
+  let fkey=(mode==='night'&&G.night>=10&&MFILES.final)?'final':mode;
+  // manglar sporet, fell vi attende pa noko som liknar i staden for stille
+  const MALIAS={speech:'night',vision:'day',final:'boss'};
+  let guard=0;
+  while(!MFILES[fkey]&&MALIAS[fkey]&&guard++<4)fkey=MALIAS[fkey];
   for(const k in MFILES){
     const a=MFILES[k];
-    if(k===fkey){a.volume=AU.muted?0:(mode==='boss'?0.6:0.42);a.play().catch(()=>{});}
+    // under talen og visjonen ligg musikken LAGT, so stemma får plass
+    const vol=mode==='boss'?0.6:(mode==='speech'||mode==='vision')?0.26:0.42;
+    if(k===fkey){a.volume=AU.muted?0:vol;a.play().catch(()=>{});}
     else{a.volume=0;a.pause();}
   }
   if(MFILES[fkey])return;
@@ -6064,6 +6070,12 @@ function cineEnd(){
   $('blackFade').style.opacity=0;
   const d=CINE.done;CINE.done=null;
   if(d)d();
+  // HUD-en vart teken bort da scena starta -- gje han attende om vi spelar vidare
+  if(G.state==='playing'){
+    $('hud').classList.add('on');
+    $('lockHint').classList.add('on');
+    P.frozen=false;
+  }
 }
 function cineSkip(){
   if(!CINE.active)return;
@@ -6280,7 +6292,8 @@ function buildVision(){
   VIS.built=true;
   const g=new THREE.Group();g.position.y=VIS.Y;
   const Y=0;
-  // endelaus gresslette
+  // endelaus gresslette -- saumlaus tekstur (flekkene blir teikna i alle ni
+  // naboruter, elles ser ein rutenettet der kopiane motest)
   const grassTex=repeatTex(512,512,(c,w,h)=>{
     c.fillStyle='#7fae52';c.fillRect(0,0,w,h);
     for(let i=0;i<26000;i++){
@@ -6289,16 +6302,19 @@ function buildVision(){
     }
     for(let i=0;i<70;i++){
       const r=rnd(40,150),cx=rnd(0,w),cy=rnd(0,h);
-      const gr=c.createRadialGradient(cx,cy,4,cx,cy,r);
-      gr.addColorStop(0,'rgba('+ri(150,205)+','+ri(190,230)+','+ri(90,140)+',0.28)');
-      gr.addColorStop(1,'rgba(0,0,0,0)');
-      c.fillStyle=gr;c.fillRect(cx-r,cy-r,r*2,r*2);
+      const col='rgba('+ri(150,205)+','+ri(190,230)+','+ri(90,140)+',0.24)';
+      for(const ox of [-w,0,w])for(const oy of [-h,0,h]){
+        const gr=c.createRadialGradient(cx+ox,cy+oy,4,cx+ox,cy+oy,r);
+        gr.addColorStop(0,col);gr.addColorStop(1,'rgba(0,0,0,0)');
+        c.fillStyle=gr;c.fillRect(cx+ox-r,cy+oy-r,r*2,r*2);
+      }
     }
   });
-  grassTex.repeat.set(160,160);
-  const meadow=new THREE.Mesh(new THREE.PlaneGeometry(2600,2600),
+  grassTex.repeat.set(90,90);
+  try{grassTex.anisotropy=renderer.capabilities.getMaxAnisotropy();}catch(e){}
+  const meadow=new THREE.Mesh(new THREE.PlaneGeometry(6000,4600),
     new THREE.MeshStandardMaterial({map:grassTex,roughness:1,metalness:0,fog:false}));
-  meadow.rotation.x=-Math.PI/2;meadow.position.set(0,Y,-300);g.add(meadow);
+  meadow.rotation.x=-Math.PI/2;meadow.position.set(0,Y,-1200);g.add(meadow);
   // kvit strand
   const sandTexV=repeatTex(256,256,(c,w,h)=>{
     c.fillStyle='#f4ecdc';c.fillRect(0,0,w,h);
@@ -6307,52 +6323,137 @@ function buildVision(){
       c.fillRect(rnd(0,w),rnd(0,h),rnd(1,3),rnd(1,3));
     }
   });
-  sandTexV.repeat.set(70,20);
-  const beach=new THREE.Mesh(new THREE.PlaneGeometry(2600,300),
+  sandTexV.repeat.set(120,14);
+  const beach=new THREE.Mesh(new THREE.PlaneGeometry(6000,290),
     new THREE.MeshStandardMaterial({map:sandTexV,roughness:1,metalness:0,fog:false}));
-  beach.rotation.x=-Math.PI/2;beach.position.set(0,Y+0.05,1010);g.add(beach);
-  // stille, lysande hav
-  const sea=new THREE.Mesh(new THREE.PlaneGeometry(2600,1800),
-    new THREE.MeshStandardMaterial({color:0x9fd6e8,roughness:0.08,metalness:0.5,fog:false}));
-  sea.rotation.x=-Math.PI/2;sea.position.set(0,Y+0.02,2060);g.add(sea);
-  // sola like over havflata
-  const vsun=skySprite('#fff6d8',420);vsun.position.set(0,Y+150,2600);g.add(vsun);
-  const vglow=skySprite('#ffd9a0',900);vglow.material.opacity=0.5;
-  vglow.position.copy(vsun.position);g.add(vglow);
-  // lave asar i det fjerne
-  const hillM=new THREE.MeshBasicMaterial({color:0x8fc37a,fog:false});
-  for(let i=0;i<16;i++){
-    const hh=rnd(40,110),r=rnd(140,320);
-    const hm=new THREE.Mesh(new THREE.ConeGeometry(r,hh,7),hillM);
-    hm.position.set(rnd(-1200,1200),Y+hh/2-14,-rnd(700,1500));g.add(hm);
+  beach.rotation.x=-Math.PI/2;beach.position.set(0,Y+0.05,1030);g.add(beach);
+  // HAVET: turkis grunne naer land, djupt blatt lenger ute.
+  // Bolgjene er ein eigen tekstur som glir sakte innover -- utan han blir
+  // havet berre ei flat plate.
+  const waveTex=repeatTex(512,512,(c,w,h)=>{
+    c.fillStyle='rgba(255,255,255,0)';c.clearRect(0,0,w,h);
+    for(let i=0;i<260;i++){                       // lange, mjuke bolgjestriper
+      const y=rnd(0,h),len=rnd(40,180),th=rnd(1.5,5);
+      const x=rnd(0,w);
+      for(const ox of [-w,0,w]){
+        const gr=c.createLinearGradient(x+ox-len/2,0,x+ox+len/2,0);
+        gr.addColorStop(0,'rgba(255,255,255,0)');
+        gr.addColorStop(0.5,'rgba(255,255,255,'+rnd(0.16,0.42).toFixed(2)+')');
+        gr.addColorStop(1,'rgba(255,255,255,0)');
+        c.fillStyle=gr;c.fillRect(x+ox-len/2,y,len,th);
+      }
+    }
+    for(let i=0;i<160;i++){                       // mork krusing mellom stripene
+      c.fillStyle='rgba(40,90,130,'+rnd(0.05,0.16).toFixed(2)+')';
+      c.fillRect(rnd(0,w),rnd(0,h),rnd(20,90),rnd(1,3));
+    }
+  });
+  waveTex.repeat.set(26,14);
+  VIS.waveTex=waveTex;
+  const shallow=new THREE.Mesh(new THREE.PlaneGeometry(6000,1500),
+    new THREE.MeshStandardMaterial({color:0x86cfdc,roughness:0.12,metalness:0.45,fog:false}));
+  shallow.rotation.x=-Math.PI/2;shallow.position.set(0,Y+0.03,1930);g.add(shallow);
+  const deep=new THREE.Mesh(new THREE.PlaneGeometry(9000,4600),
+    new THREE.MeshStandardMaterial({color:0x3f8cb8,roughness:0.06,metalness:0.6,fog:false}));
+  deep.rotation.x=-Math.PI/2;deep.position.set(0,Y+0.01,4700);g.add(deep);
+  const ripple=new THREE.Mesh(new THREE.PlaneGeometry(9000,5600),
+    new THREE.MeshBasicMaterial({map:waveTex,transparent:true,depthWrite:false,fog:false,opacity:0.75}));
+  ripple.rotation.x=-Math.PI/2;ripple.position.set(0,Y+0.09,3400);g.add(ripple);
+  // mjuke skumstriper som rullar inn mot stranda
+  const foamTex=makeCanvasTex(8,64,(c,w,h)=>{
+    const gr=c.createLinearGradient(0,0,0,h);
+    gr.addColorStop(0,'rgba(255,255,255,0)');
+    gr.addColorStop(0.42,'rgba(255,255,255,0.9)');
+    gr.addColorStop(0.62,'rgba(255,255,255,0.75)');
+    gr.addColorStop(1,'rgba(255,255,255,0)');
+    c.fillStyle=gr;c.fillRect(0,0,w,h);
+  });
+  VIS.foam=[];
+  for(let i=0;i<8;i++){
+    const fm=new THREE.Mesh(new THREE.PlaneGeometry(6000,rnd(14,34)),
+      new THREE.MeshBasicMaterial({map:foamTex,transparent:true,depthWrite:false,fog:false,opacity:0.5}));
+    fm.rotation.x=-Math.PI/2;
+    fm.position.set(0,Y+0.07,1210+i*rnd(90,190));
+    g.add(fm);VIS.foam.push({m:fm,z0:fm.position.z,sp2:rnd(7,16),ph:rnd(0,6.28)});
   }
-  // gras som vaiar naerast kameraet
-  const bladeM=new THREE.MeshBasicMaterial({color:0x9fd06a,side:THREE.DoubleSide,fog:false});
-  const gb=new Batch(bladeM);
-  for(let i=0;i<420;i++){
-    const bx=rnd(-90,90),bz=rnd(-140,180),bh=rnd(1.2,3.2);
-    gb.add(new THREE.PlaneGeometry(0.5,bh),bx,Y+bh/2,bz,0,rnd(0,3.14),rnd(-0.16,0.16));
+  // sola blir teikna av sjolve himmelskuppelen (sjaa visionEnter) -- sprites
+  // oppa den lyse himmelen blir berre ei brunleg smorje.
+  // lave asar langt der framme -- dei skal ligge som ein bla-gron rand,
+  // ikkje som pappfjell midt i biletet
+  for(let i=0;i<22;i++){
+    const hh=rnd(45,120),r=rnd(220,460);
+    const t=rnd(0,1);
+    const hm=new THREE.Mesh(new THREE.ConeGeometry(r,hh,9),
+      new THREE.MeshBasicMaterial({color:new THREE.Color(0x8fc37a).lerp(new THREE.Color(0xbcd8c8),t*0.75),fog:false}));
+    hm.position.set(rnd(-2600,2600),Y+hh/2-16,-rnd(2300,3300));g.add(hm);
   }
-  gb.into(g,false,false);
-  // lysflekker som driv i lufta
+  // (ingen lause grasstraa her -- dei las som gronne pinnar spreidde utover
+  //  sletta. Sjolve bakketeksturen ber grasset.)
+  // ---- DEI SOM VENTAR ----
+  // Alle Dust Valley tok, ute i sola. Dei star i flokkar langs den ruta vi
+  // flyg, og vinkar mot oss -- nokre heilt inntil, resten som ei mengd bakover.
+  const vShirt=[0xe8dcc0,0xcfe4ec,0xf0d4c4,0xcfe4c8,0xecd0dc,0xf2ecd8,0xd8d4f0,0xece0c0];
+  const vPants=[0x9a8a6e,0x7f8f9a,0x9a7f70,0x87907a];
+  const vHat  =[0xf0e4c8,0xe4d4ac,0xd8c8a4,0];
+  const vSkin =[0xf5d2ab,0xeec79c,0xdcb287,0xc09468];
+  VIS.people=[];
+  const groups=[];
+  // ei "port" av folk tett inntil ruta -- desse susar stort forbi kameraet
+  groups.push([-9,-430,2],[10,-462,2],[-11,-505,2],[9,-538,2]);
+  // DESSE star rett framfor der kameraet stansar (z=-596), 20-45 einingar
+  // unna, sa vi ser folk i full storleik og ikkje prikkar ved horisonten
+  groups.push([-9,-618,3],[10,-628,3],[-2,-652,4],[17,-668,3],[-19,-672,3]);
+  // og mengda bakover
+  for(let i=0;i<10;i++)groups.push([rnd(-90,90),rnd(-700,-950),ri(3,5)]);
+  for(let i=0;i<8;i++) groups.push([rnd(-260,260),rnd(-950,-1400),ri(2,4)]);
+  for(const [gx,gz,n] of groups){
+    for(let k=0;k<n;k++){
+      const h=makeHumanoid({skin:vSkin[ri(0,3)],shirt:vShirt[ri(0,7)],
+                            pants:vPants[ri(0,3)],hat:vHat[ri(0,3)]||undefined});
+      const sc=Math.random()<0.22?rnd(0.62,0.78):rnd(0.95,1.06);   // nokre born
+      h.grp.scale.setScalar(sc);
+      h.grp.position.set(gx+rnd(-11,11),Y,gz+rnd(-11,11));
+      h.grp.rotation.y=Math.atan2(0-h.grp.position.x,1400-h.grp.position.z); // vende mot havet
+      h.grp.traverse(o=>{if(o.material)o.material.fog=false;});
+      g.add(h.grp);
+      VIS.people.push({h:h,ph:rnd(0,6.28),wave:Math.random()<0.66,sp2:rnd(1.4,2.4)});
+    }
+  }
+  // lysflekker som driv i lufta, heile vegen inn over enga
   VIS.motes=[];
   const mt=skyTex('#fff2c0');
-  for(let i=0;i<60;i++){
+  for(let i=0;i<170;i++){
     const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:mt,transparent:true,depthWrite:false,
-      fog:false,blending:THREE.AdditiveBlending,opacity:rnd(0.3,0.8)}));
-    const sc=rnd(0.6,2.2);sp.scale.set(sc,sc,1);
-    sp.position.set(rnd(-120,120),Y+rnd(1,40),rnd(-200,240));
-    g.add(sp);VIS.motes.push({s:sp,sp2:rnd(0.3,1.1),ph:rnd(0,6.28)});
+      fog:false,blending:THREE.AdditiveBlending,opacity:rnd(0.14,0.34)}));
+    const sc=rnd(0.14,0.55);sp.scale.set(sc,sc,1);
+    sp.position.set(rnd(-160,160),Y+rnd(0.5,18),rnd(-1200,600));
+    g.add(sp);VIS.motes.push({s:sp,sp2:rnd(0.3,1.1),ph:rnd(0,6.28),z:sp.position.z});
   }
   scene.add(g);VIS.grp=g;
   return g;
 }
 function updateVision(dt){
   if(!VIS.built||!VIS.grp.visible)return;
+  if(VIS.waveTex)VIS.waveTex.offset.y=(VIS.waveTex.offset.y+dt*0.012)%1;
+  for(const f of VIS.foam){                       // skummet rullar inn mot land
+    f.m.position.z-=dt*f.sp2;
+    if(f.m.position.z<f.z0-190){f.m.position.z=f.z0+120;}
+    f.m.material.opacity=0.28+0.22*(0.5+0.5*Math.sin(G.time*0.7+f.ph));
+  }
+  for(const v of VIS.people){                     // dei vinkar mot oss
+    const a=v.h;
+    v.h.grp.position.y=Math.abs(Math.sin(G.time*v.sp2*0.5+v.ph))*0.05;  // LOKAL hogd
+    if(v.wave){
+      a.armR.rotation.z=2.35+Math.sin(G.time*v.sp2*1.7+v.ph)*0.38;
+    }else{
+      a.armR.rotation.z=0.16+Math.sin(G.time*0.9+v.ph)*0.14;
+      a.armL.rotation.z=-0.16-Math.sin(G.time*0.9+v.ph)*0.14;
+    }
+  }
   for(const m of VIS.motes){
     m.s.position.y+=dt*m.sp2;
     m.s.position.x+=Math.sin(G.time*0.4+m.ph)*dt*0.6;
-    if(m.s.position.y>VIS.Y+46)m.s.position.y=VIS.Y+1;
+    if(m.s.position.y>40)m.s.position.y=1;
   }
 }
 // vis visjonen: byt himmel og lys til noko varmt og fredeleg
@@ -6361,12 +6462,12 @@ function visionEnter(){
   VIS.savedFog=scene.fog.density;
   scene.fog.density=0.0006;
   SKYU.top.value.setHex(0x6fb6e8);SKYU.hor.value.setHex(0xffeccb);
-  SKYU.gnd.value.setHex(0xbfe6a8);SKYU.sunCol.value.setHex(0xfff2cc);SKYU.sunI.value=1.5;
-  SKYU.sunDir.value.set(0,0.16,1).normalize();
+  SKYU.gnd.value.setHex(0xbfe6a8);SKYU.sunCol.value.setHex(0xfff4d2);SKYU.sunI.value=2.6;
+  SKYU.sunDir.value.set(0,0.13,-1).normalize();
   scene.fog.color.setHex(0xffeccb);
-  sun.color.setHex(0xfff0d0);sun.intensity=2.2;sun.position.set(0,120,400);
-  hemi.color.setHex(0xbfe4ff);hemi.groundColor.setHex(0x9fd06a);hemi.intensity=1.1;
-  amb.color.setHex(0x8aa0b0);amb.intensity=0.5;
+  sun.color.setHex(0xfff0d0);sun.intensity=1.65;sun.position.set(0,120,-400);
+  hemi.color.setHex(0xbfe4ff);hemi.groundColor.setHex(0x8cc45e);hemi.intensity=0.75;
+  amb.color.setHex(0x8aa0b0);amb.intensity=0.32;
   starMat.opacity=0;
 }
 function visionExit(){
@@ -6378,12 +6479,14 @@ function visionExit(){
 function coleNightSpeech(){
   const VIS_Y=VIS.Y;
   G.state='cutscene';   // UTAN DENNE koyrer aldri cineUpdate - scena frys
+  buildVision();        // bygg visjonen NO, sa han ikkje hakkar midt i scena
+  VIS.grp.visible=false;
 
   // Natta FALL med det same. Blodmanen star alt oppe medan Cole snakkar,
   // sa scena spelar seg ut i raudt lys og ikkje i ettermiddagssol.
   G.night=10;G.phase='night';G.phaseT=0;
   envApply(1);
-  musicSet('boss');
+  musicSet('speech');
   // brorne staar i ein halvsirkel ved bronnen, vende mot Clay
   const W=-1*TG;                       // bronnen sin z
   for(let i=0;i<BROS.length;i++){
@@ -6425,13 +6528,16 @@ function coleNightSpeech(){
     {dur:6.6,...heroic,dlg:{who:'Cole',text:'The dust lifts. All that grey burns off you like morning haze off the flats. And then you see it.'}},
     {dur:4.2,...onClay,dlg:{who:'Clay',text:'See what?'}},
     // ---- VISJONEN ----
-    {dur:6.0,camA:[0,VIS_Y+2.2,-150],camB:[0,VIS_Y+3.0,-40],lookA:[0,VIS_Y+8,600],
-      sfx:()=>{visionEnter();musicSet('day');},
+    // Vi kjem flygande lagt over eit stilt hav, inn mot den kvite stranda...
+    {dur:7.0,camA:[0,VIS_Y+40,3400],camB:[0,VIS_Y+24,1600],lookA:[0,VIS_Y+2,1900],lookB:[0,VIS_Y+1,1120],
+      sfx:()=>{visionEnter();musicSet('vision');},
       dlg:{who:'Cole',text:'White shores, Clay. And past them, green country with no end to it, under a sun that never quite sets.'}},
-    {dur:7.4,camA:[0,VIS_Y+3.0,-30],camB:[0,VIS_Y+6.0,340],lookA:[0,VIS_Y+10,900],lookB:[0,VIS_Y+40,1800],
+    // ...over stranda og inn over den gronne enga
+    {dur:7.4,camA:[0,VIS_Y+22,1450],camB:[0,VIS_Y+5,-380],lookA:[0,VIS_Y+1,1000],lookB:[0,VIS_Y+1.8,-640],
       dlg:{who:'Cole',text:'Rivers running clean. And every soul this valley took, standing out in that sun, waiting on you.'}},
-    {dur:5.0,camA:[0,VIS_Y+6,340],camB:[0,VIS_Y+7,460],lookA:[0,VIS_Y+30,1900],
-      sfx:()=>{setTimeout(()=>{visionExit();musicSet('boss');},4200);}},
+    // ...heilt ned pa bakken og rett inn i mengda som star og vinkar
+    {dur:6.2,camA:[0,VIS_Y+4.0,-390],camB:[0,VIS_Y+1.78,-596],lookA:[0,VIS_Y+1.7,-660],lookB:[0,VIS_Y+1.62,-730],
+      sfx:()=>{setTimeout(()=>{visionExit();musicSet('speech');},5400);}},
     {dur:4.8,...onClay,dlg:{who:'Clay',text:'Well. That does not sound so bad.'}},
     {dur:6.4,...heroic,dlg:{who:'Cole',text:'No. No, it does not. Now load your gun, son. We have got one more night to get through first.'}},
     {...crane,caption:'',sfx:()=>{G.shake=Math.max(G.shake,0.4);sfxKaijuRoar(0.6);}}

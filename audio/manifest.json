@@ -129,7 +129,9 @@
   "boss.mp3",
   "day.mp3",
   "final.mp3",
-  "night.mp3"
+  "night.mp3",
+  "speech.mp3",
+  "vision.mp3"
  ],
  "sfx": []
 }

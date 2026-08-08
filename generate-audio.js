@@ -175,8 +175,15 @@ const MUSIC = [
   ['day.mp3', 'Lonesome spaghetti western theme. Solo nylon guitar picking a slow minor melody, distant whistling, mournful harmonica, brushed snare like a walking horse, warm upright bass. Dusty, sunlit, heavy with loss. Sparse, patient. Instrumental loop.', 120000],
   ['night.mp3', 'Western horror score, town under siege at night. Droning cello, detuned strings on one uneasy chord, slow heartbeat kick drum, sparse dissonant piano, scraped metal, distant warped harmonica. Patient, menacing, hopeless. Instrumental loop.', 120000],
   ['boss.mp3', 'Epic intense western horror battle music, galloping drums, aggressive guitar and orchestral stabs, relentless and menacing, instrumental, seamless loop', 75000],
-  ['final.mp3', 'Apocalyptic western war music, gatling gun rhythm, thundering percussion, distorted guitars, choir stabs, maximum intensity, instrumental, seamless loop', 75000]
+  // Siste natta: STORT og filmatisk, ikkje masete. Tunge trommer og djup messing
+  // i staden for den skrikande gitaren som gjekk ein pa nervane.
+  ['final.mp3', 'Dark cinematic orchestral western. Slow thunderous war drums, deep brass swells, low male choir humming one note, sustained ominous strings, distant tolling bell. Grand, heavy and doomed. Not frantic. Instrumental.', 75000],
+  // Cole sin tale: stille, sorgtungt og fast
+  ['speech.mp3', 'Quiet emotional cinematic score. Lone acoustic guitar picking softly, warm strings rising slowly underneath, single sustained piano notes. Sorrowful but steady and resolute. Very sparse and patient. Instrumental.', 60000],
+  // Visjonen om dei kvite strendene
+  ['vision.mp3', 'Ethereal uplifting cinematic score. Airy wordless female choir, shimmering high strings, soft harp arpeggios, warm brass swelling gently. Peaceful, radiant, heavenly, full of light. Instrumental.', 60000]
 ];
+
 
 // samme funksjoner som i spillet — ikke endre!
 function slugWho(w) { return w.toLowerCase().replace(/[^a-z0-9]/g, ''); }
@@ -229,7 +236,7 @@ async function genMusic(name, prompt, ms) {
     console.log('  Music API sa nei (' + r.status + ') for ' + name + ', prøver sound-generation i stedet...');
     r = await fetch('https://api.elevenlabs.io/v1/sound-generation', {
       method: 'POST', headers: H,
-      body: JSON.stringify({ text: prompt, duration_seconds: 22, prompt_influence: 0.4 })
+      body: JSON.stringify({ text: prompt, duration_seconds: 30, prompt_influence: 0.4, loop: true })
     });
   }
   if (!r.ok) {
