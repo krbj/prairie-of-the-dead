@@ -83,12 +83,20 @@
   #weaponSlots span.locked{opacity:.32;text-decoration:line-through}
   #reloadHint{font-size:12px;color:var(--blood2);height:14px}
 
-  #crosshair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:22px;height:22px;opacity:.9}
-  #crosshair::before,#crosshair::after{content:"";position:absolute;background:var(--bone);box-shadow:0 0 3px #000}
-  #crosshair::before{left:50%;top:0;width:2px;height:100%;transform:translateX(-50%);
-    clip-path:polygon(0 0,100% 0,100% 32%,0 32%,0 68%,100% 68%,100% 100%,0 100%)}
-  #crosshair::after{top:50%;left:0;height:2px;width:100%;transform:translateY(-50%);
-    clip-path:polygon(0 0,32% 0,32% 100%,0 100%,68% 0,100% 0,100% 100%,68% 100%)}
+  /* Siktekornet: fire streker med glipe i midten, og ein liten prikk.
+     Den gamle versjonen klypte to rektangel ut av éin polygon-bane — dei to
+     halvdelane vart bundne saman med diagonalar, så den vassrette streken
+     fekk ein skrå kile midt i seg. Her er kvar strek sin eigen gradient. */
+  #crosshair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:24px;height:24px;opacity:.95;filter:drop-shadow(0 0 2px rgba(0,0,0,.95))}
+  #crosshair::before{content:"";position:absolute;inset:0;
+    background:
+      linear-gradient(var(--bone),var(--bone)) 50% 0    /2px 8px no-repeat,
+      linear-gradient(var(--bone),var(--bone)) 50% 100% /2px 8px no-repeat,
+      linear-gradient(var(--bone),var(--bone)) 0   50%  /8px 2px no-repeat,
+      linear-gradient(var(--bone),var(--bone)) 100% 50% /8px 2px no-repeat}
+  #crosshair::after{content:"";position:absolute;left:50%;top:50%;width:2px;height:2px;
+    transform:translate(-50%,-50%);background:var(--bone)}
   #hitmarker{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(45deg);width:26px;height:26px;opacity:0}
   #hitmarker::before,#hitmarker::after{content:"";position:absolute;background:#fff}
   #hitmarker::before{left:50%;top:0;width:2px;height:100%;transform:translateX(-50%)}
