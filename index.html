@@ -4380,6 +4380,17 @@ function updatePlayer(dt){
   const gy=groundHeightAt(P.pos.x,P.pos.z,P.pos.y-1.7)+1.7;
   if(P.pos.y<=gy&&P.vel.y<=0){P.pos.y=gy;P.vel.y=0;P.onGround=true;}
   else if(P.pos.y>gy+0.02)P.onGround=false;
+  // hakekroken: eit jamt drag over eit halvt sekund, med kollisjon undervegs
+  if(P.pull&&P.pull.t>0){
+    if(P.pull.d>0)P.pull.d-=dt;
+    else{
+      const step=Math.min(dt,P.pull.t);
+      P.pos.x+=P.pull.vx*step;P.pos.z+=P.pull.vz*step;
+      P.pull.t-=step;
+      collideCircle(P.pos,0.45,P.pos.y-1.7);
+      if(P.pull.t<=0)P.pull=null;
+    }
+  }
   P.moveAmt=Math.hypot(P.vel.x,P.vel.z);
   // fire
   if(P.firing)tryFire();
@@ -4679,6 +4690,17 @@ function updateZombie(z,dt){
   }
   const res=pickTarget(z);
   const tgt=res.t,dist=res.dist;
+  // under jorda: berre nedgravinga koyrer, ingen rorsle og ingen angrep
+  if(z.burrow){updateBossAbilities(z,dt,dist,tgt);return;}
+  // dei som blir kalla opp av jorda stig sakte fram -- dei skal ikkje 'poppe' inn
+  if(z.rise>0){
+    z.rise-=dt;
+    const k=clamp(z.rise/0.9,0,1);
+    z.grp.position.y=groundHeightAt(z.grp.position.x,z.grp.position.z,0.7)-2.1*k;
+    if(Math.random()<0.35)spawnParts(z.grp.position.clone().setY(0.15),2,0x6a5236,2.4,0.5,3,0.6,0.9);
+    if(z.rise<=0){z.rise=0;z.grp.position.y=groundHeightAt(z.grp.position.x,z.grp.position.z,0.7);}
+    return;
+  }
   // move
   if(z.staggerT>0){
     z.staggerT-=dt;
@@ -5162,6 +5184,31 @@ function updateBossAbilities(z,dt,dist,tgt){
   // ================= TIER 1 — GRAVROVAREN =================
   // Grev opp lika sine der du står, og forsvinn ned i jorda for å dukke opp bak deg.
   if(z.tier===1){
+    if(z.burrow){
+      z.burrowT-=dt;
+      if(z.burrow==='down'){
+        z.grp.position.y=-2.8*(1-clamp(z.burrowT/0.85,0,1));   // sokk ned i jorda
+        if(Math.random()<0.5)spawnParts(z.grp.position.clone().setY(0.2),2,0x6a5236,3,0.6,4,0.9,1.1);
+        if(z.burrowT<=0){
+          // opp att BAK spelaren -- men aldri naermare enn 5,5 m
+          const bx=P.pos.x+Math.sin(P.yaw)*5.5, bz=P.pos.z+Math.cos(P.yaw)*5.5;
+          z.grp.position.set(bx,-2.8,bz);
+          collideCircle(z.grp.position,0.4*z.scale,0);
+          z.burrow='up';z.burrowT=0.7;
+          spawnParts(z.grp.position.clone().setY(0.2),26,0x6a5236,6,1,9,1,1.6);
+          _noiseHit(0.45,0.7,'lowpass',420);
+          sfxRoar();G.shake=Math.max(G.shake,0.45);
+        }
+      }else{
+        z.grp.position.y=-2.8*clamp(z.burrowT/0.7,0,1);        // bryt opp gjennom jorda
+        if(Math.random()<0.6)spawnParts(z.grp.position.clone().setY(0.2),3,0x6a5236,4,0.7,5,1.1,1.2);
+        if(z.burrowT<=0){
+          z.burrow=null;
+          z.grp.position.y=groundHeightAt(z.grp.position.x,z.grp.position.z,0.7);
+        }
+      }
+      return;                                                   // ingen andre evner medan han er nede
+    }
     z.digT-=dt;
     if(z.digT<=0){
       z.digT=z.raged?7:11;
@@ -5173,19 +5220,19 @@ function updateBossAbilities(z,dt,dist,tgt){
           const a=rnd(0,Math.PI*2),r=rnd(6,13);
           const m=makeZombie('normal',G.night);
           m.grp.position.set(P.pos.x+Math.cos(a)*r,0,P.pos.z+Math.sin(a)*r);
+          m.rise=0.9;                                    // bryt seg opp av jorda
           spawnParts(m.grp.position,14,0x6a5236,4,0.8,9,0.6,1.2);   // jord sprutar opp
           bloodSplat(m.grp.position,0.8);
         }
         G.shake=Math.max(G.shake,0.3);
-      }else if(dist>4){
-        // graver seg ned og kjem opp rett bak deg
+      }else if(dist>6&&dist<26){
+        // Startar nedgravinga. Sjolve flyttinga skjer fyrst naar han er UNDER
+        // jorda, og aldri fra andre sida av byen.
         banner('','HE IS DIGGING',true);
         spawnParts(z.grp.position,26,0x6a5236,6,1,9,1,1.6);
         _noiseHit(0.5,0.6,'lowpass',500);
-        const behind=V3(P.pos.x-Math.sin(P.yaw)*-4.5,0,P.pos.z-Math.cos(P.yaw)*-4.5);
-        z.grp.position.set(behind.x,0,behind.z);
-        spawnParts(z.grp.position,26,0x6a5236,6,1,9,1,1.6);
-        G.shake=Math.max(G.shake,0.4);
+        z.burrow='down';z.burrowT=0.85;
+        G.shake=Math.max(G.shake,0.3);
       }
     }
   }
@@ -5200,8 +5247,11 @@ function updateBossAbilities(z,dt,dist,tgt){
       sfxRoar();
       // kroken flyg mot deg som eit synleg prosjektil
       spawnSlug(z.grp.position.clone().add(V3(0,1.4*z.scale,0)),P.pos.clone());
+      // Draget gjekk for i EIN frame -- det kjendest som at bossen teleporterte
+      // seg inntil deg. No blir du dregen jamt, og fyrst naar kroken har rukke fram.
       const pull=V3().subVectors(z.grp.position,P.pos).setY(0).normalize();
-      P.pos.addScaledVector(pull,Math.min(9,dist*0.55));      // du blir dregen inn
+      const len=Math.min(9,dist*0.55);
+      P.pull={vx:pull.x*len/0.5,vz:pull.z*len/0.5,t:0.5,d:0.22};
       damagePlayer(Math.round(z.dmg*0.35));
       G.shake=Math.max(G.shake,0.5);
       toast('The hook bites! You are dragged in!','bad');
@@ -5261,6 +5311,7 @@ function updateBossAbilities(z,dt,dist,tgt){
       for(let i=0;i<3;i++){
         const m=makeZombie(Math.random()<0.5?'fast':'normal',G.night);
         m.grp.position.copy(z.grp.position).add(V3(rnd(-3,3),0,rnd(-3,3)));
+        m.rise=0.9;
       }
       banner('','THE PLAGUE KING RAISES THE DEAD',true);
     }
